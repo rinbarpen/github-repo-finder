@@ -64,17 +64,20 @@ node scripts/collect.mjs --force
 
 **没有密钥时**，生成可追溯的源码证据索引：项目定位、实际目录、核心文件和识别到的符号、阅读路线、分类研究问题、实验和来源。文档明确声明抽样覆盖及未验证内容；它不是对全仓架构已经验证的深度结论。
 
-**配置模型后**，可使用支持 Chat Completions 格式的 HTTPS 接口，根据采集的源码片段生成中文架构分析、调用链、设计取舍及实验。只在采集进程中使用密钥，浏览器中没有模型凭证。文档会标记为“AI 辅助分析”，仍需人工核实。
+**配置密钥后**，默认使用 **DeepSeek Flash（`deepseek-flash`）**，接口为 `https://api.deepseek.com/chat/completions`。根据采集的源码片段生成中文架构分析、调用链、设计取舍及实验。只在采集进程中使用密钥，浏览器中没有模型凭证。文档会标记为“AI 辅助分析”，仍需人工核实。模型名称和接口依据 [DeepSeek 官方文档](https://api-docs.deepseek.com/)。
 
 在 GitHub 仓库 **Settings → Secrets and variables → Actions** 配置：
 
-| 类型     | 名称           | 内容                               |
-| -------- | -------------- | ---------------------------------- |
-| Secret   | `WIKI_API_KEY` | 模型服务的 API key                 |
-| Variable | `WIKI_API_URL` | 完整的 HTTPS Chat Completions 端点 |
-| Variable | `WIKI_MODEL`   | 服务提供的模型 ID                  |
+| 类型     | 名称               | 内容                                             |
+| -------- | ------------------ | ------------------------------------------------ |
+| Secret   | `DEEPSEEK_API_KEY` | DeepSeek API key，使用默认模型时只需配置这一项   |
+| Secret   | `WIKI_API_KEY`     | 可选，兼容已有配置；指定时优先使用此 key         |
+| Variable | `WIKI_API_URL`     | 可选，覆盖默认的完整 HTTPS Chat Completions 端点 |
+| Variable | `WIKI_MODEL`       | 可选，覆盖默认模型 `deepseek-flash`              |
 
-三项齐全才启用 AI。模型调用失败时回退到证据索引并记录警告，下次采集会重试。目标仓库的公开源码片段会发送给所配置的服务。付费调用只在配置以上变量和密钥后发生。
+只配置 `DEEPSEEK_API_KEY` 即可启用默认的 DeepSeek Flash，也支持已有的 `WIKI_API_KEY`。本地采集使用同名环境变量。若覆盖为其他服务的端点，需配置 `WIKI_API_KEY`；`DEEPSEEK_API_KEY` 不会被转发到其他服务。没有密钥时仍生成证据索引。
+
+模型调用失败时回退到证据索引并记录警告，下次采集会重试。目标仓库的公开源码片段会发送给所配置的服务。模型或端点变更会使对应分析缓存失效，密钥不写入数据和缓存标识。付费调用仅在配置密钥后发生。
 
 本站与 DeepWiki 服务没有接口集成或隶属关系。DeepWiki 按钮只是上游仓库的服务链接，是否已被索引以该服务实际页面为准。
 
@@ -99,8 +102,8 @@ node scripts/collect.mjs --force
 | 分支 / 产物    | 用途                                                            |
 | -------------- | --------------------------------------------------------------- |
 | `main`         | 应用源码、配置、工作流，以及用于首次启动的快照                  |
-| `dev`          | 日常开发与集成，检查通过后合并到 `main`                          |
-| `feature/*`    | 独立功能开发，经 PR 检查后合并到 `dev` 或 `main`                 |
+| `dev`          | 日常开发与集成，检查通过后合并到 `main`                         |
+| `feature/*`    | 独立功能开发，经 PR 检查后合并到 `dev` 或 `main`                |
 | `knowledge`    | CI 自动创建的知识库分支，保存 JSON 与分支版 Markdown 的提交历史 |
 | Pages artifact | 当前构建的静态站点，无需 `gh-pages` 分支                        |
 

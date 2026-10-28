@@ -98,15 +98,38 @@ async function readSource(repo, sha, file, token) {
   }
 }
 
-async function enrichWithAI(markdown, sources) {
-  const {
-    WIKI_API_URL: url,
-    WIKI_API_KEY: key,
-    WIKI_MODEL: model,
-  } = process.env;
-  if (!url || !key || !model) return null;
-  if (new URL(url).protocol !== "https:")
+export const DEFAULT_WIKI_API_URL = "https://api.deepseek.com/chat/completions";
+export const DEFAULT_WIKI_MODEL = "deepseek-flash";
+
+export function resolveWikiAIConfig(environment = process.env) {
+  const url = environment.WIKI_API_URL?.trim() || DEFAULT_WIKI_API_URL;
+  const model = environment.WIKI_MODEL?.trim() || DEFAULT_WIKI_MODEL;
+  let endpoint;
+  try {
+    endpoint = new URL(url);
+  } catch {
+    throw new Error("WIKI_API_URL must be a valid HTTPS URL");
+  }
+  if (endpoint.protocol !== "https:")
     throw new Error("WIKI_API_URL must use HTTPS");
+
+  // A provider-specific key must never follow a custom endpoint override.
+  const key =
+    environment.WIKI_API_KEY?.trim() ||
+    (endpoint.hostname === "api.deepseek.com"
+      ? environment.DEEPSEEK_API_KEY?.trim()
+      : "") ||
+    "";
+  return { url, model, key, enabled: Boolean(key) };
+}
+
+export async function enrichWithAI(
+  markdown,
+  sources,
+  configuration = resolveWikiAIConfig(),
+) {
+  const { url, key, model } = configuration;
+  if (!key) return null;
   const response = await fetch(url, {
     method: "POST",
     signal: AbortSignal.timeout(120000),
@@ -180,11 +203,7 @@ async function collectRepo(
       );
       const sha = commit.sha;
       const category = config.categories.find((c) => c.id === entry.category);
-      const aiConfigured = Boolean(
-        process.env.WIKI_API_URL &&
-          process.env.WIKI_API_KEY &&
-          process.env.WIKI_MODEL,
-      );
+      const ai = resolveWikiAIConfig();
       const signature = fingerprint({
         sha,
         entry,
@@ -192,9 +211,9 @@ async function collectRepo(
         version: GENERATOR_VERSION,
         maxFiles: config.maxSourceFiles,
         maxChars: config.maxSourceCharacters,
-        aiConfigured,
-        model: aiConfigured ? process.env.WIKI_MODEL : null,
-        endpoint: aiConfigured ? process.env.WIKI_API_URL : null,
+        aiConfigured: ai.enabled,
+        model: ai.enabled ? ai.model : null,
+        endpoint: ai.enabled ? ai.url : null,
       });
       const prior = previous?.wikis?.find((w) => w.ref === ref);
       if (!force && prior?.fingerprint === signature) {
@@ -240,7 +259,7 @@ async function collectRepo(
       let mode = "evidence";
       let aiFailed = false;
       try {
-        const enriched = await enrichWithAI(markdown, sources);
+        const enriched = await enrichWithAI(markdown, sources, ai);
         if (enriched) {
           markdown = enriched;
           mode = "ai";

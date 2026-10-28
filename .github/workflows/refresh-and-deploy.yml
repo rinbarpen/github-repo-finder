@@ -43,9 +43,10 @@ jobs:
       - name: Collect repositories, branches, source evidence and trending
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           WIKI_API_KEY: ${{ secrets.WIKI_API_KEY }}
-          WIKI_API_URL: ${{ vars.WIKI_API_URL }}
-          WIKI_MODEL: ${{ vars.WIKI_MODEL }}
+          WIKI_API_URL: ${{ vars.WIKI_API_URL || 'https://api.deepseek.com/chat/completions' }}
+          WIKI_MODEL: ${{ vars.WIKI_MODEL || 'deepseek-flash' }}
           FORCE_REGENERATE: ${{ inputs.force }}
         shell: bash
         run: |
