@@ -1,0 +1,1123 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-28T18:02:33.080Z",
+  "categories": [
+    {
+      "id": "harness",
+      "name": "Agent Harness",
+      "label": "运行与编排",
+      "description": "从工具调用到长任务执行，理解 Agent 如何可靠地完成工作。",
+      "color": "teal",
+      "questions": [
+        "一次任务如何在模型、工具与执行器之间流转？",
+        "如何处理失败重试、权限与执行隔离？",
+        "如何保留和恢复一个长任务的状态？"
+      ]
+    },
+    {
+      "id": "memory",
+      "name": "Agent Memory",
+      "label": "记忆与上下文",
+      "description": "研究 Agent 如何记住、检索和更新信息，让上下文跨越一次对话。",
+      "color": "purple",
+      "questions": [
+        "写入、检索、更新、删除记忆分别在哪里实现？",
+        "如何划分用户、会话和 Agent 的记忆边界？",
+        "如何验证检索质量以及记忆过期和冲突的处理？"
+      ]
+    },
+    {
+      "id": "interaction",
+      "name": "Human–Agent Interaction",
+      "label": "人机交互",
+      "description": "探索流式界面、人工确认和协作协议，连接人和 Agent。",
+      "color": "blue",
+      "questions": [
+        "前端如何消费 Agent 的事件流？",
+        "工具调用如何呈现给用户并获得人工确认？",
+        "断线重连、取消和恢复如何同步前后端状态？"
+      ]
+    }
+  ],
+  "repos": [
+    {
+      "id": "langchain-ai/deepagents",
+      "name": "deepagents",
+      "owner": "langchain-ai",
+      "url": "https://github.com/langchain-ai/deepagents",
+      "description": "The batteries-included agent harness.",
+      "summary": "集成规划、文件系统和子 Agent 的任务执行框架。",
+      "reason": "沿着规划 → 工具调用 → 子任务委派，学习长任务 Agent 的执行闭环。",
+      "category": "harness",
+      "tags": [
+        "Harness",
+        "Planning",
+        "Subagents"
+      ],
+      "featured": true,
+      "stars": 30684,
+      "forks": 4316,
+      "language": "Python",
+      "license": "MIT",
+      "defaultBranch": "main",
+      "updatedAt": "2026-10-28T17:34:56Z",
+      "collectedAt": "2026-10-28T18:02:33.080Z",
+      "archived": false,
+      "wikis": [
+        {
+          "ref": "main",
+          "sha": "cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca",
+          "treeSha": "d71ddd3694386ef19b1db96aea66267cc7671592",
+          "fingerprint": "b1e923e863e32930a034df5d5557eb0611a06c30ffa2fea92a89bf978f07d4dc",
+          "generatedAt": "2026-10-28T18:02:33.080Z",
+          "mode": "evidence",
+          "markdown": "# deepagents 源码学习指南\n\n> 基于选定源码的结构化索引 · main · cd24d8c52849\n> 生成于 2026-10-28T18:02:33.080Z。这是 Repo Atlas 生成的证据索引，非 DeepWiki 官方内容；未执行或验证目标项目。架构与行为需沿来源继续核实。\n\n## 项目概览\n\n集成规划、文件系统和子 Agent 的任务执行框架。\n\nThe batteries-included agent harness.\n\n**为什么值得读：** 沿着规划 → 工具调用 → 子任务委派，学习长任务 Agent 的执行闭环。\n\n| 项目 | 信息 |\n| --- | --- |\n| 研究方向 | Agent Harness / 运行与编排 |\n| 语言 | Python |\n| 许可证 | MIT |\n| 分支 / 标签 | main |\n| 固定提交 | [cd24d8c52849](https://github.com/langchain-ai/deepagents/commit/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca) |\n| 上游主页 | [langchain-ai/deepagents](https://github.com/langchain-ai/deepagents) |\n\n## 目录地图\n\n以下目录实际存在于该提交，用于定位入口，不代表已完成全仓分析。\n\n- [`.agents/`](https://github.com/langchain-ai/deepagents/tree/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/.agents)\n- [`.githooks/`](https://github.com/langchain-ai/deepagents/tree/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/.githooks)\n- [`.github/`](https://github.com/langchain-ai/deepagents/tree/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/.github)\n- [`.vscode/`](https://github.com/langchain-ai/deepagents/tree/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/.vscode)\n- [`examples/`](https://github.com/langchain-ai/deepagents/tree/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/examples)\n- [`libs/`](https://github.com/langchain-ai/deepagents/tree/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/libs)\n- [`openwiki/`](https://github.com/langchain-ai/deepagents/tree/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/openwiki)\n\n\n\n## 核心文件与符号\n\n\n\n### 1. README.md\n\n来源：[README.md](https://github.com/langchain-ai/deepagents/blob/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/README.md) · 读取 6,985 字符\n\n阅读目标：了解项目定位、安装方式、示例与官方文档入口。\n\n当前片段未提取到顶层符号，请打开来源继续阅读。\n\n### 2. libs/deepagents/deepagents/graph.py\n\n来源：[libs/deepagents/deepagents/graph.py](https://github.com/langchain-ai/deepagents/blob/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/libs/deepagents/deepagents/graph.py) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`DeepAgentState`、`__getattr__`、`_build_default_model`、`get_default_model`、`_merge_fs_interrupt_on`、`_passed_skills_sources`、`_apply_custom_middleware`。\n\n### 3. libs/deepagents/deepagents/backends/protocol.py\n\n来源：[libs/deepagents/deepagents/backends/protocol.py](https://github.com/langchain-ai/deepagents/blob/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/libs/deepagents/deepagents/backends/protocol.py) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`FileDownloadResponse`、`FileUploadResponse`、`FileInfo`、`ContextLine`、`GrepMatch`、`FileData`、`ReadResult`、`__post_init__`。\n\n### 4. libs/deepagents/deepagents/middleware/asyncsubagents.py\n\n来源：[libs/deepagents/deepagents/middleware/asyncsubagents.py](https://github.com/langchain-ai/deepagents/blob/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/libs/deepagents/deepagents/middleware/async_subagents.py) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`AsyncSubAgent`、`AsyncTask`、`_tasks_reducer`、`AsyncSubAgentState`、`StartAsyncTaskSchema`。\n\n### 5. libs/deepagents/deepagents/middleware/memory.py\n\n来源：[libs/deepagents/deepagents/middleware/memory.py](https://github.com/langchain-ai/deepagents/blob/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/libs/deepagents/deepagents/middleware/memory.py) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`MemoryState`、`MemoryStateUpdate`、`_strip_html_comments`、`MemoryMiddleware`、`__init__`。\n\n## 建议阅读路线\n\n1. 从 README 确认项目边界，依据官方文档运行最小示例。\n2. 从包清单定位公开入口，对照上面的核心文件查找调用关系。\n3. 选择一次最小任务，记录输入、状态、工具或存储调用以及输出。\n4. 为异常、取消和重复调用分别设计一个实验，验证自己的理解。\n5. 切换到另一个跟踪分支或版本，对照固定提交复查行为变化。\n\n## 研究问题\n\n- [ ] 一次任务如何在模型、工具与执行器之间流转？\n- [ ] 如何处理失败重试、权限与执行隔离？\n- [ ] 如何保留和恢复一个长任务的状态？\n- [ ] 哪些行为已经通过实际代码或实验验证，哪些仍然是假设？\n- [ ] 与同类别其他仓库相比，接口和设计取舍有哪些不同？\n\n## 动手实验\n\n- 复现 README 的最小示例，记录运行环境、版本与结果。\n- 在一个关键入口加入日志，画出一次调用的真实时序。\n- 用一个失败输入观察错误是如何返回和恢复的。\n\n## 来源与覆盖范围\n\n采集 5 个文件片段，目录记录 2240 项。分析固定到提交 `cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca`，不随上游分支漂移。文件选择为启发式抽样，不能据此推断完整架构。\n\n- [README.md](https://github.com/langchain-ai/deepagents/blob/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/README.md)\n- [libs/deepagents/deepagents/graph.py](https://github.com/langchain-ai/deepagents/blob/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/libs/deepagents/deepagents/graph.py)\n- [libs/deepagents/deepagents/backends/protocol.py](https://github.com/langchain-ai/deepagents/blob/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/libs/deepagents/deepagents/backends/protocol.py)\n- [libs/deepagents/deepagents/middleware/asyncsubagents.py](https://github.com/langchain-ai/deepagents/blob/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/libs/deepagents/deepagents/middleware/async_subagents.py)\n- [libs/deepagents/deepagents/middleware/memory.py](https://github.com/langchain-ai/deepagents/blob/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/libs/deepagents/deepagents/middleware/memory.py)\n\n完整在线知识库入口：[DeepWiki](https://deepwiki.com/langchain-ai/deepagents)（是否已被该服务索引以实际页面为准）。\n",
+          "path": "knowledge/langchain-ai--deepagents/main-0d6e4079.md",
+          "sources": [
+            {
+              "path": "README.md",
+              "url": "https://github.com/langchain-ai/deepagents/blob/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/README.md",
+              "characters": 6985
+            },
+            {
+              "path": "libs/deepagents/deepagents/graph.py",
+              "url": "https://github.com/langchain-ai/deepagents/blob/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/libs/deepagents/deepagents/graph.py",
+              "characters": 10000
+            },
+            {
+              "path": "libs/deepagents/deepagents/backends/protocol.py",
+              "url": "https://github.com/langchain-ai/deepagents/blob/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/libs/deepagents/deepagents/backends/protocol.py",
+              "characters": 10000
+            },
+            {
+              "path": "libs/deepagents/deepagents/middleware/async_subagents.py",
+              "url": "https://github.com/langchain-ai/deepagents/blob/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/libs/deepagents/deepagents/middleware/async_subagents.py",
+              "characters": 10000
+            },
+            {
+              "path": "libs/deepagents/deepagents/middleware/memory.py",
+              "url": "https://github.com/langchain-ai/deepagents/blob/cd24d8c52849fdb24e0ac2cab2f909f8df6ba5ca/libs/deepagents/deepagents/middleware/memory.py",
+              "characters": 10000
+            }
+          ],
+          "truncated": false
+        },
+        {
+          "ref": "deepagents==0.7.32",
+          "sha": "e85c6b98087861512d2c5240305e16cfac68a746",
+          "treeSha": "3a45c69b85177e90e9fcb67dfb8dd723d97202a2",
+          "fingerprint": "bf04a306a73145d9a52ab8d18f8a94da2d472399119b561789d324c09ebb79de",
+          "generatedAt": "2026-10-28T18:02:33.080Z",
+          "mode": "evidence",
+          "markdown": "# deepagents 源码学习指南\n\n> 基于选定源码的结构化索引 · deepagents==0.7.32 · e85c6b980878\n> 生成于 2026-10-28T18:02:33.080Z。这是 Repo Atlas 生成的证据索引，非 DeepWiki 官方内容；未执行或验证目标项目。架构与行为需沿来源继续核实。\n\n## 项目概览\n\n集成规划、文件系统和子 Agent 的任务执行框架。\n\nThe batteries-included agent harness.\n\n**为什么值得读：** 沿着规划 → 工具调用 → 子任务委派，学习长任务 Agent 的执行闭环。\n\n| 项目 | 信息 |\n| --- | --- |\n| 研究方向 | Agent Harness / 运行与编排 |\n| 语言 | Python |\n| 许可证 | MIT |\n| 分支 / 标签 | deepagents==0.7.32 |\n| 固定提交 | [e85c6b980878](https://github.com/langchain-ai/deepagents/commit/e85c6b98087861512d2c5240305e16cfac68a746) |\n| 上游主页 | [langchain-ai/deepagents](https://github.com/langchain-ai/deepagents) |\n\n## 目录地图\n\n以下目录实际存在于该提交，用于定位入口，不代表已完成全仓分析。\n\n- [`.agents/`](https://github.com/langchain-ai/deepagents/tree/e85c6b98087861512d2c5240305e16cfac68a746/.agents)\n- [`.githooks/`](https://github.com/langchain-ai/deepagents/tree/e85c6b98087861512d2c5240305e16cfac68a746/.githooks)\n- [`.github/`](https://github.com/langchain-ai/deepagents/tree/e85c6b98087861512d2c5240305e16cfac68a746/.github)\n- [`.vscode/`](https://github.com/langchain-ai/deepagents/tree/e85c6b98087861512d2c5240305e16cfac68a746/.vscode)\n- [`examples/`](https://github.com/langchain-ai/deepagents/tree/e85c6b98087861512d2c5240305e16cfac68a746/examples)\n- [`libs/`](https://github.com/langchain-ai/deepagents/tree/e85c6b98087861512d2c5240305e16cfac68a746/libs)\n- [`openwiki/`](https://github.com/langchain-ai/deepagents/tree/e85c6b98087861512d2c5240305e16cfac68a746/openwiki)\n\n\n\n## 核心文件与符号\n\n\n\n### 1. README.md\n\n来源：[README.md](https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/README.md) · 读取 6,985 字符\n\n阅读目标：了解项目定位、安装方式、示例与官方文档入口。\n\n当前片段未提取到顶层符号，请打开来源继续阅读。\n\n### 2. libs/deepagents/deepagents/graph.py\n\n来源：[libs/deepagents/deepagents/graph.py](https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/libs/deepagents/deepagents/graph.py) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`DeepAgentState`、`__getattr__`、`_build_default_model`、`get_default_model`、`_merge_fs_interrupt_on`、`_passed_skills_sources`、`_apply_custom_middleware`。\n\n### 3. libs/deepagents/deepagents/backends/protocol.py\n\n来源：[libs/deepagents/deepagents/backends/protocol.py](https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/libs/deepagents/deepagents/backends/protocol.py) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`FileDownloadResponse`、`FileUploadResponse`、`FileInfo`、`ContextLine`、`GrepMatch`、`FileData`、`ReadResult`、`__post_init__`。\n\n### 4. libs/deepagents/deepagents/middleware/asyncsubagents.py\n\n来源：[libs/deepagents/deepagents/middleware/asyncsubagents.py](https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/libs/deepagents/deepagents/middleware/async_subagents.py) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`AsyncSubAgent`、`AsyncTask`、`_tasks_reducer`、`AsyncSubAgentState`、`StartAsyncTaskSchema`。\n\n### 5. libs/deepagents/deepagents/middleware/memory.py\n\n来源：[libs/deepagents/deepagents/middleware/memory.py](https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/libs/deepagents/deepagents/middleware/memory.py) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`MemoryState`、`MemoryStateUpdate`、`_strip_html_comments`、`MemoryMiddleware`、`__init__`。\n\n## 建议阅读路线\n\n1. 从 README 确认项目边界，依据官方文档运行最小示例。\n2. 从包清单定位公开入口，对照上面的核心文件查找调用关系。\n3. 选择一次最小任务，记录输入、状态、工具或存储调用以及输出。\n4. 为异常、取消和重复调用分别设计一个实验，验证自己的理解。\n5. 切换到另一个跟踪分支或版本，对照固定提交复查行为变化。\n\n## 研究问题\n\n- [ ] 一次任务如何在模型、工具与执行器之间流转？\n- [ ] 如何处理失败重试、权限与执行隔离？\n- [ ] 如何保留和恢复一个长任务的状态？\n- [ ] 哪些行为已经通过实际代码或实验验证，哪些仍然是假设？\n- [ ] 与同类别其他仓库相比，接口和设计取舍有哪些不同？\n\n## 动手实验\n\n- 复现 README 的最小示例，记录运行环境、版本与结果。\n- 在一个关键入口加入日志，画出一次调用的真实时序。\n- 用一个失败输入观察错误是如何返回和恢复的。\n\n## 来源与覆盖范围\n\n采集 5 个文件片段，目录记录 2214 项。分析固定到提交 `e85c6b98087861512d2c5240305e16cfac68a746`，不随上游分支漂移。文件选择为启发式抽样，不能据此推断完整架构。\n\n- [README.md](https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/README.md)\n- [libs/deepagents/deepagents/graph.py](https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/libs/deepagents/deepagents/graph.py)\n- [libs/deepagents/deepagents/backends/protocol.py](https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/libs/deepagents/deepagents/backends/protocol.py)\n- [libs/deepagents/deepagents/middleware/asyncsubagents.py](https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/libs/deepagents/deepagents/middleware/async_subagents.py)\n- [libs/deepagents/deepagents/middleware/memory.py](https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/libs/deepagents/deepagents/middleware/memory.py)\n\n完整在线知识库入口：[DeepWiki](https://deepwiki.com/langchain-ai/deepagents)（是否已被该服务索引以实际页面为准）。\n",
+          "path": "knowledge/langchain-ai--deepagents/deepagents--0.7.32-cb457824.md",
+          "sources": [
+            {
+              "path": "README.md",
+              "url": "https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/README.md",
+              "characters": 6985
+            },
+            {
+              "path": "libs/deepagents/deepagents/graph.py",
+              "url": "https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/libs/deepagents/deepagents/graph.py",
+              "characters": 10000
+            },
+            {
+              "path": "libs/deepagents/deepagents/backends/protocol.py",
+              "url": "https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/libs/deepagents/deepagents/backends/protocol.py",
+              "characters": 10000
+            },
+            {
+              "path": "libs/deepagents/deepagents/middleware/async_subagents.py",
+              "url": "https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/libs/deepagents/deepagents/middleware/async_subagents.py",
+              "characters": 10000
+            },
+            {
+              "path": "libs/deepagents/deepagents/middleware/memory.py",
+              "url": "https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/libs/deepagents/deepagents/middleware/memory.py",
+              "characters": 10000
+            }
+          ],
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "id": "anthropics/claude-agent-sdk-python",
+      "name": "claude-agent-sdk-python",
+      "owner": "anthropics",
+      "url": "https://github.com/anthropics/claude-agent-sdk-python",
+      "description": "",
+      "summary": "以 Python 程序接入 Claude Agent 的工具与执行能力。",
+      "reason": "从 SDK 的客户端入口学习事件、工具权限与会话生命周期。",
+      "category": "harness",
+      "tags": [
+        "SDK",
+        "Tools",
+        "Python"
+      ],
+      "featured": false,
+      "stars": 8376,
+      "forks": 1382,
+      "language": "Python",
+      "license": "MIT",
+      "defaultBranch": "main",
+      "updatedAt": "2026-10-28T16:48:03Z",
+      "collectedAt": "2026-10-28T18:02:33.080Z",
+      "archived": false,
+      "wikis": [
+        {
+          "ref": "main",
+          "sha": "2d485201617258867dd0f74b9e7307056f5938fe",
+          "treeSha": "1ff5ddbc15bcd91e6fff3dcfe6ea20a32da257fe",
+          "fingerprint": "75350313b6e2c409706869bc514bd760402780cb608034186ad92a8862cbcdfa",
+          "generatedAt": "2026-10-28T18:02:33.080Z",
+          "mode": "evidence",
+          "markdown": "# claude-agent-sdk-python 源码学习指南\n\n> 基于选定源码的结构化索引 · main · 2d4852016172\n> 生成于 2026-10-28T18:02:33.080Z。这是 Repo Atlas 生成的证据索引，非 DeepWiki 官方内容；未执行或验证目标项目。架构与行为需沿来源继续核实。\n\n## 项目概览\n\n以 Python 程序接入 Claude Agent 的工具与执行能力。\n\n\n\n**为什么值得读：** 从 SDK 的客户端入口学习事件、工具权限与会话生命周期。\n\n| 项目 | 信息 |\n| --- | --- |\n| 研究方向 | Agent Harness / 运行与编排 |\n| 语言 | Python |\n| 许可证 | MIT |\n| 分支 / 标签 | main |\n| 固定提交 | [2d4852016172](https://github.com/anthropics/claude-agent-sdk-python/commit/2d485201617258867dd0f74b9e7307056f5938fe) |\n| 上游主页 | [anthropics/claude-agent-sdk-python](https://github.com/anthropics/claude-agent-sdk-python) |\n\n## 目录地图\n\n以下目录实际存在于该提交，用于定位入口，不代表已完成全仓分析。\n\n- [`.claude/`](https://github.com/anthropics/claude-agent-sdk-python/tree/2d485201617258867dd0f74b9e7307056f5938fe/.claude)\n- [`.github/`](https://github.com/anthropics/claude-agent-sdk-python/tree/2d485201617258867dd0f74b9e7307056f5938fe/.github)\n- [`e2e-tests/`](https://github.com/anthropics/claude-agent-sdk-python/tree/2d485201617258867dd0f74b9e7307056f5938fe/e2e-tests)\n- [`examples/`](https://github.com/anthropics/claude-agent-sdk-python/tree/2d485201617258867dd0f74b9e7307056f5938fe/examples)\n- [`scripts/`](https://github.com/anthropics/claude-agent-sdk-python/tree/2d485201617258867dd0f74b9e7307056f5938fe/scripts)\n- [`src/`](https://github.com/anthropics/claude-agent-sdk-python/tree/2d485201617258867dd0f74b9e7307056f5938fe/src)\n- [`tests/`](https://github.com/anthropics/claude-agent-sdk-python/tree/2d485201617258867dd0f74b9e7307056f5938fe/tests)\n\n\n\n## 核心文件与符号\n\n\n\n### 1. README.md\n\n来源：[README.md](https://github.com/anthropics/claude-agent-sdk-python/blob/2d485201617258867dd0f74b9e7307056f5938fe/README.md) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：了解项目定位、安装方式、示例与官方文档入口。\n\n当前片段识别到的符号：`main`、`greet_user`、`check_bash_command`。\n\n### 2. pyproject.toml\n\n来源：[pyproject.toml](https://github.com/anthropics/claude-agent-sdk-python/blob/2d485201617258867dd0f74b9e7307056f5938fe/pyproject.toml) · 读取 4,076 字符\n\n阅读目标：核对依赖、包入口、构建和运行约定。\n\n当前片段未提取到顶层符号，请打开来源继续阅读。\n\n### 3. src/claudeagentsdk/client.py\n\n来源：[src/claudeagentsdk/client.py](https://github.com/anthropics/claude-agent-sdk-python/blob/2d485201617258867dd0f74b9e7307056f5938fe/src/claude_agent_sdk/client.py) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`ClaudeSDKClient`、`__init__`、`connect`、`_empty_stream`、`_connect_inner`、`_on_mirror_error`。\n\n### 4. src/claudeagentsdk/internal/client.py\n\n来源：[src/claudeagentsdk/internal/client.py](https://github.com/anthropics/claude-agent-sdk-python/blob/2d485201617258867dd0f74b9e7307056f5938fe/src/claude_agent_sdk/_internal/client.py) · 读取 8,575 字符\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`InternalClient`、`__init__`、`process_query`、`_process_query_inner`、`_on_mirror_error`。\n\n### 5. src/claudeagentsdk/init.py\n\n来源：[src/claudeagentsdk/init.py](https://github.com/anthropics/claude-agent-sdk-python/blob/2d485201617258867dd0f74b9e7307056f5938fe/src/claude_agent_sdk/__init__.py) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`ToolAnnotations`、`__init__`、`SdkMcpTool`、`tool`。\n\n## 建议阅读路线\n\n1. 从 README 确认项目边界，依据官方文档运行最小示例。\n2. 从包清单定位公开入口，对照上面的核心文件查找调用关系。\n3. 选择一次最小任务，记录输入、状态、工具或存储调用以及输出。\n4. 为异常、取消和重复调用分别设计一个实验，验证自己的理解。\n5. 切换到另一个跟踪分支或版本，对照固定提交复查行为变化。\n\n## 研究问题\n\n- [ ] 一次任务如何在模型、工具与执行器之间流转？\n- [ ] 如何处理失败重试、权限与执行隔离？\n- [ ] 如何保留和恢复一个长任务的状态？\n- [ ] 哪些行为已经通过实际代码或实验验证，哪些仍然是假设？\n- [ ] 与同类别其他仓库相比，接口和设计取舍有哪些不同？\n\n## 动手实验\n\n- 复现 README 的最小示例，记录运行环境、版本与结果。\n- 在一个关键入口加入日志，画出一次调用的真实时序。\n- 用一个失败输入观察错误是如何返回和恢复的。\n\n## 来源与覆盖范围\n\n采集 5 个文件片段，目录记录 185 项。分析固定到提交 `2d485201617258867dd0f74b9e7307056f5938fe`，不随上游分支漂移。文件选择为启发式抽样，不能据此推断完整架构。\n\n- [README.md](https://github.com/anthropics/claude-agent-sdk-python/blob/2d485201617258867dd0f74b9e7307056f5938fe/README.md)\n- [pyproject.toml](https://github.com/anthropics/claude-agent-sdk-python/blob/2d485201617258867dd0f74b9e7307056f5938fe/pyproject.toml)\n- [src/claudeagentsdk/client.py](https://github.com/anthropics/claude-agent-sdk-python/blob/2d485201617258867dd0f74b9e7307056f5938fe/src/claude_agent_sdk/client.py)\n- [src/claudeagentsdk/internal/client.py](https://github.com/anthropics/claude-agent-sdk-python/blob/2d485201617258867dd0f74b9e7307056f5938fe/src/claude_agent_sdk/_internal/client.py)\n- [src/claudeagentsdk/init.py](https://github.com/anthropics/claude-agent-sdk-python/blob/2d485201617258867dd0f74b9e7307056f5938fe/src/claude_agent_sdk/__init__.py)\n\n完整在线知识库入口：[DeepWiki](https://deepwiki.com/anthropics/claude-agent-sdk-python)（是否已被该服务索引以实际页面为准）。\n",
+          "path": "knowledge/anthropics--claude-agent-sdk-python/main-0d6e4079.md",
+          "sources": [
+            {
+              "path": "README.md",
+              "url": "https://github.com/anthropics/claude-agent-sdk-python/blob/2d485201617258867dd0f74b9e7307056f5938fe/README.md",
+              "characters": 10000
+            },
+            {
+              "path": "pyproject.toml",
+              "url": "https://github.com/anthropics/claude-agent-sdk-python/blob/2d485201617258867dd0f74b9e7307056f5938fe/pyproject.toml",
+              "characters": 4076
+            },
+            {
+              "path": "src/claude_agent_sdk/client.py",
+              "url": "https://github.com/anthropics/claude-agent-sdk-python/blob/2d485201617258867dd0f74b9e7307056f5938fe/src/claude_agent_sdk/client.py",
+              "characters": 10000
+            },
+            {
+              "path": "src/claude_agent_sdk/_internal/client.py",
+              "url": "https://github.com/anthropics/claude-agent-sdk-python/blob/2d485201617258867dd0f74b9e7307056f5938fe/src/claude_agent_sdk/_internal/client.py",
+              "characters": 8575
+            },
+            {
+              "path": "src/claude_agent_sdk/__init__.py",
+              "url": "https://github.com/anthropics/claude-agent-sdk-python/blob/2d485201617258867dd0f74b9e7307056f5938fe/src/claude_agent_sdk/__init__.py",
+              "characters": 10000
+            }
+          ],
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "id": "openhands/openhands",
+      "name": "OpenHands",
+      "owner": "OpenHands",
+      "url": "https://github.com/OpenHands/OpenHands",
+      "description": "🙌 OpenHands: AI-Driven Development",
+      "summary": "面向软件开发任务的 Agent 平台与运行环境。",
+      "reason": "研究代码执行环境、动作反馈和开发任务的协作边界。",
+      "category": "harness",
+      "tags": [
+        "Coding agent",
+        "Sandbox"
+      ],
+      "featured": false,
+      "stars": 92105,
+      "forks": 12245,
+      "language": "TypeScript",
+      "license": "MIT",
+      "defaultBranch": "main",
+      "updatedAt": "2026-10-28T16:51:08Z",
+      "collectedAt": "2026-10-28T18:02:33.080Z",
+      "archived": false,
+      "wikis": [
+        {
+          "ref": "main",
+          "sha": "e96553d70105110a842ea5d1a74e1fec2dc274b7",
+          "treeSha": "5ad44ab13c297f70a91e0d18fff241a118a7bdef",
+          "fingerprint": "32c66488f41081acc24208fd9a0cffc839c141ba6af19f421e20b9eddfe1784d",
+          "generatedAt": "2026-10-28T18:02:33.080Z",
+          "mode": "evidence",
+          "markdown": "# OpenHands 源码学习指南\n\n> 基于选定源码的结构化索引 · main · e96553d70105\n> 生成于 2026-10-28T18:02:33.080Z。这是 Repo Atlas 生成的证据索引，非 DeepWiki 官方内容；未执行或验证目标项目。架构与行为需沿来源继续核实。\n\n## 项目概览\n\n面向软件开发任务的 Agent 平台与运行环境。\n\n🙌 OpenHands: AI-Driven Development\n\n**为什么值得读：** 研究代码执行环境、动作反馈和开发任务的协作边界。\n\n| 项目 | 信息 |\n| --- | --- |\n| 研究方向 | Agent Harness / 运行与编排 |\n| 语言 | TypeScript |\n| 许可证 | MIT |\n| 分支 / 标签 | main |\n| 固定提交 | [e96553d70105](https://github.com/OpenHands/OpenHands/commit/e96553d70105110a842ea5d1a74e1fec2dc274b7) |\n| 上游主页 | [OpenHands/OpenHands](https://github.com/OpenHands/OpenHands) |\n\n## 目录地图\n\n以下目录实际存在于该提交，用于定位入口，不代表已完成全仓分析。\n\n- [`.agents/`](https://github.com/OpenHands/OpenHands/tree/e96553d70105110a842ea5d1a74e1fec2dc274b7/.agents)\n- [`.github/`](https://github.com/OpenHands/OpenHands/tree/e96553d70105110a842ea5d1a74e1fec2dc274b7/.github)\n- [`.husky/`](https://github.com/OpenHands/OpenHands/tree/e96553d70105110a842ea5d1a74e1fec2dc274b7/.husky)\n- [`.openhands/`](https://github.com/OpenHands/OpenHands/tree/e96553d70105110a842ea5d1a74e1fec2dc274b7/.openhands)\n- [`.pr/`](https://github.com/OpenHands/OpenHands/tree/e96553d70105110a842ea5d1a74e1fec2dc274b7/.pr)\n- [`.screenshots/`](https://github.com/OpenHands/OpenHands/tree/e96553d70105110a842ea5d1a74e1fec2dc274b7/.screenshots)\n- [`__mocks__/`](https://github.com/OpenHands/OpenHands/tree/e96553d70105110a842ea5d1a74e1fec2dc274b7/__mocks__)\n- [`__tests__/`](https://github.com/OpenHands/OpenHands/tree/e96553d70105110a842ea5d1a74e1fec2dc274b7/__tests__)\n- [`bin/`](https://github.com/OpenHands/OpenHands/tree/e96553d70105110a842ea5d1a74e1fec2dc274b7/bin)\n- [`config/`](https://github.com/OpenHands/OpenHands/tree/e96553d70105110a842ea5d1a74e1fec2dc274b7/config)\n- [`docker/`](https://github.com/OpenHands/OpenHands/tree/e96553d70105110a842ea5d1a74e1fec2dc274b7/docker)\n- [`docs/`](https://github.com/OpenHands/OpenHands/tree/e96553d70105110a842ea5d1a74e1fec2dc274b7/docs)\n- [`electron/`](https://github.com/OpenHands/OpenHands/tree/e96553d70105110a842ea5d1a74e1fec2dc274b7/electron)\n- [`examples/`](https://github.com/OpenHands/OpenHands/tree/e96553d70105110a842ea5d1a74e1fec2dc274b7/examples)\n- [`helm/`](https://github.com/OpenHands/OpenHands/tree/e96553d70105110a842ea5d1a74e1fec2dc274b7/helm)\n- [`public/`](https://github.com/OpenHands/OpenHands/tree/e96553d70105110a842ea5d1a74e1fec2dc274b7/public)\n- [`scripts/`](https://github.com/OpenHands/OpenHands/tree/e96553d70105110a842ea5d1a74e1fec2dc274b7/scripts)\n- [`src/`](https://github.com/OpenHands/OpenHands/tree/e96553d70105110a842ea5d1a74e1fec2dc274b7/src)\n- [`tests/`](https://github.com/OpenHands/OpenHands/tree/e96553d70105110a842ea5d1a74e1fec2dc274b7/tests)\n- [`tools/`](https://github.com/OpenHands/OpenHands/tree/e96553d70105110a842ea5d1a74e1fec2dc274b7/tools)\n\n\n\n## 核心文件与符号\n\n\n\n### 1. README.md\n\n来源：[README.md](https://github.com/OpenHands/OpenHands/blob/e96553d70105110a842ea5d1a74e1fec2dc274b7/README.md) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：了解项目定位、安装方式、示例与官方文档入口。\n\n当前片段未提取到顶层符号，请打开来源继续阅读。\n\n### 2. package.json\n\n来源：[package.json](https://github.com/OpenHands/OpenHands/blob/e96553d70105110a842ea5d1a74e1fec2dc274b7/package.json) · 读取 9,778 字符\n\n阅读目标：核对依赖、包入口、构建和运行约定。\n\n当前片段未提取到顶层符号，请打开来源继续阅读。\n\n### 3. src/entry.client.tsx\n\n来源：[src/entry.client.tsx](https://github.com/OpenHands/OpenHands/blob/e96553d70105110a842ea5d1a74e1fec2dc274b7/src/entry.client.tsx) · 读取 1,711 字符\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`prepareApp`。\n\n### 4. src/query-client-config.ts\n\n来源：[src/query-client-config.ts](https://github.com/OpenHands/OpenHands/blob/e96553d70105110a842ea5d1a74e1fec2dc274b7/src/query-client-config.ts) · 读取 4,462 字符\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`createAgentServerQueryClient`、`getDefaultQueryClient`、`getQueryClient`、`setQueryClient`、`queryClient`。\n\n### 5. src/api/agent-canvas-updates.ts\n\n来源：[src/api/agent-canvas-updates.ts](https://github.com/OpenHands/OpenHands/blob/e96553d70105110a842ea5d1a74e1fec2dc274b7/src/api/agent-canvas-updates.ts) · 读取 1,344 字符\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`fetchLatestAgentCanvasVersion`、`AGENT_CANVAS_RELEASE_NOTES_URL`、`AGENT_CANVAS_UPDATE_COMMANDS`。\n\n## 建议阅读路线\n\n1. 从 README 确认项目边界，依据官方文档运行最小示例。\n2. 从包清单定位公开入口，对照上面的核心文件查找调用关系。\n3. 选择一次最小任务，记录输入、状态、工具或存储调用以及输出。\n4. 为异常、取消和重复调用分别设计一个实验，验证自己的理解。\n5. 切换到另一个跟踪分支或版本，对照固定提交复查行为变化。\n\n## 研究问题\n\n- [ ] 一次任务如何在模型、工具与执行器之间流转？\n- [ ] 如何处理失败重试、权限与执行隔离？\n- [ ] 如何保留和恢复一个长任务的状态？\n- [ ] 哪些行为已经通过实际代码或实验验证，哪些仍然是假设？\n- [ ] 与同类别其他仓库相比，接口和设计取舍有哪些不同？\n\n## 动手实验\n\n- 复现 README 的最小示例，记录运行环境、版本与结果。\n- 在一个关键入口加入日志，画出一次调用的真实时序。\n- 用一个失败输入观察错误是如何返回和恢复的。\n\n## 来源与覆盖范围\n\n采集 5 个文件片段，目录记录 3110 项。分析固定到提交 `e96553d70105110a842ea5d1a74e1fec2dc274b7`，不随上游分支漂移。文件选择为启发式抽样，不能据此推断完整架构。\n\n- [README.md](https://github.com/OpenHands/OpenHands/blob/e96553d70105110a842ea5d1a74e1fec2dc274b7/README.md)\n- [package.json](https://github.com/OpenHands/OpenHands/blob/e96553d70105110a842ea5d1a74e1fec2dc274b7/package.json)\n- [src/entry.client.tsx](https://github.com/OpenHands/OpenHands/blob/e96553d70105110a842ea5d1a74e1fec2dc274b7/src/entry.client.tsx)\n- [src/query-client-config.ts](https://github.com/OpenHands/OpenHands/blob/e96553d70105110a842ea5d1a74e1fec2dc274b7/src/query-client-config.ts)\n- [src/api/agent-canvas-updates.ts](https://github.com/OpenHands/OpenHands/blob/e96553d70105110a842ea5d1a74e1fec2dc274b7/src/api/agent-canvas-updates.ts)\n\n完整在线知识库入口：[DeepWiki](https://deepwiki.com/OpenHands/OpenHands)（是否已被该服务索引以实际页面为准）。\n",
+          "path": "knowledge/openhands--openhands/main-0d6e4079.md",
+          "sources": [
+            {
+              "path": "README.md",
+              "url": "https://github.com/OpenHands/OpenHands/blob/e96553d70105110a842ea5d1a74e1fec2dc274b7/README.md",
+              "characters": 10000
+            },
+            {
+              "path": "package.json",
+              "url": "https://github.com/OpenHands/OpenHands/blob/e96553d70105110a842ea5d1a74e1fec2dc274b7/package.json",
+              "characters": 9778
+            },
+            {
+              "path": "src/entry.client.tsx",
+              "url": "https://github.com/OpenHands/OpenHands/blob/e96553d70105110a842ea5d1a74e1fec2dc274b7/src/entry.client.tsx",
+              "characters": 1711
+            },
+            {
+              "path": "src/query-client-config.ts",
+              "url": "https://github.com/OpenHands/OpenHands/blob/e96553d70105110a842ea5d1a74e1fec2dc274b7/src/query-client-config.ts",
+              "characters": 4462
+            },
+            {
+              "path": "src/api/agent-canvas-updates.ts",
+              "url": "https://github.com/OpenHands/OpenHands/blob/e96553d70105110a842ea5d1a74e1fec2dc274b7/src/api/agent-canvas-updates.ts",
+              "characters": 1344
+            }
+          ],
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "id": "mem0ai/mem0",
+      "name": "mem0",
+      "owner": "mem0ai",
+      "url": "https://github.com/mem0ai/mem0",
+      "description": "The Memory Layer for AI Agents - Drop-in memory infrastructure for AI agents and apps. Context that persists. Built for production.",
+      "summary": "为 AI 应用提供持久化记忆、检索与个性化上下文。",
+      "reason": "追踪一次记忆写入与检索，理解记忆抽取和存储接口。",
+      "category": "memory",
+      "tags": [
+        "Memory",
+        "Retrieval",
+        "Personalization"
+      ],
+      "featured": true,
+      "stars": 67998,
+      "forks": 8050,
+      "language": "Python",
+      "license": "Apache-2.0",
+      "defaultBranch": "main",
+      "updatedAt": "2026-10-26T14:51:55Z",
+      "collectedAt": "2026-10-28T18:02:33.080Z",
+      "archived": false,
+      "wikis": [
+        {
+          "ref": "main",
+          "sha": "26cdefb46600c0fa5953c4b5ee5003c125539fc4",
+          "treeSha": "29381b90d2238419838ef30fb9bae0b92ad4a459",
+          "fingerprint": "ebc5e041ab24aec88ce2ac823adc8435163d753b2bcf2cea8f2cf121b49395da",
+          "generatedAt": "2026-10-28T18:02:33.080Z",
+          "mode": "evidence",
+          "markdown": "# mem0 源码学习指南\n\n> 基于选定源码的结构化索引 · main · 26cdefb46600\n> 生成于 2026-10-28T18:02:33.080Z。这是 Repo Atlas 生成的证据索引，非 DeepWiki 官方内容；未执行或验证目标项目。架构与行为需沿来源继续核实。\n\n## 项目概览\n\n为 AI 应用提供持久化记忆、检索与个性化上下文。\n\nThe Memory Layer for AI Agents - Drop-in memory infrastructure for AI agents and apps. Context that persists. Built for production.\n\n**为什么值得读：** 追踪一次记忆写入与检索，理解记忆抽取和存储接口。\n\n| 项目 | 信息 |\n| --- | --- |\n| 研究方向 | Agent Memory / 记忆与上下文 |\n| 语言 | Python |\n| 许可证 | Apache-2.0 |\n| 分支 / 标签 | main |\n| 固定提交 | [26cdefb46600](https://github.com/mem0ai/mem0/commit/26cdefb46600c0fa5953c4b5ee5003c125539fc4) |\n| 上游主页 | [mem0ai/mem0](https://github.com/mem0ai/mem0) |\n\n## 目录地图\n\n以下目录实际存在于该提交，用于定位入口，不代表已完成全仓分析。\n\n- [`.agents/`](https://github.com/mem0ai/mem0/tree/26cdefb46600c0fa5953c4b5ee5003c125539fc4/.agents)\n- [`.claude-plugin/`](https://github.com/mem0ai/mem0/tree/26cdefb46600c0fa5953c4b5ee5003c125539fc4/.claude-plugin)\n- [`.codex-plugin/`](https://github.com/mem0ai/mem0/tree/26cdefb46600c0fa5953c4b5ee5003c125539fc4/.codex-plugin)\n- [`.cursor-plugin/`](https://github.com/mem0ai/mem0/tree/26cdefb46600c0fa5953c4b5ee5003c125539fc4/.cursor-plugin)\n- [`.github/`](https://github.com/mem0ai/mem0/tree/26cdefb46600c0fa5953c4b5ee5003c125539fc4/.github)\n- [`.kimi-plugin/`](https://github.com/mem0ai/mem0/tree/26cdefb46600c0fa5953c4b5ee5003c125539fc4/.kimi-plugin)\n- [`cli/`](https://github.com/mem0ai/mem0/tree/26cdefb46600c0fa5953c4b5ee5003c125539fc4/cli)\n- [`docs/`](https://github.com/mem0ai/mem0/tree/26cdefb46600c0fa5953c4b5ee5003c125539fc4/docs)\n- [`examples/`](https://github.com/mem0ai/mem0/tree/26cdefb46600c0fa5953c4b5ee5003c125539fc4/examples)\n- [`integrations/`](https://github.com/mem0ai/mem0/tree/26cdefb46600c0fa5953c4b5ee5003c125539fc4/integrations)\n- [`mem0-ts/`](https://github.com/mem0ai/mem0/tree/26cdefb46600c0fa5953c4b5ee5003c125539fc4/mem0-ts)\n- [`mem0/`](https://github.com/mem0ai/mem0/tree/26cdefb46600c0fa5953c4b5ee5003c125539fc4/mem0)\n- [`scripts/`](https://github.com/mem0ai/mem0/tree/26cdefb46600c0fa5953c4b5ee5003c125539fc4/scripts)\n- [`server/`](https://github.com/mem0ai/mem0/tree/26cdefb46600c0fa5953c4b5ee5003c125539fc4/server)\n- [`skills/`](https://github.com/mem0ai/mem0/tree/26cdefb46600c0fa5953c4b5ee5003c125539fc4/skills)\n- [`tests/`](https://github.com/mem0ai/mem0/tree/26cdefb46600c0fa5953c4b5ee5003c125539fc4/tests)\n\n\n\n## 核心文件与符号\n\n\n\n### 1. README.md\n\n来源：[README.md](https://github.com/mem0ai/mem0/blob/26cdefb46600c0fa5953c4b5ee5003c125539fc4/README.md) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：了解项目定位、安装方式、示例与官方文档入口。\n\n当前片段识别到的符号：`chat_with_memories`。\n\n### 2. pyproject.toml\n\n来源：[pyproject.toml](https://github.com/mem0ai/mem0/blob/26cdefb46600c0fa5953c4b5ee5003c125539fc4/pyproject.toml) · 读取 3,394 字符\n\n阅读目标：核对依赖、包入口、构建和运行约定。\n\n当前片段未提取到顶层符号，请打开来源继续阅读。\n\n### 3. mem0/client/main.py\n\n来源：[mem0/client/main.py](https://github.com/mem0ai/mem0/blob/26cdefb46600c0fa5953c4b5ee5003c125539fc4/mem0/client/main.py) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`_profile_settings_payload`、`_validate_and_trim_search_query`、`_encode_path_segment`、`_reject_filters`、`_reject_blank_entity_ids`、`_maybe_alias_anon_to_email`、`_sdk_version`、`_apply_client_headers`、`_bounded_stack`、`_client_headers`、`_client_stack`、`MemoryClient`、`__init__`。\n\n### 4. mem0/memory/main.py\n\n来源：[mem0/memory/main.py](https://github.com/mem0ai/mem0/blob/26cdefb46600c0fa5953c4b5ee5003c125539fc4/mem0/memory/main.py) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`_vector_store_list_rows`、`_strip_identity_keys`、`_reject_top_level_entity_params`、`_validate_and_trim_entity_id`、`_validate_search_params`、`_validate_and_trim_search_query`、`_is_sensitive_field`、`_safe_deepcopy_config`。\n\n### 5. mem0/proxy/main.py\n\n来源：[mem0/proxy/main.py](https://github.com/mem0ai/mem0/blob/26cdefb46600c0fa5953c4b5ee5003c125539fc4/mem0/proxy/main.py) · 读取 7,004 字符\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`Mem0`、`__init__`、`Chat`、`Completions`、`create`、`_prepare_messages`、`_async_add_to_memory`、`add_task`、`_fetch_relevant_memories`、`_format_query_with_memories`。\n\n## 建议阅读路线\n\n1. 从 README 确认项目边界，依据官方文档运行最小示例。\n2. 从包清单定位公开入口，对照上面的核心文件查找调用关系。\n3. 选择一次最小任务，记录输入、状态、工具或存储调用以及输出。\n4. 为异常、取消和重复调用分别设计一个实验，验证自己的理解。\n5. 切换到另一个跟踪分支或版本，对照固定提交复查行为变化。\n\n## 研究问题\n\n- [ ] 写入、检索、更新、删除记忆分别在哪里实现？\n- [ ] 如何划分用户、会话和 Agent 的记忆边界？\n- [ ] 如何验证检索质量以及记忆过期和冲突的处理？\n- [ ] 哪些行为已经通过实际代码或实验验证，哪些仍然是假设？\n- [ ] 与同类别其他仓库相比，接口和设计取舍有哪些不同？\n\n## 动手实验\n\n- 复现 README 的最小示例，记录运行环境、版本与结果。\n- 在一个关键入口加入日志，画出一次调用的真实时序。\n- 用一个失败输入观察错误是如何返回和恢复的。\n\n## 来源与覆盖范围\n\n采集 5 个文件片段，目录记录 2218 项。分析固定到提交 `26cdefb46600c0fa5953c4b5ee5003c125539fc4`，不随上游分支漂移。文件选择为启发式抽样，不能据此推断完整架构。\n\n- [README.md](https://github.com/mem0ai/mem0/blob/26cdefb46600c0fa5953c4b5ee5003c125539fc4/README.md)\n- [pyproject.toml](https://github.com/mem0ai/mem0/blob/26cdefb46600c0fa5953c4b5ee5003c125539fc4/pyproject.toml)\n- [mem0/client/main.py](https://github.com/mem0ai/mem0/blob/26cdefb46600c0fa5953c4b5ee5003c125539fc4/mem0/client/main.py)\n- [mem0/memory/main.py](https://github.com/mem0ai/mem0/blob/26cdefb46600c0fa5953c4b5ee5003c125539fc4/mem0/memory/main.py)\n- [mem0/proxy/main.py](https://github.com/mem0ai/mem0/blob/26cdefb46600c0fa5953c4b5ee5003c125539fc4/mem0/proxy/main.py)\n\n完整在线知识库入口：[DeepWiki](https://deepwiki.com/mem0ai/mem0)（是否已被该服务索引以实际页面为准）。\n",
+          "path": "knowledge/mem0ai--mem0/main-0d6e4079.md",
+          "sources": [
+            {
+              "path": "README.md",
+              "url": "https://github.com/mem0ai/mem0/blob/26cdefb46600c0fa5953c4b5ee5003c125539fc4/README.md",
+              "characters": 10000
+            },
+            {
+              "path": "pyproject.toml",
+              "url": "https://github.com/mem0ai/mem0/blob/26cdefb46600c0fa5953c4b5ee5003c125539fc4/pyproject.toml",
+              "characters": 3394
+            },
+            {
+              "path": "mem0/client/main.py",
+              "url": "https://github.com/mem0ai/mem0/blob/26cdefb46600c0fa5953c4b5ee5003c125539fc4/mem0/client/main.py",
+              "characters": 10000
+            },
+            {
+              "path": "mem0/memory/main.py",
+              "url": "https://github.com/mem0ai/mem0/blob/26cdefb46600c0fa5953c4b5ee5003c125539fc4/mem0/memory/main.py",
+              "characters": 10000
+            },
+            {
+              "path": "mem0/proxy/main.py",
+              "url": "https://github.com/mem0ai/mem0/blob/26cdefb46600c0fa5953c4b5ee5003c125539fc4/mem0/proxy/main.py",
+              "characters": 7004
+            }
+          ],
+          "truncated": false
+        },
+        {
+          "ref": "ts-v3.3.1",
+          "sha": "94c3fe9f238f3dbf29c9ce98643bd71eb13077cd",
+          "treeSha": "c1d5e966c1bd61935f102e87bc22cd46aac6a032",
+          "fingerprint": "a7b980494f9af25d2d859844bfeb1e3ff0bd0e3a97aca9bbf3c5b6f494c9e937",
+          "generatedAt": "2026-10-28T18:02:33.080Z",
+          "mode": "evidence",
+          "markdown": "# mem0 源码学习指南\n\n> 基于选定源码的结构化索引 · ts-v3.3.1 · 94c3fe9f238f\n> 生成于 2026-10-28T18:02:33.080Z。这是 Repo Atlas 生成的证据索引，非 DeepWiki 官方内容；未执行或验证目标项目。架构与行为需沿来源继续核实。\n\n## 项目概览\n\n为 AI 应用提供持久化记忆、检索与个性化上下文。\n\nThe Memory Layer for AI Agents - Drop-in memory infrastructure for AI agents and apps. Context that persists. Built for production.\n\n**为什么值得读：** 追踪一次记忆写入与检索，理解记忆抽取和存储接口。\n\n| 项目 | 信息 |\n| --- | --- |\n| 研究方向 | Agent Memory / 记忆与上下文 |\n| 语言 | Python |\n| 许可证 | Apache-2.0 |\n| 分支 / 标签 | ts-v3.3.1 |\n| 固定提交 | [94c3fe9f238f](https://github.com/mem0ai/mem0/commit/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd) |\n| 上游主页 | [mem0ai/mem0](https://github.com/mem0ai/mem0) |\n\n## 目录地图\n\n以下目录实际存在于该提交，用于定位入口，不代表已完成全仓分析。\n\n- [`.agents/`](https://github.com/mem0ai/mem0/tree/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/.agents)\n- [`.claude-plugin/`](https://github.com/mem0ai/mem0/tree/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/.claude-plugin)\n- [`.codex-plugin/`](https://github.com/mem0ai/mem0/tree/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/.codex-plugin)\n- [`.cursor-plugin/`](https://github.com/mem0ai/mem0/tree/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/.cursor-plugin)\n- [`.github/`](https://github.com/mem0ai/mem0/tree/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/.github)\n- [`.kimi-plugin/`](https://github.com/mem0ai/mem0/tree/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/.kimi-plugin)\n- [`cli/`](https://github.com/mem0ai/mem0/tree/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/cli)\n- [`docs/`](https://github.com/mem0ai/mem0/tree/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/docs)\n- [`examples/`](https://github.com/mem0ai/mem0/tree/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/examples)\n- [`integrations/`](https://github.com/mem0ai/mem0/tree/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/integrations)\n- [`mem0-ts/`](https://github.com/mem0ai/mem0/tree/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/mem0-ts)\n- [`mem0/`](https://github.com/mem0ai/mem0/tree/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/mem0)\n- [`scripts/`](https://github.com/mem0ai/mem0/tree/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/scripts)\n- [`server/`](https://github.com/mem0ai/mem0/tree/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/server)\n- [`skills/`](https://github.com/mem0ai/mem0/tree/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/skills)\n- [`tests/`](https://github.com/mem0ai/mem0/tree/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/tests)\n\n\n\n## 核心文件与符号\n\n\n\n### 1. README.md\n\n来源：[README.md](https://github.com/mem0ai/mem0/blob/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/README.md) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：了解项目定位、安装方式、示例与官方文档入口。\n\n当前片段识别到的符号：`chat_with_memories`。\n\n### 2. pyproject.toml\n\n来源：[pyproject.toml](https://github.com/mem0ai/mem0/blob/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/pyproject.toml) · 读取 3,394 字符\n\n阅读目标：核对依赖、包入口、构建和运行约定。\n\n当前片段未提取到顶层符号，请打开来源继续阅读。\n\n### 3. mem0/client/main.py\n\n来源：[mem0/client/main.py](https://github.com/mem0ai/mem0/blob/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/mem0/client/main.py) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`_profile_settings_payload`、`_validate_and_trim_search_query`、`_encode_path_segment`、`_maybe_alias_anon_to_email`、`_sdk_version`、`_apply_client_headers`、`_bounded_stack`、`_client_headers`、`_client_stack`、`MemoryClient`、`__init__`、`_validate_api_key`。\n\n### 4. mem0/memory/main.py\n\n来源：[mem0/memory/main.py](https://github.com/mem0ai/mem0/blob/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/mem0/memory/main.py) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`_vector_store_list_rows`、`_strip_identity_keys`、`_reject_top_level_entity_params`、`_validate_and_trim_entity_id`、`_validate_search_params`、`_validate_and_trim_search_query`、`_is_sensitive_field`、`_safe_deepcopy_config`。\n\n### 5. mem0/proxy/main.py\n\n来源：[mem0/proxy/main.py](https://github.com/mem0ai/mem0/blob/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/mem0/proxy/main.py) · 读取 7,055 字符\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`Mem0`、`__init__`、`Chat`、`Completions`、`create`、`_prepare_messages`、`_async_add_to_memory`、`add_task`、`_fetch_relevant_memories`、`_format_query_with_memories`。\n\n## 建议阅读路线\n\n1. 从 README 确认项目边界，依据官方文档运行最小示例。\n2. 从包清单定位公开入口，对照上面的核心文件查找调用关系。\n3. 选择一次最小任务，记录输入、状态、工具或存储调用以及输出。\n4. 为异常、取消和重复调用分别设计一个实验，验证自己的理解。\n5. 切换到另一个跟踪分支或版本，对照固定提交复查行为变化。\n\n## 研究问题\n\n- [ ] 写入、检索、更新、删除记忆分别在哪里实现？\n- [ ] 如何划分用户、会话和 Agent 的记忆边界？\n- [ ] 如何验证检索质量以及记忆过期和冲突的处理？\n- [ ] 哪些行为已经通过实际代码或实验验证，哪些仍然是假设？\n- [ ] 与同类别其他仓库相比，接口和设计取舍有哪些不同？\n\n## 动手实验\n\n- 复现 README 的最小示例，记录运行环境、版本与结果。\n- 在一个关键入口加入日志，画出一次调用的真实时序。\n- 用一个失败输入观察错误是如何返回和恢复的。\n\n## 来源与覆盖范围\n\n采集 5 个文件片段，目录记录 2210 项。分析固定到提交 `94c3fe9f238f3dbf29c9ce98643bd71eb13077cd`，不随上游分支漂移。文件选择为启发式抽样，不能据此推断完整架构。\n\n- [README.md](https://github.com/mem0ai/mem0/blob/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/README.md)\n- [pyproject.toml](https://github.com/mem0ai/mem0/blob/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/pyproject.toml)\n- [mem0/client/main.py](https://github.com/mem0ai/mem0/blob/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/mem0/client/main.py)\n- [mem0/memory/main.py](https://github.com/mem0ai/mem0/blob/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/mem0/memory/main.py)\n- [mem0/proxy/main.py](https://github.com/mem0ai/mem0/blob/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/mem0/proxy/main.py)\n\n完整在线知识库入口：[DeepWiki](https://deepwiki.com/mem0ai/mem0)（是否已被该服务索引以实际页面为准）。\n",
+          "path": "knowledge/mem0ai--mem0/ts-v3.3.1-6c82c6b0.md",
+          "sources": [
+            {
+              "path": "README.md",
+              "url": "https://github.com/mem0ai/mem0/blob/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/README.md",
+              "characters": 10000
+            },
+            {
+              "path": "pyproject.toml",
+              "url": "https://github.com/mem0ai/mem0/blob/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/pyproject.toml",
+              "characters": 3394
+            },
+            {
+              "path": "mem0/client/main.py",
+              "url": "https://github.com/mem0ai/mem0/blob/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/mem0/client/main.py",
+              "characters": 10000
+            },
+            {
+              "path": "mem0/memory/main.py",
+              "url": "https://github.com/mem0ai/mem0/blob/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/mem0/memory/main.py",
+              "characters": 10000
+            },
+            {
+              "path": "mem0/proxy/main.py",
+              "url": "https://github.com/mem0ai/mem0/blob/94c3fe9f238f3dbf29c9ce98643bd71eb13077cd/mem0/proxy/main.py",
+              "characters": 7055
+            }
+          ],
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "id": "letta-ai/letta",
+      "name": "letta",
+      "owner": "letta-ai",
+      "url": "https://github.com/letta-ai/letta",
+      "description": "Platform for stateful agents: AI with advanced memory that can learn and self-improve over time.",
+      "summary": "围绕状态与记忆构建 Agent，对照迁移说明和历史服务端学习。",
+      "reason": "对照 main 的源码迁移说明与 archive 历史服务端研究记忆状态；当前实现位于 letta-ai/letta-code。",
+      "category": "memory",
+      "tags": [
+        "Stateful agents",
+        "Memory",
+        "Historical source"
+      ],
+      "featured": false,
+      "stars": 25273,
+      "forks": 2664,
+      "language": "Other",
+      "license": "Apache-2.0",
+      "defaultBranch": "main",
+      "updatedAt": "2026-10-18T22:28:04Z",
+      "collectedAt": "2026-10-28T18:02:33.080Z",
+      "archived": false,
+      "wikis": [
+        {
+          "ref": "main",
+          "sha": "8816d3a8516893bfdc0fa14bfb1235226012e295",
+          "treeSha": "a7d236ab4e96757c88f809cb19f6265ee0e29829",
+          "fingerprint": "99adf4ea52fe3066460d214164048a75fc390d12a9b998e371d64597fbb0bc6c",
+          "generatedAt": "2026-10-28T18:02:33.080Z",
+          "mode": "evidence",
+          "markdown": "# letta 源码学习指南\n\n> 基于选定源码的结构化索引 · main · 8816d3a85168\n> 生成于 2026-10-28T18:02:33.080Z。这是 Repo Atlas 生成的证据索引，非 DeepWiki 官方内容；未执行或验证目标项目。架构与行为需沿来源继续核实。\n\n## 项目概览\n\n围绕状态与记忆构建 Agent，对照迁移说明和历史服务端学习。\n\nPlatform for stateful agents: AI with advanced memory that can learn and self-improve over time.\n\n**为什么值得读：** 对照 main 的源码迁移说明与 archive 历史服务端研究记忆状态；当前实现位于 letta-ai/letta-code。\n\n| 项目 | 信息 |\n| --- | --- |\n| 研究方向 | Agent Memory / 记忆与上下文 |\n| 语言 | 未识别 |\n| 许可证 | Apache-2.0 |\n| 分支 / 标签 | main |\n| 固定提交 | [8816d3a85168](https://github.com/letta-ai/letta/commit/8816d3a8516893bfdc0fa14bfb1235226012e295) |\n| 上游主页 | [letta-ai/letta](https://github.com/letta-ai/letta) |\n\n## 目录地图\n\n以下目录实际存在于该提交，用于定位入口，不代表已完成全仓分析。\n\n- [`.github/`](https://github.com/letta-ai/letta/tree/8816d3a8516893bfdc0fa14bfb1235226012e295/.github)\n\n\n\n## 核心文件与符号\n\n> 该版本未采集到实现源码，无法据此建立调用链。请先沿 README 确认实现是否迁移到其他分支或仓库。\n\n### 1. README.md\n\n来源：[README.md](https://github.com/letta-ai/letta/blob/8816d3a8516893bfdc0fa14bfb1235226012e295/README.md) · 读取 1,477 字符\n\n阅读目标：了解项目定位、安装方式、示例与官方文档入口。\n\n当前片段未提取到顶层符号，请打开来源继续阅读。\n\n## 建议阅读路线\n\n1. 从 README 确认项目边界，依据官方文档运行最小示例。\n2. 从包清单定位公开入口，对照上面的核心文件查找调用关系。\n3. 选择一次最小任务，记录输入、状态、工具或存储调用以及输出。\n4. 为异常、取消和重复调用分别设计一个实验，验证自己的理解。\n5. 切换到另一个跟踪分支或版本，对照固定提交复查行为变化。\n\n## 研究问题\n\n- [ ] 写入、检索、更新、删除记忆分别在哪里实现？\n- [ ] 如何划分用户、会话和 Agent 的记忆边界？\n- [ ] 如何验证检索质量以及记忆过期和冲突的处理？\n- [ ] 哪些行为已经通过实际代码或实验验证，哪些仍然是假设？\n- [ ] 与同类别其他仓库相比，接口和设计取舍有哪些不同？\n\n## 动手实验\n\n- 复现 README 的最小示例，记录运行环境、版本与结果。\n- 在一个关键入口加入日志，画出一次调用的真实时序。\n- 用一个失败输入观察错误是如何返回和恢复的。\n\n## 来源与覆盖范围\n\n采集 1 个文件片段，目录记录 15 项。分析固定到提交 `8816d3a8516893bfdc0fa14bfb1235226012e295`，不随上游分支漂移。文件选择为启发式抽样，不能据此推断完整架构。\n\n- [README.md](https://github.com/letta-ai/letta/blob/8816d3a8516893bfdc0fa14bfb1235226012e295/README.md)\n\n完整在线知识库入口：[DeepWiki](https://deepwiki.com/letta-ai/letta)（是否已被该服务索引以实际页面为准）。\n",
+          "path": "knowledge/letta-ai--letta/main-0d6e4079.md",
+          "sources": [
+            {
+              "path": "README.md",
+              "url": "https://github.com/letta-ai/letta/blob/8816d3a8516893bfdc0fa14bfb1235226012e295/README.md",
+              "characters": 1477
+            }
+          ],
+          "truncated": false
+        },
+        {
+          "ref": "archive",
+          "sha": "56ba9c25552605eec89de8ed3dc6394b625c1993",
+          "treeSha": "116730504008af33019f58d5df9158676a53a827",
+          "fingerprint": "3c075455f2ac110c90c46f3195e7b332b2e249ac6e3b7754848c8e26822eab05",
+          "generatedAt": "2026-10-28T18:02:33.080Z",
+          "mode": "evidence",
+          "markdown": "# letta 源码学习指南\n\n> 基于选定源码的结构化索引 · archive · 56ba9c255526\n> 生成于 2026-10-28T18:02:33.080Z。这是 Repo Atlas 生成的证据索引，非 DeepWiki 官方内容；未执行或验证目标项目。架构与行为需沿来源继续核实。\n\n## 项目概览\n\n围绕状态与记忆构建 Agent，对照迁移说明和历史服务端学习。\n\nPlatform for stateful agents: AI with advanced memory that can learn and self-improve over time.\n\n**为什么值得读：** 对照 main 的源码迁移说明与 archive 历史服务端研究记忆状态；当前实现位于 letta-ai/letta-code。\n\n| 项目 | 信息 |\n| --- | --- |\n| 研究方向 | Agent Memory / 记忆与上下文 |\n| 语言 | 未识别 |\n| 许可证 | Apache-2.0 |\n| 分支 / 标签 | archive |\n| 固定提交 | [56ba9c255526](https://github.com/letta-ai/letta/commit/56ba9c25552605eec89de8ed3dc6394b625c1993) |\n| 上游主页 | [letta-ai/letta](https://github.com/letta-ai/letta) |\n\n## 目录地图\n\n以下目录实际存在于该提交，用于定位入口，不代表已完成全仓分析。\n\n- [`.github/`](https://github.com/letta-ai/letta/tree/56ba9c25552605eec89de8ed3dc6394b625c1993/.github)\n- [`alembic/`](https://github.com/letta-ai/letta/tree/56ba9c25552605eec89de8ed3dc6394b625c1993/alembic)\n- [`assets/`](https://github.com/letta-ai/letta/tree/56ba9c25552605eec89de8ed3dc6394b625c1993/assets)\n- [`certs/`](https://github.com/letta-ai/letta/tree/56ba9c25552605eec89de8ed3dc6394b625c1993/certs)\n- [`db/`](https://github.com/letta-ai/letta/tree/56ba9c25552605eec89de8ed3dc6394b625c1993/db)\n- [`examples/`](https://github.com/letta-ai/letta/tree/56ba9c25552605eec89de8ed3dc6394b625c1993/examples)\n- [`fern/`](https://github.com/letta-ai/letta/tree/56ba9c25552605eec89de8ed3dc6394b625c1993/fern)\n- [`letta/`](https://github.com/letta-ai/letta/tree/56ba9c25552605eec89de8ed3dc6394b625c1993/letta)\n- [`otel/`](https://github.com/letta-ai/letta/tree/56ba9c25552605eec89de8ed3dc6394b625c1993/otel)\n- [`sandbox/`](https://github.com/letta-ai/letta/tree/56ba9c25552605eec89de8ed3dc6394b625c1993/sandbox)\n- [`scripts/`](https://github.com/letta-ai/letta/tree/56ba9c25552605eec89de8ed3dc6394b625c1993/scripts)\n- [`tests/`](https://github.com/letta-ai/letta/tree/56ba9c25552605eec89de8ed3dc6394b625c1993/tests)\n\n\n\n## 核心文件与符号\n\n\n\n### 1. README.md\n\n来源：[README.md](https://github.com/letta-ai/letta/blob/56ba9c25552605eec89de8ed3dc6394b625c1993/README.md) · 读取 4,715 字符\n\n阅读目标：了解项目定位、安装方式、示例与官方文档入口。\n\n当前片段未提取到顶层符号，请打开来源继续阅读。\n\n### 2. pyproject.toml\n\n来源：[pyproject.toml](https://github.com/letta-ai/letta/blob/56ba9c25552605eec89de8ed3dc6394b625c1993/pyproject.toml) · 读取 5,409 字符\n\n阅读目标：核对依赖、包入口、构建和运行约定。\n\n当前片段未提取到顶层符号，请打开来源继续阅读。\n\n### 3. letta/agent.py\n\n来源：[letta/agent.py](https://github.com/letta-ai/letta/blob/56ba9c25552605eec89de8ed3dc6394b625c1993/letta/agent.py) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`BaseAgent`、`step`、`Agent`、`__init__`、`load_last_function_response`、`ensure_read_only_block_not_modified`、`update_memory_if_changed`。\n\n### 4. letta/agents/agentloop.py\n\n来源：[letta/agents/agentloop.py](https://github.com/letta-ai/letta/blob/56ba9c25552605eec89de8ed3dc6394b625c1993/letta/agents/agent_loop.py) · 读取 2,699 字符\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`AgentLoop`、`load`。\n\n### 5. letta/agents/baseagentv2.py\n\n来源：[letta/agents/baseagentv2.py](https://github.com/letta-ai/letta/blob/56ba9c25552605eec89de8ed3dc6394b625c1993/letta/agents/base_agent_v2.py) · 读取 4,532 字符\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`BaseAgentV2`、`__init__`、`agent_id`、`build_request`、`step`、`stream`。\n\n## 建议阅读路线\n\n1. 从 README 确认项目边界，依据官方文档运行最小示例。\n2. 从包清单定位公开入口，对照上面的核心文件查找调用关系。\n3. 选择一次最小任务，记录输入、状态、工具或存储调用以及输出。\n4. 为异常、取消和重复调用分别设计一个实验，验证自己的理解。\n5. 切换到另一个跟踪分支或版本，对照固定提交复查行为变化。\n\n## 研究问题\n\n- [ ] 写入、检索、更新、删除记忆分别在哪里实现？\n- [ ] 如何划分用户、会话和 Agent 的记忆边界？\n- [ ] 如何验证检索质量以及记忆过期和冲突的处理？\n- [ ] 哪些行为已经通过实际代码或实验验证，哪些仍然是假设？\n- [ ] 与同类别其他仓库相比，接口和设计取舍有哪些不同？\n\n## 动手实验\n\n- 复现 README 的最小示例，记录运行环境、版本与结果。\n- 在一个关键入口加入日志，画出一次调用的真实时序。\n- 用一个失败输入观察错误是如何返回和恢复的。\n\n## 来源与覆盖范围\n\n采集 5 个文件片段，目录记录 1282 项。分析固定到提交 `56ba9c25552605eec89de8ed3dc6394b625c1993`，不随上游分支漂移。文件选择为启发式抽样，不能据此推断完整架构。\n\n- [README.md](https://github.com/letta-ai/letta/blob/56ba9c25552605eec89de8ed3dc6394b625c1993/README.md)\n- [pyproject.toml](https://github.com/letta-ai/letta/blob/56ba9c25552605eec89de8ed3dc6394b625c1993/pyproject.toml)\n- [letta/agent.py](https://github.com/letta-ai/letta/blob/56ba9c25552605eec89de8ed3dc6394b625c1993/letta/agent.py)\n- [letta/agents/agentloop.py](https://github.com/letta-ai/letta/blob/56ba9c25552605eec89de8ed3dc6394b625c1993/letta/agents/agent_loop.py)\n- [letta/agents/baseagentv2.py](https://github.com/letta-ai/letta/blob/56ba9c25552605eec89de8ed3dc6394b625c1993/letta/agents/base_agent_v2.py)\n\n完整在线知识库入口：[DeepWiki](https://deepwiki.com/letta-ai/letta)（是否已被该服务索引以实际页面为准）。\n",
+          "path": "knowledge/letta-ai--letta/archive-0eb3e36b.md",
+          "sources": [
+            {
+              "path": "README.md",
+              "url": "https://github.com/letta-ai/letta/blob/56ba9c25552605eec89de8ed3dc6394b625c1993/README.md",
+              "characters": 4715
+            },
+            {
+              "path": "pyproject.toml",
+              "url": "https://github.com/letta-ai/letta/blob/56ba9c25552605eec89de8ed3dc6394b625c1993/pyproject.toml",
+              "characters": 5409
+            },
+            {
+              "path": "letta/agent.py",
+              "url": "https://github.com/letta-ai/letta/blob/56ba9c25552605eec89de8ed3dc6394b625c1993/letta/agent.py",
+              "characters": 10000
+            },
+            {
+              "path": "letta/agents/agent_loop.py",
+              "url": "https://github.com/letta-ai/letta/blob/56ba9c25552605eec89de8ed3dc6394b625c1993/letta/agents/agent_loop.py",
+              "characters": 2699
+            },
+            {
+              "path": "letta/agents/base_agent_v2.py",
+              "url": "https://github.com/letta-ai/letta/blob/56ba9c25552605eec89de8ed3dc6394b625c1993/letta/agents/base_agent_v2.py",
+              "characters": 4532
+            }
+          ],
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "id": "getzep/graphiti",
+      "name": "graphiti",
+      "owner": "getzep",
+      "url": "https://github.com/getzep/graphiti",
+      "description": "Build Real-Time Knowledge Graphs for AI Agents",
+      "summary": "面向 Agent 记忆的时序知识图谱构建与检索框架。",
+      "reason": "研究事实随时间变化时，图谱写入、实体解析和检索的实现。",
+      "category": "memory",
+      "tags": [
+        "Knowledge graph",
+        "Temporal"
+      ],
+      "featured": false,
+      "stars": 32308,
+      "forks": 3321,
+      "language": "Python",
+      "license": "Apache-2.0",
+      "defaultBranch": "main",
+      "updatedAt": "2026-10-28T09:01:43Z",
+      "collectedAt": "2026-10-28T18:02:33.080Z",
+      "archived": false,
+      "wikis": [
+        {
+          "ref": "main",
+          "sha": "b1c609f185107dc40e1ec8bad467be72c42dfe15",
+          "treeSha": "fc7be97a079da6fe292b4bbc0a138a10c3c2a4d4",
+          "fingerprint": "3c3260d71c0aea5b839e36110449ce231a5ba700d5f25fae66e386a61195f956",
+          "generatedAt": "2026-10-28T18:02:33.080Z",
+          "mode": "evidence",
+          "markdown": "# graphiti 源码学习指南\n\n> 基于选定源码的结构化索引 · main · b1c609f18510\n> 生成于 2026-10-28T18:02:33.080Z。这是 Repo Atlas 生成的证据索引，非 DeepWiki 官方内容；未执行或验证目标项目。架构与行为需沿来源继续核实。\n\n## 项目概览\n\n面向 Agent 记忆的时序知识图谱构建与检索框架。\n\nBuild Real-Time Knowledge Graphs for AI Agents\n\n**为什么值得读：** 研究事实随时间变化时，图谱写入、实体解析和检索的实现。\n\n| 项目 | 信息 |\n| --- | --- |\n| 研究方向 | Agent Memory / 记忆与上下文 |\n| 语言 | Python |\n| 许可证 | Apache-2.0 |\n| 分支 / 标签 | main |\n| 固定提交 | [b1c609f18510](https://github.com/getzep/graphiti/commit/b1c609f185107dc40e1ec8bad467be72c42dfe15) |\n| 上游主页 | [getzep/graphiti](https://github.com/getzep/graphiti) |\n\n## 目录地图\n\n以下目录实际存在于该提交，用于定位入口，不代表已完成全仓分析。\n\n- [`.github/`](https://github.com/getzep/graphiti/tree/b1c609f185107dc40e1ec8bad467be72c42dfe15/.github)\n- [`examples/`](https://github.com/getzep/graphiti/tree/b1c609f185107dc40e1ec8bad467be72c42dfe15/examples)\n- [`graphiti_core/`](https://github.com/getzep/graphiti/tree/b1c609f185107dc40e1ec8bad467be72c42dfe15/graphiti_core)\n- [`images/`](https://github.com/getzep/graphiti/tree/b1c609f185107dc40e1ec8bad467be72c42dfe15/images)\n- [`mcp_server/`](https://github.com/getzep/graphiti/tree/b1c609f185107dc40e1ec8bad467be72c42dfe15/mcp_server)\n- [`server/`](https://github.com/getzep/graphiti/tree/b1c609f185107dc40e1ec8bad467be72c42dfe15/server)\n- [`signatures/`](https://github.com/getzep/graphiti/tree/b1c609f185107dc40e1ec8bad467be72c42dfe15/signatures)\n- [`spec/`](https://github.com/getzep/graphiti/tree/b1c609f185107dc40e1ec8bad467be72c42dfe15/spec)\n- [`tests/`](https://github.com/getzep/graphiti/tree/b1c609f185107dc40e1ec8bad467be72c42dfe15/tests)\n\n\n\n## 核心文件与符号\n\n\n\n### 1. README.md\n\n来源：[README.md](https://github.com/getzep/graphiti/blob/b1c609f185107dc40e1ec8bad467be72c42dfe15/README.md) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：了解项目定位、安装方式、示例与官方文档入口。\n\n当前片段未提取到顶层符号，请打开来源继续阅读。\n\n### 2. pyproject.toml\n\n来源：[pyproject.toml](https://github.com/getzep/graphiti/blob/b1c609f185107dc40e1ec8bad467be72c42dfe15/pyproject.toml) · 读取 2,811 字符\n\n阅读目标：核对依赖、包入口、构建和运行约定。\n\n当前片段未提取到顶层符号，请打开来源继续阅读。\n\n### 3. graphiticore/graphqueries.py\n\n来源：[graphiticore/graphqueries.py](https://github.com/getzep/graphiti/blob/b1c609f185107dc40e1ec8bad467be72c42dfe15/graphiti_core/graph_queries.py) · 读取 8,165 字符\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`get_range_indices`、`get_fulltext_indices`、`get_nodes_query`、`get_vector_cosine_func_query`、`get_relationships_query`。\n\n### 4. graphiticore/graphititypes.py\n\n来源：[graphiticore/graphititypes.py](https://github.com/getzep/graphiti/blob/b1c609f185107dc40e1ec8bad467be72c42dfe15/graphiti_core/graphiti_types.py) · 读取 5,697 字符\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`GraphitiClients`、`complete_prompt`、`uses_prompt_routing`、`resolve_prompt_messages`、`GeneratePromptResponseKwargs`、`generate_prompt_response`。\n\n### 5. graphiticore/graphiti.py\n\n来源：[graphiticore/graphiti.py](https://github.com/getzep/graphiti/blob/b1c609f185107dc40e1ec8bad467be72c42dfe15/graphiti_core/graphiti.py) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`_saga_summary_messages_utf8_bytes`、`select_saga_summary_episodes`、`AddEpisodeResults`、`AddBulkEpisodeResults`、`AddTripletResults`、`Graphiti`、`__init__`。\n\n## 建议阅读路线\n\n1. 从 README 确认项目边界，依据官方文档运行最小示例。\n2. 从包清单定位公开入口，对照上面的核心文件查找调用关系。\n3. 选择一次最小任务，记录输入、状态、工具或存储调用以及输出。\n4. 为异常、取消和重复调用分别设计一个实验，验证自己的理解。\n5. 切换到另一个跟踪分支或版本，对照固定提交复查行为变化。\n\n## 研究问题\n\n- [ ] 写入、检索、更新、删除记忆分别在哪里实现？\n- [ ] 如何划分用户、会话和 Agent 的记忆边界？\n- [ ] 如何验证检索质量以及记忆过期和冲突的处理？\n- [ ] 哪些行为已经通过实际代码或实验验证，哪些仍然是假设？\n- [ ] 与同类别其他仓库相比，接口和设计取舍有哪些不同？\n\n## 动手实验\n\n- 复现 README 的最小示例，记录运行环境、版本与结果。\n- 在一个关键入口加入日志，画出一次调用的真实时序。\n- 用一个失败输入观察错误是如何返回和恢复的。\n\n## 来源与覆盖范围\n\n采集 5 个文件片段，目录记录 504 项。分析固定到提交 `b1c609f185107dc40e1ec8bad467be72c42dfe15`，不随上游分支漂移。文件选择为启发式抽样，不能据此推断完整架构。\n\n- [README.md](https://github.com/getzep/graphiti/blob/b1c609f185107dc40e1ec8bad467be72c42dfe15/README.md)\n- [pyproject.toml](https://github.com/getzep/graphiti/blob/b1c609f185107dc40e1ec8bad467be72c42dfe15/pyproject.toml)\n- [graphiticore/graphqueries.py](https://github.com/getzep/graphiti/blob/b1c609f185107dc40e1ec8bad467be72c42dfe15/graphiti_core/graph_queries.py)\n- [graphiticore/graphititypes.py](https://github.com/getzep/graphiti/blob/b1c609f185107dc40e1ec8bad467be72c42dfe15/graphiti_core/graphiti_types.py)\n- [graphiticore/graphiti.py](https://github.com/getzep/graphiti/blob/b1c609f185107dc40e1ec8bad467be72c42dfe15/graphiti_core/graphiti.py)\n\n完整在线知识库入口：[DeepWiki](https://deepwiki.com/getzep/graphiti)（是否已被该服务索引以实际页面为准）。\n",
+          "path": "knowledge/getzep--graphiti/main-0d6e4079.md",
+          "sources": [
+            {
+              "path": "README.md",
+              "url": "https://github.com/getzep/graphiti/blob/b1c609f185107dc40e1ec8bad467be72c42dfe15/README.md",
+              "characters": 10000
+            },
+            {
+              "path": "pyproject.toml",
+              "url": "https://github.com/getzep/graphiti/blob/b1c609f185107dc40e1ec8bad467be72c42dfe15/pyproject.toml",
+              "characters": 2811
+            },
+            {
+              "path": "graphiti_core/graph_queries.py",
+              "url": "https://github.com/getzep/graphiti/blob/b1c609f185107dc40e1ec8bad467be72c42dfe15/graphiti_core/graph_queries.py",
+              "characters": 8165
+            },
+            {
+              "path": "graphiti_core/graphiti_types.py",
+              "url": "https://github.com/getzep/graphiti/blob/b1c609f185107dc40e1ec8bad467be72c42dfe15/graphiti_core/graphiti_types.py",
+              "characters": 5697
+            },
+            {
+              "path": "graphiti_core/graphiti.py",
+              "url": "https://github.com/getzep/graphiti/blob/b1c609f185107dc40e1ec8bad467be72c42dfe15/graphiti_core/graphiti.py",
+              "characters": 10000
+            }
+          ],
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "id": "ag-ui-protocol/ag-ui",
+      "name": "ag-ui",
+      "owner": "ag-ui-protocol",
+      "url": "https://github.com/ag-ui-protocol/ag-ui",
+      "description": "AG-UI: the Agent-User Interaction Protocol. Bring Agents into Frontend Applications.",
+      "summary": "通过事件协议连接 Agent 后端与交互式前端。",
+      "reason": "从事件类型入手，理解 Agent 状态和前端视图如何同步。",
+      "category": "interaction",
+      "tags": [
+        "Protocol",
+        "Streaming",
+        "Events"
+      ],
+      "featured": true,
+      "stars": 16876,
+      "forks": 1540,
+      "language": "TypeScript",
+      "license": "MIT",
+      "defaultBranch": "main",
+      "updatedAt": "2026-10-28T17:59:35Z",
+      "collectedAt": "2026-10-28T18:02:33.080Z",
+      "archived": false,
+      "wikis": [
+        {
+          "ref": "main",
+          "sha": "2eeaafd50fd913f0ace63c223c0133b091bf04be",
+          "treeSha": "e5679dd2d0c8129b21099129e88b9f55a0feb422",
+          "fingerprint": "c7715cd9f5f373e17808f63f91d5bd7207fa82cdd32a5168264efc2ddd47f36e",
+          "generatedAt": "2026-10-28T18:02:33.080Z",
+          "mode": "evidence",
+          "markdown": "# ag-ui 源码学习指南\n\n> 基于选定源码的结构化索引 · main · 2eeaafd50fd9\n> 生成于 2026-10-28T18:02:33.080Z。这是 Repo Atlas 生成的证据索引，非 DeepWiki 官方内容；未执行或验证目标项目。架构与行为需沿来源继续核实。\n\n## 项目概览\n\n通过事件协议连接 Agent 后端与交互式前端。\n\nAG-UI: the Agent-User Interaction Protocol. Bring Agents into Frontend Applications.\n\n**为什么值得读：** 从事件类型入手，理解 Agent 状态和前端视图如何同步。\n\n| 项目 | 信息 |\n| --- | --- |\n| 研究方向 | Human–Agent Interaction / 人机交互 |\n| 语言 | TypeScript |\n| 许可证 | MIT |\n| 分支 / 标签 | main |\n| 固定提交 | [2eeaafd50fd9](https://github.com/ag-ui-protocol/ag-ui/commit/2eeaafd50fd913f0ace63c223c0133b091bf04be) |\n| 上游主页 | [ag-ui-protocol/ag-ui](https://github.com/ag-ui-protocol/ag-ui) |\n\n## 目录地图\n\n以下目录实际存在于该提交，用于定位入口，不代表已完成全仓分析。\n\n- [`.claude-plugin/`](https://github.com/ag-ui-protocol/ag-ui/tree/2eeaafd50fd913f0ace63c223c0133b091bf04be/.claude-plugin)\n- [`.claude/`](https://github.com/ag-ui-protocol/ag-ui/tree/2eeaafd50fd913f0ace63c223c0133b091bf04be/.claude)\n- [`.github/`](https://github.com/ag-ui-protocol/ag-ui/tree/2eeaafd50fd913f0ace63c223c0133b091bf04be/.github)\n- [`apps/`](https://github.com/ag-ui-protocol/ag-ui/tree/2eeaafd50fd913f0ace63c223c0133b091bf04be/apps)\n- [`docs/`](https://github.com/ag-ui-protocol/ag-ui/tree/2eeaafd50fd913f0ace63c223c0133b091bf04be/docs)\n- [`integrations/`](https://github.com/ag-ui-protocol/ag-ui/tree/2eeaafd50fd913f0ace63c223c0133b091bf04be/integrations)\n- [`middlewares/`](https://github.com/ag-ui-protocol/ag-ui/tree/2eeaafd50fd913f0ace63c223c0133b091bf04be/middlewares)\n- [`patches/`](https://github.com/ag-ui-protocol/ag-ui/tree/2eeaafd50fd913f0ace63c223c0133b091bf04be/patches)\n- [`scripts/`](https://github.com/ag-ui-protocol/ag-ui/tree/2eeaafd50fd913f0ace63c223c0133b091bf04be/scripts)\n- [`sdks/`](https://github.com/ag-ui-protocol/ag-ui/tree/2eeaafd50fd913f0ace63c223c0133b091bf04be/sdks)\n- [`skills/`](https://github.com/ag-ui-protocol/ag-ui/tree/2eeaafd50fd913f0ace63c223c0133b091bf04be/skills)\n- [`spec/`](https://github.com/ag-ui-protocol/ag-ui/tree/2eeaafd50fd913f0ace63c223c0133b091bf04be/spec)\n\n\n\n## 核心文件与符号\n\n\n\n### 1. README.md\n\n来源：[README.md](https://github.com/ag-ui-protocol/ag-ui/blob/2eeaafd50fd913f0ace63c223c0133b091bf04be/README.md) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：了解项目定位、安装方式、示例与官方文档入口。\n\n当前片段未提取到顶层符号，请打开来源继续阅读。\n\n### 2. package.json\n\n来源：[package.json](https://github.com/ag-ui-protocol/ag-ui/blob/2eeaafd50fd913f0ace63c223c0133b091bf04be/package.json) · 读取 2,197 字符\n\n阅读目标：核对依赖、包入口、构建和运行约定。\n\n当前片段未提取到顶层符号，请打开来源继续阅读。\n\n### 3. sdks/typescript/packages/core/src/event-factories.ts\n\n来源：[sdks/typescript/packages/core/src/event-factories.ts](https://github.com/ag-ui-protocol/ag-ui/blob/2eeaafd50fd913f0ace63c223c0133b091bf04be/sdks/typescript/packages/core/src/event-factories.ts) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`createTextMessageStartEvent`、`createTextMessageContentEvent`、`createTextMessageEndEvent`、`createTextMessageChunkEvent`、`createToolCallStartEvent`、`createToolCallArgsEvent`、`createToolCallEndEvent`、`createToolCallChunkEvent`、`createToolCallResultEvent`、`createStateSnapshotEvent`、`createStateDeltaEvent`、`createMessagesSnapshotEvent`、`createActivitySnapshotEvent`、`createActivityDeltaEvent`。\n\n### 4. sdks/typescript/packages/client/src/agent/agent.ts\n\n来源：[sdks/typescript/packages/client/src/agent/agent.ts](https://github.com/ag-ui-protocol/ag-ui/blob/2eeaafd50fd913f0ace63c223c0133b091bf04be/sdks/typescript/packages/client/src/agent/agent.ts) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`RunAgentResult`、`AbstractAgent`、`compareDeclaredProtocol`。\n\n### 5. sdks/typescript/packages/proto/src/generated/events.ts\n\n来源：[sdks/typescript/packages/proto/src/generated/events.ts](https://github.com/ag-ui-protocol/ag-ui/blob/2eeaafd50fd913f0ace63c223c0133b091bf04be/sdks/typescript/packages/proto/src/generated/events.ts) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`EventType`、`BaseEvent`、`TextMessageStartEvent`、`TextMessageContentEvent`、`TextMessageEndEvent`、`TextMessageChunkEvent`、`ToolCallStartEvent`、`ToolCallArgsEvent`、`ToolCallEndEvent`、`ToolCallChunkEvent`、`ToolCallResultEvent`、`StateSnapshotEvent`、`protobufPackage`。\n\n## 建议阅读路线\n\n1. 从 README 确认项目边界，依据官方文档运行最小示例。\n2. 从包清单定位公开入口，对照上面的核心文件查找调用关系。\n3. 选择一次最小任务，记录输入、状态、工具或存储调用以及输出。\n4. 为异常、取消和重复调用分别设计一个实验，验证自己的理解。\n5. 切换到另一个跟踪分支或版本，对照固定提交复查行为变化。\n\n## 研究问题\n\n- [ ] 前端如何消费 Agent 的事件流？\n- [ ] 工具调用如何呈现给用户并获得人工确认？\n- [ ] 断线重连、取消和恢复如何同步前后端状态？\n- [ ] 哪些行为已经通过实际代码或实验验证，哪些仍然是假设？\n- [ ] 与同类别其他仓库相比，接口和设计取舍有哪些不同？\n\n## 动手实验\n\n- 复现 README 的最小示例，记录运行环境、版本与结果。\n- 在一个关键入口加入日志，画出一次调用的真实时序。\n- 用一个失败输入观察错误是如何返回和恢复的。\n\n## 来源与覆盖范围\n\n采集 5 个文件片段，目录记录 7071 项。分析固定到提交 `2eeaafd50fd913f0ace63c223c0133b091bf04be`，不随上游分支漂移。文件选择为启发式抽样，不能据此推断完整架构。\n\n- [README.md](https://github.com/ag-ui-protocol/ag-ui/blob/2eeaafd50fd913f0ace63c223c0133b091bf04be/README.md)\n- [package.json](https://github.com/ag-ui-protocol/ag-ui/blob/2eeaafd50fd913f0ace63c223c0133b091bf04be/package.json)\n- [sdks/typescript/packages/core/src/event-factories.ts](https://github.com/ag-ui-protocol/ag-ui/blob/2eeaafd50fd913f0ace63c223c0133b091bf04be/sdks/typescript/packages/core/src/event-factories.ts)\n- [sdks/typescript/packages/client/src/agent/agent.ts](https://github.com/ag-ui-protocol/ag-ui/blob/2eeaafd50fd913f0ace63c223c0133b091bf04be/sdks/typescript/packages/client/src/agent/agent.ts)\n- [sdks/typescript/packages/proto/src/generated/events.ts](https://github.com/ag-ui-protocol/ag-ui/blob/2eeaafd50fd913f0ace63c223c0133b091bf04be/sdks/typescript/packages/proto/src/generated/events.ts)\n\n完整在线知识库入口：[DeepWiki](https://deepwiki.com/ag-ui-protocol/ag-ui)（是否已被该服务索引以实际页面为准）。\n",
+          "path": "knowledge/ag-ui-protocol--ag-ui/main-0d6e4079.md",
+          "sources": [
+            {
+              "path": "README.md",
+              "url": "https://github.com/ag-ui-protocol/ag-ui/blob/2eeaafd50fd913f0ace63c223c0133b091bf04be/README.md",
+              "characters": 10000
+            },
+            {
+              "path": "package.json",
+              "url": "https://github.com/ag-ui-protocol/ag-ui/blob/2eeaafd50fd913f0ace63c223c0133b091bf04be/package.json",
+              "characters": 2197
+            },
+            {
+              "path": "sdks/typescript/packages/core/src/event-factories.ts",
+              "url": "https://github.com/ag-ui-protocol/ag-ui/blob/2eeaafd50fd913f0ace63c223c0133b091bf04be/sdks/typescript/packages/core/src/event-factories.ts",
+              "characters": 10000
+            },
+            {
+              "path": "sdks/typescript/packages/client/src/agent/agent.ts",
+              "url": "https://github.com/ag-ui-protocol/ag-ui/blob/2eeaafd50fd913f0ace63c223c0133b091bf04be/sdks/typescript/packages/client/src/agent/agent.ts",
+              "characters": 10000
+            },
+            {
+              "path": "sdks/typescript/packages/proto/src/generated/events.ts",
+              "url": "https://github.com/ag-ui-protocol/ag-ui/blob/2eeaafd50fd913f0ace63c223c0133b091bf04be/sdks/typescript/packages/proto/src/generated/events.ts",
+              "characters": 10000
+            }
+          ],
+          "truncated": false
+        },
+        {
+          "ref": "release/2026-10-21",
+          "sha": "05fea43abfe16bb8fd077ba258c8471943cafed2",
+          "treeSha": "61b6b26568c0b7a4764df9bb8281b14ef22d6970",
+          "fingerprint": "3b9a84f476951aa3c6c345336d5d58f7067ba2f985c57f650fe4086aa8029ed1",
+          "generatedAt": "2026-10-28T18:02:33.080Z",
+          "mode": "evidence",
+          "markdown": "# ag-ui 源码学习指南\n\n> 基于选定源码的结构化索引 · release/2026-10-21 · 05fea43abfe1\n> 生成于 2026-10-28T18:02:33.080Z。这是 Repo Atlas 生成的证据索引，非 DeepWiki 官方内容；未执行或验证目标项目。架构与行为需沿来源继续核实。\n\n## 项目概览\n\n通过事件协议连接 Agent 后端与交互式前端。\n\nAG-UI: the Agent-User Interaction Protocol. Bring Agents into Frontend Applications.\n\n**为什么值得读：** 从事件类型入手，理解 Agent 状态和前端视图如何同步。\n\n| 项目 | 信息 |\n| --- | --- |\n| 研究方向 | Human–Agent Interaction / 人机交互 |\n| 语言 | TypeScript |\n| 许可证 | MIT |\n| 分支 / 标签 | release/2026-10-21 |\n| 固定提交 | [05fea43abfe1](https://github.com/ag-ui-protocol/ag-ui/commit/05fea43abfe16bb8fd077ba258c8471943cafed2) |\n| 上游主页 | [ag-ui-protocol/ag-ui](https://github.com/ag-ui-protocol/ag-ui) |\n\n## 目录地图\n\n以下目录实际存在于该提交，用于定位入口，不代表已完成全仓分析。\n\n- [`.claude-plugin/`](https://github.com/ag-ui-protocol/ag-ui/tree/05fea43abfe16bb8fd077ba258c8471943cafed2/.claude-plugin)\n- [`.claude/`](https://github.com/ag-ui-protocol/ag-ui/tree/05fea43abfe16bb8fd077ba258c8471943cafed2/.claude)\n- [`.github/`](https://github.com/ag-ui-protocol/ag-ui/tree/05fea43abfe16bb8fd077ba258c8471943cafed2/.github)\n- [`apps/`](https://github.com/ag-ui-protocol/ag-ui/tree/05fea43abfe16bb8fd077ba258c8471943cafed2/apps)\n- [`docs/`](https://github.com/ag-ui-protocol/ag-ui/tree/05fea43abfe16bb8fd077ba258c8471943cafed2/docs)\n- [`integrations/`](https://github.com/ag-ui-protocol/ag-ui/tree/05fea43abfe16bb8fd077ba258c8471943cafed2/integrations)\n- [`middlewares/`](https://github.com/ag-ui-protocol/ag-ui/tree/05fea43abfe16bb8fd077ba258c8471943cafed2/middlewares)\n- [`patches/`](https://github.com/ag-ui-protocol/ag-ui/tree/05fea43abfe16bb8fd077ba258c8471943cafed2/patches)\n- [`scripts/`](https://github.com/ag-ui-protocol/ag-ui/tree/05fea43abfe16bb8fd077ba258c8471943cafed2/scripts)\n- [`sdks/`](https://github.com/ag-ui-protocol/ag-ui/tree/05fea43abfe16bb8fd077ba258c8471943cafed2/sdks)\n- [`skills/`](https://github.com/ag-ui-protocol/ag-ui/tree/05fea43abfe16bb8fd077ba258c8471943cafed2/skills)\n- [`spec/`](https://github.com/ag-ui-protocol/ag-ui/tree/05fea43abfe16bb8fd077ba258c8471943cafed2/spec)\n\n\n\n## 核心文件与符号\n\n\n\n### 1. README.md\n\n来源：[README.md](https://github.com/ag-ui-protocol/ag-ui/blob/05fea43abfe16bb8fd077ba258c8471943cafed2/README.md) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：了解项目定位、安装方式、示例与官方文档入口。\n\n当前片段未提取到顶层符号，请打开来源继续阅读。\n\n### 2. package.json\n\n来源：[package.json](https://github.com/ag-ui-protocol/ag-ui/blob/05fea43abfe16bb8fd077ba258c8471943cafed2/package.json) · 读取 2,197 字符\n\n阅读目标：核对依赖、包入口、构建和运行约定。\n\n当前片段未提取到顶层符号，请打开来源继续阅读。\n\n### 3. sdks/typescript/packages/core/src/event-factories.ts\n\n来源：[sdks/typescript/packages/core/src/event-factories.ts](https://github.com/ag-ui-protocol/ag-ui/blob/05fea43abfe16bb8fd077ba258c8471943cafed2/sdks/typescript/packages/core/src/event-factories.ts) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`createTextMessageStartEvent`、`createTextMessageContentEvent`、`createTextMessageEndEvent`、`createTextMessageChunkEvent`、`createToolCallStartEvent`、`createToolCallArgsEvent`、`createToolCallEndEvent`、`createToolCallChunkEvent`、`createToolCallResultEvent`、`createStateSnapshotEvent`、`createStateDeltaEvent`、`createMessagesSnapshotEvent`、`createActivitySnapshotEvent`、`createActivityDeltaEvent`。\n\n### 4. sdks/typescript/packages/client/src/agent/agent.ts\n\n来源：[sdks/typescript/packages/client/src/agent/agent.ts](https://github.com/ag-ui-protocol/ag-ui/blob/05fea43abfe16bb8fd077ba258c8471943cafed2/sdks/typescript/packages/client/src/agent/agent.ts) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`RunAgentResult`、`AbstractAgent`、`compareDeclaredProtocol`。\n\n### 5. sdks/typescript/packages/proto/src/generated/events.ts\n\n来源：[sdks/typescript/packages/proto/src/generated/events.ts](https://github.com/ag-ui-protocol/ag-ui/blob/05fea43abfe16bb8fd077ba258c8471943cafed2/sdks/typescript/packages/proto/src/generated/events.ts) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`EventType`、`BaseEvent`、`TextMessageStartEvent`、`TextMessageContentEvent`、`TextMessageEndEvent`、`TextMessageChunkEvent`、`ToolCallStartEvent`、`ToolCallArgsEvent`、`ToolCallEndEvent`、`ToolCallChunkEvent`、`ToolCallResultEvent`、`StateSnapshotEvent`、`protobufPackage`。\n\n## 建议阅读路线\n\n1. 从 README 确认项目边界，依据官方文档运行最小示例。\n2. 从包清单定位公开入口，对照上面的核心文件查找调用关系。\n3. 选择一次最小任务，记录输入、状态、工具或存储调用以及输出。\n4. 为异常、取消和重复调用分别设计一个实验，验证自己的理解。\n5. 切换到另一个跟踪分支或版本，对照固定提交复查行为变化。\n\n## 研究问题\n\n- [ ] 前端如何消费 Agent 的事件流？\n- [ ] 工具调用如何呈现给用户并获得人工确认？\n- [ ] 断线重连、取消和恢复如何同步前后端状态？\n- [ ] 哪些行为已经通过实际代码或实验验证，哪些仍然是假设？\n- [ ] 与同类别其他仓库相比，接口和设计取舍有哪些不同？\n\n## 动手实验\n\n- 复现 README 的最小示例，记录运行环境、版本与结果。\n- 在一个关键入口加入日志，画出一次调用的真实时序。\n- 用一个失败输入观察错误是如何返回和恢复的。\n\n## 来源与覆盖范围\n\n采集 5 个文件片段，目录记录 6935 项。分析固定到提交 `05fea43abfe16bb8fd077ba258c8471943cafed2`，不随上游分支漂移。文件选择为启发式抽样，不能据此推断完整架构。\n\n- [README.md](https://github.com/ag-ui-protocol/ag-ui/blob/05fea43abfe16bb8fd077ba258c8471943cafed2/README.md)\n- [package.json](https://github.com/ag-ui-protocol/ag-ui/blob/05fea43abfe16bb8fd077ba258c8471943cafed2/package.json)\n- [sdks/typescript/packages/core/src/event-factories.ts](https://github.com/ag-ui-protocol/ag-ui/blob/05fea43abfe16bb8fd077ba258c8471943cafed2/sdks/typescript/packages/core/src/event-factories.ts)\n- [sdks/typescript/packages/client/src/agent/agent.ts](https://github.com/ag-ui-protocol/ag-ui/blob/05fea43abfe16bb8fd077ba258c8471943cafed2/sdks/typescript/packages/client/src/agent/agent.ts)\n- [sdks/typescript/packages/proto/src/generated/events.ts](https://github.com/ag-ui-protocol/ag-ui/blob/05fea43abfe16bb8fd077ba258c8471943cafed2/sdks/typescript/packages/proto/src/generated/events.ts)\n\n完整在线知识库入口：[DeepWiki](https://deepwiki.com/ag-ui-protocol/ag-ui)（是否已被该服务索引以实际页面为准）。\n",
+          "path": "knowledge/ag-ui-protocol--ag-ui/release-2026-10-21-7521871f.md",
+          "sources": [
+            {
+              "path": "README.md",
+              "url": "https://github.com/ag-ui-protocol/ag-ui/blob/05fea43abfe16bb8fd077ba258c8471943cafed2/README.md",
+              "characters": 10000
+            },
+            {
+              "path": "package.json",
+              "url": "https://github.com/ag-ui-protocol/ag-ui/blob/05fea43abfe16bb8fd077ba258c8471943cafed2/package.json",
+              "characters": 2197
+            },
+            {
+              "path": "sdks/typescript/packages/core/src/event-factories.ts",
+              "url": "https://github.com/ag-ui-protocol/ag-ui/blob/05fea43abfe16bb8fd077ba258c8471943cafed2/sdks/typescript/packages/core/src/event-factories.ts",
+              "characters": 10000
+            },
+            {
+              "path": "sdks/typescript/packages/client/src/agent/agent.ts",
+              "url": "https://github.com/ag-ui-protocol/ag-ui/blob/05fea43abfe16bb8fd077ba258c8471943cafed2/sdks/typescript/packages/client/src/agent/agent.ts",
+              "characters": 10000
+            },
+            {
+              "path": "sdks/typescript/packages/proto/src/generated/events.ts",
+              "url": "https://github.com/ag-ui-protocol/ag-ui/blob/05fea43abfe16bb8fd077ba258c8471943cafed2/sdks/typescript/packages/proto/src/generated/events.ts",
+              "characters": 10000
+            }
+          ],
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "id": "copilotkit/copilotkit",
+      "name": "CopilotKit",
+      "owner": "CopilotKit",
+      "url": "https://github.com/CopilotKit/CopilotKit",
+      "description": "The Frontend Stack for Agents & Generative UI. React, Angular, Mobile, Slack, and more.  Makers of the AG-UI Protocol",
+      "summary": "把 AI 助手、共享状态和人工协作嵌入产品界面。",
+      "reason": "学习生成式界面、前端动作和人工介入的集成方式。",
+      "category": "interaction",
+      "tags": [
+        "Copilot",
+        "React",
+        "Human-in-the-loop"
+      ],
+      "featured": false,
+      "stars": 38324,
+      "forks": 4784,
+      "language": "TypeScript",
+      "license": "MIT",
+      "defaultBranch": "main",
+      "updatedAt": "2026-10-28T18:02:25Z",
+      "collectedAt": "2026-10-28T18:02:33.080Z",
+      "archived": false,
+      "wikis": [
+        {
+          "ref": "main",
+          "sha": "5ced49dc550a9f1771390a90936e04cc998f6c0f",
+          "treeSha": "7cc1931ef6cc65bf36c9b46e97d3480c0b702965",
+          "fingerprint": "b85541eeb89495cf6fe486e1feea5d2ad5e04067e5e02968c5b604367a833bc7",
+          "generatedAt": "2026-10-28T18:02:33.080Z",
+          "mode": "evidence",
+          "markdown": "# CopilotKit 源码学习指南\n\n> 基于选定源码的结构化索引 · main · 5ced49dc550a\n> 生成于 2026-10-28T18:02:33.080Z。这是 Repo Atlas 生成的证据索引，非 DeepWiki 官方内容；未执行或验证目标项目。架构与行为需沿来源继续核实。\n\n## 项目概览\n\n把 AI 助手、共享状态和人工协作嵌入产品界面。\n\nThe Frontend Stack for Agents & Generative UI. React, Angular, Mobile, Slack, and more.  Makers of the AG-UI Protocol\n\n**为什么值得读：** 学习生成式界面、前端动作和人工介入的集成方式。\n\n| 项目 | 信息 |\n| --- | --- |\n| 研究方向 | Human–Agent Interaction / 人机交互 |\n| 语言 | TypeScript |\n| 许可证 | MIT |\n| 分支 / 标签 | main |\n| 固定提交 | [5ced49dc550a](https://github.com/CopilotKit/CopilotKit/commit/5ced49dc550a9f1771390a90936e04cc998f6c0f) |\n| 上游主页 | [CopilotKit/CopilotKit](https://github.com/CopilotKit/CopilotKit) |\n\n## 目录地图\n\n以下目录实际存在于该提交，用于定位入口，不代表已完成全仓分析。\n\n- [`.claude-plugin/`](https://github.com/CopilotKit/CopilotKit/tree/5ced49dc550a9f1771390a90936e04cc998f6c0f/.claude-plugin)\n- [`.claude/`](https://github.com/CopilotKit/CopilotKit/tree/5ced49dc550a9f1771390a90936e04cc998f6c0f/.claude)\n- [`.cursor/`](https://github.com/CopilotKit/CopilotKit/tree/5ced49dc550a9f1771390a90936e04cc998f6c0f/.cursor)\n- [`.github/`](https://github.com/CopilotKit/CopilotKit/tree/5ced49dc550a9f1771390a90936e04cc998f6c0f/.github)\n- [`.superset/`](https://github.com/CopilotKit/CopilotKit/tree/5ced49dc550a9f1771390a90936e04cc998f6c0f/.superset)\n- [`assets/`](https://github.com/CopilotKit/CopilotKit/tree/5ced49dc550a9f1771390a90936e04cc998f6c0f/assets)\n- [`codemods/`](https://github.com/CopilotKit/CopilotKit/tree/5ced49dc550a9f1771390a90936e04cc998f6c0f/codemods)\n- [`community/`](https://github.com/CopilotKit/CopilotKit/tree/5ced49dc550a9f1771390a90936e04cc998f6c0f/community)\n- [`dev-docs/`](https://github.com/CopilotKit/CopilotKit/tree/5ced49dc550a9f1771390a90936e04cc998f6c0f/dev-docs)\n- [`examples/`](https://github.com/CopilotKit/CopilotKit/tree/5ced49dc550a9f1771390a90936e04cc998f6c0f/examples)\n- [`packages/`](https://github.com/CopilotKit/CopilotKit/tree/5ced49dc550a9f1771390a90936e04cc998f6c0f/packages)\n- [`patches/`](https://github.com/CopilotKit/CopilotKit/tree/5ced49dc550a9f1771390a90936e04cc998f6c0f/patches)\n- [`prds/`](https://github.com/CopilotKit/CopilotKit/tree/5ced49dc550a9f1771390a90936e04cc998f6c0f/prds)\n- [`scripts/`](https://github.com/CopilotKit/CopilotKit/tree/5ced49dc550a9f1771390a90936e04cc998f6c0f/scripts)\n- [`sdk-python/`](https://github.com/CopilotKit/CopilotKit/tree/5ced49dc550a9f1771390a90936e04cc998f6c0f/sdk-python)\n- [`showcase/`](https://github.com/CopilotKit/CopilotKit/tree/5ced49dc550a9f1771390a90936e04cc998f6c0f/showcase)\n- [`skills/`](https://github.com/CopilotKit/CopilotKit/tree/5ced49dc550a9f1771390a90936e04cc998f6c0f/skills)\n- [`tasks/`](https://github.com/CopilotKit/CopilotKit/tree/5ced49dc550a9f1771390a90936e04cc998f6c0f/tasks)\n- [`tools/`](https://github.com/CopilotKit/CopilotKit/tree/5ced49dc550a9f1771390a90936e04cc998f6c0f/tools)\n\n\n\n## 核心文件与符号\n\n\n\n### 1. README.md\n\n来源：[README.md](https://github.com/CopilotKit/CopilotKit/blob/5ced49dc550a9f1771390a90936e04cc998f6c0f/README.md) · 读取 10,000 字符（片段，已截断）\n\n阅读目标：了解项目定位、安装方式、示例与官方文档入口。\n\n当前片段未提取到顶层符号，请打开来源继续阅读。\n\n### 2. package.json\n\n来源：[package.json](https://github.com/CopilotKit/CopilotKit/blob/5ced49dc550a9f1771390a90936e04cc998f6c0f/package.json) · 读取 9,070 字符\n\n阅读目标：核对依赖、包入口、构建和运行约定。\n\n当前片段未提取到顶层符号，请打开来源继续阅读。\n\n### 3. packages/runtime/src/langgraph.ts\n\n来源：[packages/runtime/src/langgraph.ts](https://github.com/CopilotKit/CopilotKit/blob/5ced49dc550a9f1771390a90936e04cc998f6c0f/packages/runtime/src/langgraph.ts) · 读取 273 字符\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段未提取到顶层符号，请打开来源继续阅读。\n\n### 4. packages/runtime/src/v1-deprecated/langgraph.ts\n\n来源：[packages/runtime/src/v1-deprecated/langgraph.ts](https://github.com/CopilotKit/CopilotKit/blob/5ced49dc550a9f1771390a90936e04cc998f6c0f/packages/runtime/src/v1-deprecated/langgraph.ts) · 读取 3,971 字符\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`PredictStateTool`、`TextMessageEvents`、`ToolCallEvents`。\n\n### 5. packages/react-core/src/v1-deprecated/context/coagent-state-renders-context.tsx\n\n来源：[packages/react-core/src/v1-deprecated/context/coagent-state-renders-context.tsx](https://github.com/CopilotKit/CopilotKit/blob/5ced49dc550a9f1771390a90936e04cc998f6c0f/packages/react-core/src/v1-deprecated/context/coagent-state-renders-context.tsx) · 读取 3,850 字符\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`StateRenderClaim`、`ClaimsRef`、`CoAgentStateRendersContextValue`、`CoAgentStateRendersProvider`、`useCoAgentStateRenders`。\n\n## 建议阅读路线\n\n1. 从 README 确认项目边界，依据官方文档运行最小示例。\n2. 从包清单定位公开入口，对照上面的核心文件查找调用关系。\n3. 选择一次最小任务，记录输入、状态、工具或存储调用以及输出。\n4. 为异常、取消和重复调用分别设计一个实验，验证自己的理解。\n5. 切换到另一个跟踪分支或版本，对照固定提交复查行为变化。\n\n## 研究问题\n\n- [ ] 前端如何消费 Agent 的事件流？\n- [ ] 工具调用如何呈现给用户并获得人工确认？\n- [ ] 断线重连、取消和恢复如何同步前后端状态？\n- [ ] 哪些行为已经通过实际代码或实验验证，哪些仍然是假设？\n- [ ] 与同类别其他仓库相比，接口和设计取舍有哪些不同？\n\n## 动手实验\n\n- 复现 README 的最小示例，记录运行环境、版本与结果。\n- 在一个关键入口加入日志，画出一次调用的真实时序。\n- 用一个失败输入观察错误是如何返回和恢复的。\n\n## 来源与覆盖范围\n\n采集 5 个文件片段，目录记录 28433 项。分析固定到提交 `5ced49dc550a9f1771390a90936e04cc998f6c0f`，不随上游分支漂移。文件选择为启发式抽样，不能据此推断完整架构。\n\n- [README.md](https://github.com/CopilotKit/CopilotKit/blob/5ced49dc550a9f1771390a90936e04cc998f6c0f/README.md)\n- [package.json](https://github.com/CopilotKit/CopilotKit/blob/5ced49dc550a9f1771390a90936e04cc998f6c0f/package.json)\n- [packages/runtime/src/langgraph.ts](https://github.com/CopilotKit/CopilotKit/blob/5ced49dc550a9f1771390a90936e04cc998f6c0f/packages/runtime/src/langgraph.ts)\n- [packages/runtime/src/v1-deprecated/langgraph.ts](https://github.com/CopilotKit/CopilotKit/blob/5ced49dc550a9f1771390a90936e04cc998f6c0f/packages/runtime/src/v1-deprecated/langgraph.ts)\n- [packages/react-core/src/v1-deprecated/context/coagent-state-renders-context.tsx](https://github.com/CopilotKit/CopilotKit/blob/5ced49dc550a9f1771390a90936e04cc998f6c0f/packages/react-core/src/v1-deprecated/context/coagent-state-renders-context.tsx)\n\n完整在线知识库入口：[DeepWiki](https://deepwiki.com/CopilotKit/CopilotKit)（是否已被该服务索引以实际页面为准）。\n",
+          "path": "knowledge/copilotkit--copilotkit/main-0d6e4079.md",
+          "sources": [
+            {
+              "path": "README.md",
+              "url": "https://github.com/CopilotKit/CopilotKit/blob/5ced49dc550a9f1771390a90936e04cc998f6c0f/README.md",
+              "characters": 10000
+            },
+            {
+              "path": "package.json",
+              "url": "https://github.com/CopilotKit/CopilotKit/blob/5ced49dc550a9f1771390a90936e04cc998f6c0f/package.json",
+              "characters": 9070
+            },
+            {
+              "path": "packages/runtime/src/langgraph.ts",
+              "url": "https://github.com/CopilotKit/CopilotKit/blob/5ced49dc550a9f1771390a90936e04cc998f6c0f/packages/runtime/src/langgraph.ts",
+              "characters": 273
+            },
+            {
+              "path": "packages/runtime/src/v1-deprecated/langgraph.ts",
+              "url": "https://github.com/CopilotKit/CopilotKit/blob/5ced49dc550a9f1771390a90936e04cc998f6c0f/packages/runtime/src/v1-deprecated/langgraph.ts",
+              "characters": 3971
+            },
+            {
+              "path": "packages/react-core/src/v1-deprecated/context/coagent-state-renders-context.tsx",
+              "url": "https://github.com/CopilotKit/CopilotKit/blob/5ced49dc550a9f1771390a90936e04cc998f6c0f/packages/react-core/src/v1-deprecated/context/coagent-state-renders-context.tsx",
+              "characters": 3850
+            }
+          ],
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "id": "assistant-ui/assistant-ui",
+      "name": "assistant-ui",
+      "owner": "assistant-ui",
+      "url": "https://github.com/assistant-ui/assistant-ui",
+      "description": "Typescript/React Library for AI Chat 💬🚀",
+      "summary": "用于构建 AI 对话体验的 React 组件与运行时。",
+      "reason": "从消息和线程状态出发，学习可组合的对话交互界面。",
+      "category": "interaction",
+      "tags": [
+        "React",
+        "Chat UI",
+        "Components"
+      ],
+      "featured": false,
+      "stars": 12800,
+      "forks": 1278,
+      "language": "TypeScript",
+      "license": "MIT",
+      "defaultBranch": "main",
+      "updatedAt": "2026-10-28T14:36:20Z",
+      "collectedAt": "2026-10-28T18:02:33.080Z",
+      "archived": false,
+      "wikis": [
+        {
+          "ref": "main",
+          "sha": "becf0772bbb53f9a1f03b23b7eee15401c6380a9",
+          "treeSha": "ed1ae5cac16738f65bb2ee366bac8edddc473008",
+          "fingerprint": "e59d7cf62206bf44ba2187618d42c0715738d9e4b3d0c6b3bda213822a3fbdf9",
+          "generatedAt": "2026-10-28T18:02:33.080Z",
+          "mode": "evidence",
+          "markdown": "# assistant-ui 源码学习指南\n\n> 基于选定源码的结构化索引 · main · becf0772bbb5\n> 生成于 2026-10-28T18:02:33.080Z。这是 Repo Atlas 生成的证据索引，非 DeepWiki 官方内容；未执行或验证目标项目。架构与行为需沿来源继续核实。\n\n## 项目概览\n\n用于构建 AI 对话体验的 React 组件与运行时。\n\nTypescript/React Library for AI Chat 💬🚀\n\n**为什么值得读：** 从消息和线程状态出发，学习可组合的对话交互界面。\n\n| 项目 | 信息 |\n| --- | --- |\n| 研究方向 | Human–Agent Interaction / 人机交互 |\n| 语言 | TypeScript |\n| 许可证 | MIT |\n| 分支 / 标签 | main |\n| 固定提交 | [becf0772bbb5](https://github.com/assistant-ui/assistant-ui/commit/becf0772bbb53f9a1f03b23b7eee15401c6380a9) |\n| 上游主页 | [assistant-ui/assistant-ui](https://github.com/assistant-ui/assistant-ui) |\n\n## 目录地图\n\n以下目录实际存在于该提交，用于定位入口，不代表已完成全仓分析。\n\n- [`.changeset/`](https://github.com/assistant-ui/assistant-ui/tree/becf0772bbb53f9a1f03b23b7eee15401c6380a9/.changeset)\n- [`.claude/`](https://github.com/assistant-ui/assistant-ui/tree/becf0772bbb53f9a1f03b23b7eee15401c6380a9/.claude)\n- [`.devcontainer/`](https://github.com/assistant-ui/assistant-ui/tree/becf0772bbb53f9a1f03b23b7eee15401c6380a9/.devcontainer)\n- [`.github/`](https://github.com/assistant-ui/assistant-ui/tree/becf0772bbb53f9a1f03b23b7eee15401c6380a9/.github)\n- [`.husky/`](https://github.com/assistant-ui/assistant-ui/tree/becf0772bbb53f9a1f03b23b7eee15401c6380a9/.husky)\n- [`.vscode/`](https://github.com/assistant-ui/assistant-ui/tree/becf0772bbb53f9a1f03b23b7eee15401c6380a9/.vscode)\n- [`api-surface/`](https://github.com/assistant-ui/assistant-ui/tree/becf0772bbb53f9a1f03b23b7eee15401c6380a9/api-surface)\n- [`apps/`](https://github.com/assistant-ui/assistant-ui/tree/becf0772bbb53f9a1f03b23b7eee15401c6380a9/apps)\n- [`evals/`](https://github.com/assistant-ui/assistant-ui/tree/becf0772bbb53f9a1f03b23b7eee15401c6380a9/evals)\n- [`examples/`](https://github.com/assistant-ui/assistant-ui/tree/becf0772bbb53f9a1f03b23b7eee15401c6380a9/examples)\n- [`packages/`](https://github.com/assistant-ui/assistant-ui/tree/becf0772bbb53f9a1f03b23b7eee15401c6380a9/packages)\n- [`python/`](https://github.com/assistant-ui/assistant-ui/tree/becf0772bbb53f9a1f03b23b7eee15401c6380a9/python)\n- [`scripts/`](https://github.com/assistant-ui/assistant-ui/tree/becf0772bbb53f9a1f03b23b7eee15401c6380a9/scripts)\n- [`templates/`](https://github.com/assistant-ui/assistant-ui/tree/becf0772bbb53f9a1f03b23b7eee15401c6380a9/templates)\n\n\n\n## 核心文件与符号\n\n\n\n### 1. README.md\n\n来源：[README.md](https://github.com/assistant-ui/assistant-ui/blob/becf0772bbb53f9a1f03b23b7eee15401c6380a9/README.md) · 读取 9,428 字符\n\n阅读目标：了解项目定位、安装方式、示例与官方文档入口。\n\n当前片段识别到的符号：`Chat`。\n\n### 2. package.json\n\n来源：[package.json](https://github.com/assistant-ui/assistant-ui/blob/becf0772bbb53f9a1f03b23b7eee15401c6380a9/package.json) · 读取 5,505 字符\n\n阅读目标：核对依赖、包入口、构建和运行约定。\n\n当前片段未提取到顶层符号，请打开来源继续阅读。\n\n### 3. packages/core/src/react/AssistantRuntimeProvider.tsx\n\n来源：[packages/core/src/react/AssistantRuntimeProvider.tsx](https://github.com/assistant-ui/assistant-ui/blob/becf0772bbb53f9a1f03b23b7eee15401c6380a9/packages/core/src/react/AssistantRuntimeProvider.tsx) · 读取 1,841 字符\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`AssistantRuntimeProvider`。\n\n### 4. packages/core/src/react/RuntimeAdapter.ts\n\n来源：[packages/core/src/react/RuntimeAdapter.ts](https://github.com/assistant-ui/assistant-ui/blob/becf0772bbb53f9a1f03b23b7eee15401c6380a9/packages/core/src/react/RuntimeAdapter.ts) · 读取 1,651 字符\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`RuntimeAdapter`、`runtimeAdapterTransformScopes`。\n\n### 5. packages/core/src/utils/notify-event-listeners.ts\n\n来源：[packages/core/src/utils/notify-event-listeners.ts](https://github.com/assistant-ui/assistant-ui/blob/becf0772bbb53f9a1f03b23b7eee15401c6380a9/packages/core/src/utils/notify-event-listeners.ts) · 读取 996 字符\n\n阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。\n\n当前片段识别到的符号：`EventListener`、`notifyEventListeners`。\n\n## 建议阅读路线\n\n1. 从 README 确认项目边界，依据官方文档运行最小示例。\n2. 从包清单定位公开入口，对照上面的核心文件查找调用关系。\n3. 选择一次最小任务，记录输入、状态、工具或存储调用以及输出。\n4. 为异常、取消和重复调用分别设计一个实验，验证自己的理解。\n5. 切换到另一个跟踪分支或版本，对照固定提交复查行为变化。\n\n## 研究问题\n\n- [ ] 前端如何消费 Agent 的事件流？\n- [ ] 工具调用如何呈现给用户并获得人工确认？\n- [ ] 断线重连、取消和恢复如何同步前后端状态？\n- [ ] 哪些行为已经通过实际代码或实验验证，哪些仍然是假设？\n- [ ] 与同类别其他仓库相比，接口和设计取舍有哪些不同？\n\n## 动手实验\n\n- 复现 README 的最小示例，记录运行环境、版本与结果。\n- 在一个关键入口加入日志，画出一次调用的真实时序。\n- 用一个失败输入观察错误是如何返回和恢复的。\n\n## 来源与覆盖范围\n\n采集 5 个文件片段，目录记录 9087 项。分析固定到提交 `becf0772bbb53f9a1f03b23b7eee15401c6380a9`，不随上游分支漂移。文件选择为启发式抽样，不能据此推断完整架构。\n\n- [README.md](https://github.com/assistant-ui/assistant-ui/blob/becf0772bbb53f9a1f03b23b7eee15401c6380a9/README.md)\n- [package.json](https://github.com/assistant-ui/assistant-ui/blob/becf0772bbb53f9a1f03b23b7eee15401c6380a9/package.json)\n- [packages/core/src/react/AssistantRuntimeProvider.tsx](https://github.com/assistant-ui/assistant-ui/blob/becf0772bbb53f9a1f03b23b7eee15401c6380a9/packages/core/src/react/AssistantRuntimeProvider.tsx)\n- [packages/core/src/react/RuntimeAdapter.ts](https://github.com/assistant-ui/assistant-ui/blob/becf0772bbb53f9a1f03b23b7eee15401c6380a9/packages/core/src/react/RuntimeAdapter.ts)\n- [packages/core/src/utils/notify-event-listeners.ts](https://github.com/assistant-ui/assistant-ui/blob/becf0772bbb53f9a1f03b23b7eee15401c6380a9/packages/core/src/utils/notify-event-listeners.ts)\n\n完整在线知识库入口：[DeepWiki](https://deepwiki.com/assistant-ui/assistant-ui)（是否已被该服务索引以实际页面为准）。\n",
+          "path": "knowledge/assistant-ui--assistant-ui/main-0d6e4079.md",
+          "sources": [
+            {
+              "path": "README.md",
+              "url": "https://github.com/assistant-ui/assistant-ui/blob/becf0772bbb53f9a1f03b23b7eee15401c6380a9/README.md",
+              "characters": 9428
+            },
+            {
+              "path": "package.json",
+              "url": "https://github.com/assistant-ui/assistant-ui/blob/becf0772bbb53f9a1f03b23b7eee15401c6380a9/package.json",
+              "characters": 5505
+            },
+            {
+              "path": "packages/core/src/react/AssistantRuntimeProvider.tsx",
+              "url": "https://github.com/assistant-ui/assistant-ui/blob/becf0772bbb53f9a1f03b23b7eee15401c6380a9/packages/core/src/react/AssistantRuntimeProvider.tsx",
+              "characters": 1841
+            },
+            {
+              "path": "packages/core/src/react/RuntimeAdapter.ts",
+              "url": "https://github.com/assistant-ui/assistant-ui/blob/becf0772bbb53f9a1f03b23b7eee15401c6380a9/packages/core/src/react/RuntimeAdapter.ts",
+              "characters": 1651
+            },
+            {
+              "path": "packages/core/src/utils/notify-event-listeners.ts",
+              "url": "https://github.com/assistant-ui/assistant-ui/blob/becf0772bbb53f9a1f03b23b7eee15401c6380a9/packages/core/src/utils/notify-event-listeners.ts",
+              "characters": 996
+            }
+          ],
+          "truncated": false
+        }
+      ]
+    }
+  ],
+  "trending": {
+    "daily": {
+      "fetchedAt": "2026-10-28T18:02:33.080Z",
+      "source": "https://github.com/trending?since=daily",
+      "items": [
+        {
+          "repo": "JetBrains/thinkrail",
+          "description": "Vibe code with pi in a lightweight, real IDE that customises itself around the way you work — The Vibe You Need",
+          "language": "TypeScript",
+          "stars": 4826,
+          "periodStars": 1075,
+          "url": "https://github.com/JetBrains/thinkrail"
+        },
+        {
+          "repo": "elayadesign/ai-design-skills",
+          "description": "",
+          "language": "",
+          "stars": 10903,
+          "periodStars": 1395,
+          "url": "https://github.com/elayadesign/ai-design-skills"
+        },
+        {
+          "repo": "obra/superpowers",
+          "description": "An agentic skills framework & software development methodology that works.",
+          "language": "Shell",
+          "stars": 307241,
+          "periodStars": 1096,
+          "url": "https://github.com/obra/superpowers"
+        },
+        {
+          "repo": "HKUDS/DeepTutor",
+          "description": "DeepTutor: Lifelong Personalized Tutoring. https://deeptutor.info/ .",
+          "language": "Python",
+          "stars": 47694,
+          "periodStars": 2376,
+          "url": "https://github.com/HKUDS/DeepTutor"
+        },
+        {
+          "repo": "macro-inc/macro",
+          "description": "Macro is a unified workspace for teams: email, chat, docs, tasks, agents, calls, and CRM — @-linked together with shared AI memory.",
+          "language": "Rust",
+          "stars": 5305,
+          "periodStars": 106,
+          "url": "https://github.com/macro-inc/macro"
+        },
+        {
+          "repo": "Nutlope/hallmark",
+          "description": "Anti-AI-slop design skill for Claude Code, Cursor, and Codex.",
+          "language": "CSS",
+          "stars": 40400,
+          "periodStars": 2109,
+          "url": "https://github.com/Nutlope/hallmark"
+        },
+        {
+          "repo": "pbakaus/impeccable",
+          "description": "The design vocabulary for your coding agent. Steer with polish and bolder, review with critique and audit, catch AI slop before it ships.",
+          "language": "Rust",
+          "stars": 92183,
+          "periodStars": 1471,
+          "url": "https://github.com/pbakaus/impeccable"
+        },
+        {
+          "repo": "makecindy/cindy",
+          "description": "Consider it done. The open-source AI agent that works out of the box · 想到，就能做到。开源、开箱即用的 AI Agent。",
+          "language": "TypeScript",
+          "stars": 7950,
+          "periodStars": 740,
+          "url": "https://github.com/makecindy/cindy"
+        },
+        {
+          "repo": "nightly-labs/openbot",
+          "description": "A local-first desktop workspace for persistent AI teammates. Run Codex, Claude, and Grok with dedicated workspaces, task queues, file sharing, browser control, and agent-to-agent collaboration.",
+          "language": "TypeScript",
+          "stars": 3081,
+          "periodStars": 1053,
+          "url": "https://github.com/nightly-labs/openbot"
+        },
+        {
+          "repo": "togg53192-cmd/jailbreaks",
+          "description": "LIST OF ALL MY JAILBREAKS",
+          "language": "",
+          "stars": 6798,
+          "periodStars": 1478,
+          "url": "https://github.com/togg53192-cmd/jailbreaks"
+        },
+        {
+          "repo": "hmjz100/LinkSwift",
+          "description": "一个基于 JavaScript 的网盘文件下载地址获取工具。基于【网盘直链下载助手】修改 ，支持 百度网盘 / 阿里云盘 / 中国移动云盘 / 天翼云盘 / 迅雷云盘 / 夸克网盘 / UC网盘 / 123云盘 八大网盘",
+          "language": "JavaScript",
+          "stars": 34154,
+          "periodStars": 3209,
+          "url": "https://github.com/hmjz100/LinkSwift"
+        },
+        {
+          "repo": "expo/skills",
+          "description": "A collection of AI agent skills for working with Expo projects and Expo Application Services",
+          "language": "Shell",
+          "stars": 3471,
+          "periodStars": 212,
+          "url": "https://github.com/expo/skills"
+        },
+        {
+          "repo": "ruvnet/RuView",
+          "description": "π RuView turns commodity WiFi signals into real-time spatial intelligence, vital sign monitoring, and presence detection — all without a single pixel of video.",
+          "language": "Rust",
+          "stars": 100806,
+          "periodStars": 596,
+          "url": "https://github.com/ruvnet/RuView"
+        },
+        {
+          "repo": "xiaolai/the-craft-of-selfteaching",
+          "description": "One has no future if one couldn't teach themself.",
+          "language": "Jupyter Notebook",
+          "stars": 18413,
+          "periodStars": 143,
+          "url": "https://github.com/xiaolai/the-craft-of-selfteaching"
+        }
+      ]
+    },
+    "weekly": {
+      "fetchedAt": "2026-10-28T18:02:33.080Z",
+      "source": "https://github.com/trending?since=weekly",
+      "items": [
+        {
+          "repo": "cloudflare/security-audit-skill",
+          "description": "A coding-agent skill for multi-phase security audits with independently verified, machine-readable findings",
+          "language": "JavaScript",
+          "stars": 51334,
+          "periodStars": 16388,
+          "url": "https://github.com/cloudflare/security-audit-skill"
+        },
+        {
+          "repo": "AgriciDaniel/claude-seo",
+          "description": "Universal SEO skill for Claude Code. 26 sub-skills + 19 sub-agents covering technical SEO, E-E-A-T, schema, GEO/AEO, agent readiness (Lighthouse Agentic Browsing, WebMCP, llms.txt), backlinks, local SEO, e-commerce, international SEO, Google APIs, and PDF/Excel reporting. 9 optional extensions for live SEO data.",
+          "language": "Python",
+          "stars": 23216,
+          "periodStars": 3081,
+          "url": "https://github.com/AgriciDaniel/claude-seo"
+        },
+        {
+          "repo": "multica-ai/andrej-karpathy-skills",
+          "description": "A single CLAUDE.md file to improve Claude Code behavior, derived from Andrej Karpathy's observations on LLM coding pitfalls.",
+          "language": "",
+          "stars": 225869,
+          "periodStars": 4039,
+          "url": "https://github.com/multica-ai/andrej-karpathy-skills"
+        },
+        {
+          "repo": "anthropics/knowledge-work-plugins",
+          "description": "Open source repository of plugins primarily intended for knowledge workers to use in Claude Cowork",
+          "language": "Python",
+          "stars": 33603,
+          "periodStars": 2789,
+          "url": "https://github.com/anthropics/knowledge-work-plugins"
+        },
+        {
+          "repo": "TauricResearch/TradingAgents",
+          "description": "TradingAgents: Multi-Agents LLM Financial Trading Framework",
+          "language": "Python",
+          "stars": 117772,
+          "periodStars": 4882,
+          "url": "https://github.com/TauricResearch/TradingAgents"
+        },
+        {
+          "repo": "pbakaus/impeccable",
+          "description": "The design vocabulary for your coding agent. Steer with polish and bolder, review with critique and audit, catch AI slop before it ships.",
+          "language": "Rust",
+          "stars": 92183,
+          "periodStars": 6713,
+          "url": "https://github.com/pbakaus/impeccable"
+        },
+        {
+          "repo": "Graphify-Labs/graphify",
+          "description": "Turn any codebase, with its docs, SQL schemas, configs, and PDFs, into a queryable knowledge graph. A /graphify skill for Claude Code, Cursor, Codex, and Gemini CLI: local deterministic AST parsing, every edge explained, no vector store.",
+          "language": "Python",
+          "stars": 137616,
+          "periodStars": 7268,
+          "url": "https://github.com/Graphify-Labs/graphify"
+        },
+        {
+          "repo": "Leonxlnx/taste-skill",
+          "description": "Agent skills that give coding agents taste: art direction, reference images and a browser check instead of generic AI pages",
+          "language": "JavaScript",
+          "stars": 104227,
+          "periodStars": 3941,
+          "url": "https://github.com/Leonxlnx/taste-skill"
+        },
+        {
+          "repo": "ruvnet/ruflo",
+          "description": "🌊 The original agent harness. Deploy intelligent multi-player swarms, coordinate autonomous workflows, and build conversational AI systems. Features adaptive memory, self-learning intelligence, federation, vector RAG integration, and native Claude Code / Codex / Hermes and many more Integrated",
+          "language": "TypeScript",
+          "stars": 79934,
+          "periodStars": 2296,
+          "url": "https://github.com/ruvnet/ruflo"
+        },
+        {
+          "repo": "anomalyco/opencode",
+          "description": "The open source coding agent.",
+          "language": "TypeScript",
+          "stars": 222676,
+          "periodStars": 4334,
+          "url": "https://github.com/anomalyco/opencode"
+        },
+        {
+          "repo": "jakubkrehel/skills",
+          "description": "A collection of agent skills that help you build great interfaces.",
+          "language": "Markdown",
+          "stars": 8926,
+          "periodStars": 746,
+          "url": "https://github.com/jakubkrehel/skills"
+        }
+      ]
+    },
+    "monthly": {
+      "fetchedAt": "2026-10-28T18:02:33.080Z",
+      "source": "https://github.com/trending?since=monthly",
+      "items": [
+        {
+          "repo": "heygen-com/hyperframes",
+          "description": "Write HTML. Render video. Built for agents.",
+          "language": "TypeScript",
+          "stars": 74574,
+          "periodStars": 20501,
+          "url": "https://github.com/heygen-com/hyperframes"
+        },
+        {
+          "repo": "cloudflare/security-audit-skill",
+          "description": "A coding-agent skill for multi-phase security audits with independently verified, machine-readable findings",
+          "language": "JavaScript",
+          "stars": 51334,
+          "periodStars": 27415,
+          "url": "https://github.com/cloudflare/security-audit-skill"
+        },
+        {
+          "repo": "anthropics/knowledge-work-plugins",
+          "description": "Open source repository of plugins primarily intended for knowledge workers to use in Claude Cowork",
+          "language": "Python",
+          "stars": 33603,
+          "periodStars": 7792,
+          "url": "https://github.com/anthropics/knowledge-work-plugins"
+        },
+        {
+          "repo": "earthtojake/text-to-cad",
+          "description": "Design physical products with AI",
+          "language": "Python",
+          "stars": 23831,
+          "periodStars": 7192,
+          "url": "https://github.com/earthtojake/text-to-cad"
+        },
+        {
+          "repo": "pbakaus/impeccable",
+          "description": "The design vocabulary for your coding agent. Steer with polish and bolder, review with critique and audit, catch AI slop before it ships.",
+          "language": "Rust",
+          "stars": 92183,
+          "periodStars": 18683,
+          "url": "https://github.com/pbakaus/impeccable"
+        },
+        {
+          "repo": "debpalash/VoiceStudio",
+          "description": "VoiceStudio is the open-source, fully-local ElevenLabs alternative — voice cloning, voice design, video dubbing, dictation, transcription & audiobook creation in 646 languages.",
+          "language": "Python",
+          "stars": 92693,
+          "periodStars": 52726,
+          "url": "https://github.com/debpalash/VoiceStudio"
+        },
+        {
+          "repo": "cursor/plugins",
+          "description": "Cursor plugin specification and official plugins",
+          "language": "TypeScript",
+          "stars": 14456,
+          "periodStars": 5597,
+          "url": "https://github.com/cursor/plugins"
+        },
+        {
+          "repo": "anthropics/claude-plugins-official",
+          "description": "Official, Anthropic-managed directory of high quality Claude Code Plugins.",
+          "language": "Python",
+          "stars": 45087,
+          "periodStars": 8017,
+          "url": "https://github.com/anthropics/claude-plugins-official"
+        },
+        {
+          "repo": "mksglu/context-mode",
+          "description": "Context window optimization for AI coding agents. Sandboxes tool output (98% reduction), persists session memory, and enforces routing across 17 platforms via MCP + hooks.",
+          "language": "TypeScript",
+          "stars": 32672,
+          "periodStars": 8586,
+          "url": "https://github.com/mksglu/context-mode"
+        },
+        {
+          "repo": "thedotmack/claude-mem",
+          "description": "Persistent Context Across Sessions for Every Agent – Captures everything your agent does during sessions, compresses it with AI, and injects relevant context back into future sessions. Works with Claude Code, OpenClaw, Codex, Gemini, Hermes, Copilot, OpenCode + More",
+          "language": "TypeScript",
+          "stars": 103964,
+          "periodStars": 9345,
+          "url": "https://github.com/thedotmack/claude-mem"
+        },
+        {
+          "repo": "affaan-m/ECC",
+          "description": "The agent harness performance optimization system. Skills, instincts, memory, security, and research-first development for Claude Code, Codex, Opencode, Cursor and beyond.",
+          "language": "JavaScript",
+          "stars": 291563,
+          "periodStars": 23998,
+          "url": "https://github.com/affaan-m/ECC"
+        },
+        {
+          "repo": "NationalSecurityAgency/ghidra",
+          "description": "Ghidra is a software reverse engineering (SRE) framework",
+          "language": "Java",
+          "stars": 95404,
+          "periodStars": 15456,
+          "url": "https://github.com/NationalSecurityAgency/ghidra"
+        },
+        {
+          "repo": "pingdotgg/t3code",
+          "description": "",
+          "language": "TypeScript",
+          "stars": 31088,
+          "periodStars": 7188,
+          "url": "https://github.com/pingdotgg/t3code"
+        },
+        {
+          "repo": "NVIDIA/OpenShell",
+          "description": "OpenShell is the safe, private runtime for autonomous AI agents.",
+          "language": "Rust",
+          "stars": 20507,
+          "periodStars": 11510,
+          "url": "https://github.com/NVIDIA/OpenShell"
+        },
+        {
+          "repo": "Leonxlnx/taste-skill",
+          "description": "Agent skills that give coding agents taste: art direction, reference images and a browser check instead of generic AI pages",
+          "language": "JavaScript",
+          "stars": 104227,
+          "periodStars": 13933,
+          "url": "https://github.com/Leonxlnx/taste-skill"
+        },
+        {
+          "repo": "Panniantong/Agent-Reach",
+          "description": "Give your AI agent eyes to see the entire internet. Read & search Twitter, Reddit, YouTube, GitHub, Bilibili, XiaoHongShu — one CLI, zero API fees.",
+          "language": "Python",
+          "stars": 105483,
+          "periodStars": 19461,
+          "url": "https://github.com/Panniantong/Agent-Reach"
+        },
+        {
+          "repo": "DietrichGebert/ponytail",
+          "description": "Makes your AI agent think like the laziest senior dev in the room. The best code is the code you never wrote.",
+          "language": "JavaScript",
+          "stars": 178953,
+          "periodStars": 32214,
+          "url": "https://github.com/DietrichGebert/ponytail"
+        },
+        {
+          "repo": "tashfeenahmed/freellmapi",
+          "description": "7.4 billion tokens per month. 34 free LLM providers. 635 free model endpoints. All behind one /v1 endpoint, plus any custom OpenAI-compatible endpoint. Smart routing, automatic failover, encrypted keys. Personal experimentation only.",
+          "language": "TypeScript",
+          "stars": 43198,
+          "periodStars": 13636,
+          "url": "https://github.com/tashfeenahmed/freellmapi"
+        },
+        {
+          "repo": "Nutlope/hallmark",
+          "description": "Anti-AI-slop design skill for Claude Code, Cursor, and Codex.",
+          "language": "CSS",
+          "stars": 40400,
+          "periodStars": 9965,
+          "url": "https://github.com/Nutlope/hallmark"
+        }
+      ]
+    }
+  },
+  "errors": []
+}

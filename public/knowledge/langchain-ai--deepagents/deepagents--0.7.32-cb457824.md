@@ -1,0 +1,113 @@
+# deepagents 源码学习指南
+
+> 基于选定源码的结构化索引 · deepagents==0.7.32 · e85c6b980878
+> 生成于 2026-10-28T18:02:33.080Z。这是 Repo Atlas 生成的证据索引，非 DeepWiki 官方内容；未执行或验证目标项目。架构与行为需沿来源继续核实。
+
+## 项目概览
+
+集成规划、文件系统和子 Agent 的任务执行框架。
+
+The batteries-included agent harness.
+
+**为什么值得读：** 沿着规划 → 工具调用 → 子任务委派，学习长任务 Agent 的执行闭环。
+
+| 项目 | 信息 |
+| --- | --- |
+| 研究方向 | Agent Harness / 运行与编排 |
+| 语言 | Python |
+| 许可证 | MIT |
+| 分支 / 标签 | deepagents==0.7.32 |
+| 固定提交 | [e85c6b980878](https://github.com/langchain-ai/deepagents/commit/e85c6b98087861512d2c5240305e16cfac68a746) |
+| 上游主页 | [langchain-ai/deepagents](https://github.com/langchain-ai/deepagents) |
+
+## 目录地图
+
+以下目录实际存在于该提交，用于定位入口，不代表已完成全仓分析。
+
+- [`.agents/`](https://github.com/langchain-ai/deepagents/tree/e85c6b98087861512d2c5240305e16cfac68a746/.agents)
+- [`.githooks/`](https://github.com/langchain-ai/deepagents/tree/e85c6b98087861512d2c5240305e16cfac68a746/.githooks)
+- [`.github/`](https://github.com/langchain-ai/deepagents/tree/e85c6b98087861512d2c5240305e16cfac68a746/.github)
+- [`.vscode/`](https://github.com/langchain-ai/deepagents/tree/e85c6b98087861512d2c5240305e16cfac68a746/.vscode)
+- [`examples/`](https://github.com/langchain-ai/deepagents/tree/e85c6b98087861512d2c5240305e16cfac68a746/examples)
+- [`libs/`](https://github.com/langchain-ai/deepagents/tree/e85c6b98087861512d2c5240305e16cfac68a746/libs)
+- [`openwiki/`](https://github.com/langchain-ai/deepagents/tree/e85c6b98087861512d2c5240305e16cfac68a746/openwiki)
+
+
+
+## 核心文件与符号
+
+
+
+### 1. README.md
+
+来源：[README.md](https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/README.md) · 读取 6,985 字符
+
+阅读目标：了解项目定位、安装方式、示例与官方文档入口。
+
+当前片段未提取到顶层符号，请打开来源继续阅读。
+
+### 2. libs/deepagents/deepagents/graph.py
+
+来源：[libs/deepagents/deepagents/graph.py](https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/libs/deepagents/deepagents/graph.py) · 读取 10,000 字符（片段，已截断）
+
+阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。
+
+当前片段识别到的符号：`DeepAgentState`、`__getattr__`、`_build_default_model`、`get_default_model`、`_merge_fs_interrupt_on`、`_passed_skills_sources`、`_apply_custom_middleware`。
+
+### 3. libs/deepagents/deepagents/backends/protocol.py
+
+来源：[libs/deepagents/deepagents/backends/protocol.py](https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/libs/deepagents/deepagents/backends/protocol.py) · 读取 10,000 字符（片段，已截断）
+
+阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。
+
+当前片段识别到的符号：`FileDownloadResponse`、`FileUploadResponse`、`FileInfo`、`ContextLine`、`GrepMatch`、`FileData`、`ReadResult`、`__post_init__`。
+
+### 4. libs/deepagents/deepagents/middleware/asyncsubagents.py
+
+来源：[libs/deepagents/deepagents/middleware/asyncsubagents.py](https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/libs/deepagents/deepagents/middleware/async_subagents.py) · 读取 10,000 字符（片段，已截断）
+
+阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。
+
+当前片段识别到的符号：`AsyncSubAgent`、`AsyncTask`、`_tasks_reducer`、`AsyncSubAgentState`、`StartAsyncTaskSchema`。
+
+### 5. libs/deepagents/deepagents/middleware/memory.py
+
+来源：[libs/deepagents/deepagents/middleware/memory.py](https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/libs/deepagents/deepagents/middleware/memory.py) · 读取 10,000 字符（片段，已截断）
+
+阅读目标：从实际定义出发，跟踪调用方、状态变化及异常分支。
+
+当前片段识别到的符号：`MemoryState`、`MemoryStateUpdate`、`_strip_html_comments`、`MemoryMiddleware`、`__init__`。
+
+## 建议阅读路线
+
+1. 从 README 确认项目边界，依据官方文档运行最小示例。
+2. 从包清单定位公开入口，对照上面的核心文件查找调用关系。
+3. 选择一次最小任务，记录输入、状态、工具或存储调用以及输出。
+4. 为异常、取消和重复调用分别设计一个实验，验证自己的理解。
+5. 切换到另一个跟踪分支或版本，对照固定提交复查行为变化。
+
+## 研究问题
+
+- [ ] 一次任务如何在模型、工具与执行器之间流转？
+- [ ] 如何处理失败重试、权限与执行隔离？
+- [ ] 如何保留和恢复一个长任务的状态？
+- [ ] 哪些行为已经通过实际代码或实验验证，哪些仍然是假设？
+- [ ] 与同类别其他仓库相比，接口和设计取舍有哪些不同？
+
+## 动手实验
+
+- 复现 README 的最小示例，记录运行环境、版本与结果。
+- 在一个关键入口加入日志，画出一次调用的真实时序。
+- 用一个失败输入观察错误是如何返回和恢复的。
+
+## 来源与覆盖范围
+
+采集 5 个文件片段，目录记录 2214 项。分析固定到提交 `e85c6b98087861512d2c5240305e16cfac68a746`，不随上游分支漂移。文件选择为启发式抽样，不能据此推断完整架构。
+
+- [README.md](https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/README.md)
+- [libs/deepagents/deepagents/graph.py](https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/libs/deepagents/deepagents/graph.py)
+- [libs/deepagents/deepagents/backends/protocol.py](https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/libs/deepagents/deepagents/backends/protocol.py)
+- [libs/deepagents/deepagents/middleware/asyncsubagents.py](https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/libs/deepagents/deepagents/middleware/async_subagents.py)
+- [libs/deepagents/deepagents/middleware/memory.py](https://github.com/langchain-ai/deepagents/blob/e85c6b98087861512d2c5240305e16cfac68a746/libs/deepagents/deepagents/middleware/memory.py)
+
+完整在线知识库入口：[DeepWiki](https://deepwiki.com/langchain-ai/deepagents)（是否已被该服务索引以实际页面为准）。
