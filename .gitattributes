@@ -1,0 +1,3 @@
+# Markdown bodies in the JSON catalog are compared with their source files.
+# Keep their newlines identical on Windows and in GitHub Actions.
+* text=auto eol=lf
