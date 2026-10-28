@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "maxSourceFiles": 5,
+  "maxSourceCharacters": 10000,
+  "trendingPeriods": ["daily", "weekly", "monthly"],
+  "categories": [
+    {
+      "id": "harness",
+      "name": "Agent Harness",
+      "label": "运行与编排",
+      "description": "从工具调用到长任务执行，理解 Agent 如何可靠地完成工作。",
+      "color": "teal",
+      "questions": [
+        "一次任务如何在模型、工具与执行器之间流转？",
+        "如何处理失败重试、权限与执行隔离？",
+        "如何保留和恢复一个长任务的状态？"
+      ]
+    },
+    {
+      "id": "memory",
+      "name": "Agent Memory",
+      "label": "记忆与上下文",
+      "description": "研究 Agent 如何记住、检索和更新信息，让上下文跨越一次对话。",
+      "color": "purple",
+      "questions": [
+        "写入、检索、更新、删除记忆分别在哪里实现？",
+        "如何划分用户、会话和 Agent 的记忆边界？",
+        "如何验证检索质量以及记忆过期和冲突的处理？"
+      ]
+    },
+    {
+      "id": "interaction",
+      "name": "Human–Agent Interaction",
+      "label": "人机交互",
+      "description": "探索流式界面、人工确认和协作协议，连接人和 Agent。",
+      "color": "blue",
+      "questions": [
+        "前端如何消费 Agent 的事件流？",
+        "工具调用如何呈现给用户并获得人工确认？",
+        "断线重连、取消和恢复如何同步前后端状态？"
+      ]
+    }
+  ],
+  "repos": [
+    {
+      "repo": "langchain-ai/deepagents",
+      "category": "harness",
+      "refs": ["default", "latest-release"],
+      "tags": ["Harness", "Planning", "Subagents"],
+      "summary": "集成规划、文件系统和子 Agent 的任务执行框架。",
+      "reason": "沿着规划 → 工具调用 → 子任务委派，学习长任务 Agent 的执行闭环。",
+      "featured": true,
+      "sourceRoots": ["libs/deepagents/"]
+    },
+    {
+      "repo": "anthropics/claude-agent-sdk-python",
+      "category": "harness",
+      "refs": ["default"],
+      "tags": ["SDK", "Tools", "Python"],
+      "summary": "以 Python 程序接入 Claude Agent 的工具与执行能力。",
+      "reason": "从 SDK 的客户端入口学习事件、工具权限与会话生命周期。",
+      "sourceRoots": ["src/claude_agent_sdk/"]
+    },
+    {
+      "repo": "OpenHands/OpenHands",
+      "category": "harness",
+      "refs": ["default"],
+      "tags": ["Coding agent", "Sandbox"],
+      "summary": "面向软件开发任务的 Agent 平台与运行环境。",
+      "reason": "研究代码执行环境、动作反馈和开发任务的协作边界。",
+      "sourceRoots": ["src/"]
+    },
+    {
+      "repo": "mem0ai/mem0",
+      "category": "memory",
+      "refs": ["default", "latest-release"],
+      "tags": ["Memory", "Retrieval", "Personalization"],
+      "summary": "为 AI 应用提供持久化记忆、检索与个性化上下文。",
+      "reason": "追踪一次记忆写入与检索，理解记忆抽取和存储接口。",
+      "featured": true,
+      "sourceRoots": ["mem0/"]
+    },
+    {
+      "repo": "letta-ai/letta",
+      "category": "memory",
+      "refs": ["default", "archive"],
+      "tags": ["Stateful agents", "Memory", "Historical source"],
+      "summary": "围绕状态与记忆构建 Agent，对照迁移说明和历史服务端学习。",
+      "reason": "对照 main 的源码迁移说明与 archive 历史服务端研究记忆状态；当前实现位于 letta-ai/letta-code。",
+      "sourceRoots": ["letta/"]
+    },
+    {
+      "repo": "getzep/graphiti",
+      "category": "memory",
+      "refs": ["default"],
+      "tags": ["Knowledge graph", "Temporal"],
+      "summary": "面向 Agent 记忆的时序知识图谱构建与检索框架。",
+      "reason": "研究事实随时间变化时，图谱写入、实体解析和检索的实现。",
+      "sourceRoots": ["graphiti_core/"]
+    },
+    {
+      "repo": "ag-ui-protocol/ag-ui",
+      "category": "interaction",
+      "refs": ["default", "latest-release"],
+      "tags": ["Protocol", "Streaming", "Events"],
+      "summary": "通过事件协议连接 Agent 后端与交互式前端。",
+      "reason": "从事件类型入手，理解 Agent 状态和前端视图如何同步。",
+      "featured": true,
+      "sourceRoots": ["sdks/typescript/packages/"]
+    },
+    {
+      "repo": "CopilotKit/CopilotKit",
+      "category": "interaction",
+      "refs": ["default"],
+      "tags": ["Copilot", "React", "Human-in-the-loop"],
+      "summary": "把 AI 助手、共享状态和人工协作嵌入产品界面。",
+      "reason": "学习生成式界面、前端动作和人工介入的集成方式。",
+      "sourceRoots": ["packages/react-core/src/", "packages/runtime/src/"]
+    },
+    {
+      "repo": "assistant-ui/assistant-ui",
+      "category": "interaction",
+      "refs": ["default"],
+      "tags": ["React", "Chat UI", "Components"],
+      "summary": "用于构建 AI 对话体验的 React 组件与运行时。",
+      "reason": "从消息和线程状态出发，学习可组合的对话交互界面。",
+      "sourceRoots": ["packages/react/src/", "packages/core/src/"]
+    }
+  ]
+}
