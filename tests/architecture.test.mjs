@@ -87,6 +87,44 @@ test("an unverifiable author rationale becomes explicitly labelled inference, ne
   assert.deepEqual(reviewReport(grounded.report, sources), []);
 });
 
+test("diagram IDs are normalized consistently without guessing how duplicate modules connect", () => {
+  const { report, sources } = architectureFixture();
+  const originalId = report.modules[0].id;
+  report.modules[0].id = "request-entry";
+  for (const edge of report.relations) {
+    if (edge.from === originalId) edge.from = "request-entry";
+    if (edge.to === originalId) edge.to = "request-entry";
+  }
+  const grounded = groundReport(report, sources);
+  assert.deepEqual(reviewReport(grounded.report, sources), []);
+  assert.ok(
+    grounded.report.relations.some(
+      (e) => e.from === grounded.report.modules[0].id,
+    ),
+  );
+  report.modules[1].id = "request-entry";
+  assert.ok(
+    reviewReport(groundReport(report, sources).report, sources).some((s) =>
+      s.includes("id 无效或重复"),
+    ),
+  );
+});
+
+test("initialization alone cannot substitute for a configured execution path", () => {
+  const { report, sources } = architectureFixture();
+  assert.deepEqual(
+    reviewReport(report, sources, {
+      requiredTraceSymbols: [["handle"], ["rank"]],
+    }),
+    [],
+  );
+  assert.ok(
+    reviewReport(report, sources, {
+      requiredTraceSymbols: [["LocalThreadRuntimeCore.performRoundtrip"]],
+    }).some((s) => s.includes("不能只讲初始化")),
+  );
+});
+
 test("code excerpts are copied from the evidence, never from model-invented snippet text", () => {
   const { sources, report } = architectureFixture();
   report.codeWalkthroughs[0].code = "launch_the_imaginary_runtime()";

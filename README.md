@@ -58,6 +58,8 @@ node scripts/collect.mjs --force
 
 当前预算为每个版本最多 24 个文件、单文件最多 70,000 字符、合计最多 350,000 字符。仓库配置的 `analysis` 记录一个贯穿全文的场景、重点问题、核心文件和需完整读取的方法。阅读计划与本地导入关系共同决定补读范围，三个仓库并行处理，单仓库内的版本分别分析。
 
+对于容易停留在装配层的项目，可用 `analysis.requiredTraceSymbols` 指定必须贯穿的方法，例如 assistant-ui 的消息追加与模型 roundtrip；缺少这些方法的执行解释时，报告会被退回补写。
+
 可用 `node scripts/collect.mjs --repos=langchain-ai/deepagents,mem0ai/mem0` 只重建选中仓库。失败的仓库 / 分支保留上次快照；部分失败会写入 `public/data/status.json`。架构质量检查不通过时，不将未经确认的调用链作为新文档发布。
 
 网络不能访问 `raw.githubusercontent.com` 时，自动从 GitHub 公开代码页的 JSON 数据读取原始行，再回退到 Git Blob API。可在本地设置 `$env:SOURCE_TRANSPORT = 'github-page'` 跳过原始域名。原始代码不会执行。

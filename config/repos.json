@@ -336,20 +336,38 @@
       "reason": "从消息和线程状态出发，学习可组合的对话交互界面。",
       "sourceRoots": ["packages/react/src/", "packages/core/src/"],
       "analysis": {
-        "scenario": "输入一条用户消息，沿 useLocalRuntime/运行时、模型 adapter 和消息状态更新到 React 组件；先确认当前代码的运行时架构，不照搬旧版本名称。",
+        "scenario": "用户已打开聊天并发送一条消息，沿 LocalThreadRuntimeCore.append → startRun → performRoundtrip → ChatModelAdapter.run → 流式结果合并 → MessageRepository → 订阅通知追踪。初始化/Provider/hydration 只简短交代，不得代替消息执行逻辑。",
         "focusQuestions": [
           "状态管理和消息执行在哪里，React Provider 为什么不是执行引擎？",
           "流式消息、工具调用、线程状态如何统一？",
           "adapter 模式解决了哪些不同后端的问题，代价是什么？"
         ],
         "files": [
+          "packages/core/src/runtimes/local/local-thread-runtime-core.ts",
+          "packages/core/src/runtimes/local/local-runtime-core.ts",
+          "packages/core/src/runtime/utils/message-repository.ts",
+          "packages/core/src/runtime/utils/chat-model-adapter.ts",
           "packages/core/src/react/runtimes/useLocalRuntime.ts",
           "packages/core/src/react/AssistantRuntimeProvider.tsx",
           "packages/core/src/react/RuntimeAdapter.ts",
           "packages/core/src/react/client/RemoteThreadList.ts",
           "packages/core/src/adapters/thread-history.ts"
         ],
-        "focus": {}
+        "focus": {
+          "packages/core/src/runtimes/local/local-thread-runtime-core.ts": [
+            "LocalThreadRuntimeCore.append",
+            "LocalThreadRuntimeCore.startRun",
+            "LocalThreadRuntimeCore.performRoundtrip"
+          ],
+          "packages/core/src/runtime/utils/message-repository.ts": [
+            "MessageRepository.addOrUpdateMessage",
+            "MessageRepository.getMessages"
+          ]
+        },
+        "requiredTraceSymbols": [
+          ["LocalThreadRuntimeCore.append"],
+          ["LocalThreadRuntimeCore.performRoundtrip"]
+        ]
       }
     }
   ],

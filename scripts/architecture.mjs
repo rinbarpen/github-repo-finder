@@ -137,6 +137,7 @@ export function reportMessages({
           "decision 的选择事实、作者给出的原因和你的推断分开。原文只说做了什么、不解释为何如此时，kind 仍为 engineering-inference。其他方案的限制也是工程分析，不能说成根本不可能实现。",
           "每个 codeWalkthrough 可引用 1–3 个不连续小片段，但总计最多 30 行，解释必须覆盖这些片段。",
           "每个 flow.symbol 只含真实符号；多个符号以 / 分隔，各自必须在已读定义和引用里得到验证。",
+          "初始化与 Provider/hydration 最多占主线两步；重点必须是本次用户输入如何实际执行、产生输出、更新状态。learningFocus.requiredTraceSymbols 指定必须沿方法体讲清的执行入口。",
         ],
         responseShape: REPORT_SCHEMA,
         sourceEvidence: sources.map((s) => ({
@@ -197,6 +198,32 @@ function matchesQuote(decision, sources) {
 export function groundReport(value, sources) {
   const report = structuredClone(value);
   const notes = [];
+  const modules = Array.isArray(report?.modules) ? report.modules : [];
+  const ids = modules.map((m) => m?.id);
+  const validId = (id) =>
+    typeof id === "string" && /^[A-Za-z][A-Za-z0-9_]{0,30}$/.test(id);
+  const occupied = new Set(ids.filter(validId));
+  const remapped = new Map();
+  for (const [i, module] of modules.entries()) {
+    if (
+      typeof module?.id !== "string" ||
+      validId(module.id) ||
+      ids.filter((id) => id === module.id).length !== 1
+    )
+      continue;
+    let replacement = `atlas_${i}`;
+    while (occupied.has(replacement)) replacement += "_";
+    occupied.add(replacement);
+    remapped.set(module.id, replacement);
+    module.id = replacement;
+  }
+  for (const edge of Array.isArray(report?.relations) ? report.relations : []) {
+    if (!edge || typeof edge !== "object") continue;
+    edge.from = remapped.get(edge.from) ?? edge.from;
+    edge.to = remapped.get(edge.to) ?? edge.to;
+  }
+  if (remapped.size)
+    notes.push(`已统一 ${remapped.size} 个图表内部 ID，模块与连线含义未变`);
   for (const [i, decision] of (Array.isArray(report?.decisions)
     ? report.decisions
     : []
@@ -220,9 +247,9 @@ export function groundReport(value, sources) {
   return { report, notes };
 }
 
-export function reviewReport(report, sources) {
+export function reviewReport(report, sources, requirements = {}) {
   try {
-    return reviewStructuredReport(report, sources);
+    return reviewStructuredReport(report, sources, requirements);
   } catch {
     return [
       "报告字段结构不正确，请严格按 responseShape 的对象、数组和引用类型返回",
@@ -230,7 +257,7 @@ export function reviewReport(report, sources) {
   }
 }
 
-function reviewStructuredReport(report, sources) {
+function reviewStructuredReport(report, sources, requirements) {
   const issues = [];
   if (!report || typeof report !== "object") return ["报告不是 JSON 对象"];
   const byPath = new Map(sources.map((s) => [s.path, s]));
@@ -377,6 +404,25 @@ function reviewStructuredReport(report, sources) {
   }
   if (flowFiles.size < 2)
     issues.push("运行主线只引用一个实现文件，尚未贯穿协作模块");
+  const traced = (Array.isArray(report.flow) ? report.flow : []).flatMap(
+    (step) =>
+      typeof step?.symbol === "string"
+        ? step.symbol.split(/\s*\/\s*/).map((s) => s.trim())
+        : [],
+  );
+  for (const alternatives of requirements.requiredTraceSymbols ?? []) {
+    if (
+      !alternatives.some((required) =>
+        traced.some(
+          (actual) =>
+            actual === required || actual === required.split(".").at(-1),
+        ),
+      )
+    )
+      issues.push(
+        `运行主线必须追踪 ${alternatives.join(" 或 ")} 的实际执行、数据和状态变化，不能只讲初始化/Provider/hydration`,
+      );
+  }
   for (const [i, tech] of (Array.isArray(report.technologies)
     ? report.technologies
     : []
@@ -491,7 +537,7 @@ export function renderArchitecture({
   sources,
   model,
 }) {
-  const problems = reviewReport(report, sources);
+  const problems = reviewReport(report, sources, entry.analysis);
   if (problems.length)
     throw new Error(`Architecture quality gate: ${problems.join("; ")}`);
   const references = [];

@@ -235,7 +235,7 @@ export async function analyzeRepository({
       if (!notes.includes(note)) notes.push(note);
     if (result.formatRetries)
       notes.push(`完整 JSON 重试 ${result.formatRetries} 次，未使用截断片段`);
-    issues = reviewReport(result.value, sources);
+    issues = reviewReport(result.value, sources, entry.analysis);
     await saveDraft({
       phase: issues.length ? "needs-repair" : "accepted",
       plan,
