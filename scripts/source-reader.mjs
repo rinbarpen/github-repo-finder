@@ -72,6 +72,38 @@ export function sourceInventory(tree, entry, limit = 1000) {
     .slice(0, limit);
 }
 
+// Preserve positions while hiding examples inside Python strings/docstrings.
+// This is a static declaration index, not a Python parser or evaluator.
+function pythonCodeLines(content) {
+  let code = "";
+  let quote = "";
+  for (let i = 0; i < content.length; i++) {
+    const ch = content[i];
+    if (quote) {
+      if (ch === "\\") {
+        code += " ";
+        if (i + 1 < content.length) code += content[++i] === "\n" ? "\n" : " ";
+      } else if (content.startsWith(quote, i)) {
+        code += " ".repeat(quote.length);
+        i += quote.length - 1;
+        quote = "";
+      } else {
+        code += ch === "\n" ? "\n" : " ";
+      }
+    } else if (ch === "#") {
+      while (i < content.length && content[i] !== "\n") { code += " "; i++; }
+      if (i < content.length) code += "\n";
+    } else if (ch === '"' || ch === "'") {
+      quote = content.startsWith(ch.repeat(3), i) ? ch.repeat(3) : ch;
+      code += " ".repeat(quote.length);
+      i += quote.length - 1;
+    } else {
+      code += ch;
+    }
+  }
+  return code.split(/\r?\n/);
+}
+
 export function indexSource(name, content) {
   const lines = content.split(/\r?\n/);
   const symbols = [];
@@ -92,7 +124,7 @@ export function indexSource(name, content) {
         ts.isSetAccessor(node) ||
         ts.isConstructorDeclaration(node);
       const arrow =
-        ts.isVariableDeclaration(node) &&
+        (ts.isVariableDeclaration(node) || ts.isPropertyDeclaration(node)) &&
         node.initializer &&
         (ts.isArrowFunction(node.initializer) ||
           ts.isFunctionExpression(node.initializer));
@@ -107,7 +139,7 @@ export function indexSource(name, content) {
           startLine:
             file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1,
           endLine: file.getLineAndCharacterOfPosition(node.end).line + 1,
-          kind: isClass ? "class" : "function",
+          kind: isClass ? "class" : callable && !node.body ? "declaration" : "function",
         });
       }
       ts.forEachChild(node, (child) =>
@@ -117,8 +149,9 @@ export function indexSource(name, content) {
     visit(file);
   } else if (name.endsWith(".py")) {
     const declarations = [];
+    const codeLines = pythonCodeLines(content);
     for (let i = 0; i < lines.length; i++) {
-      const m = lines[i].match(/^(\s*)(?:(async)\s+)?(def|class)\s+(\w+)/);
+      const m = codeLines[i].match(/^(\s*)(?:(async)\s+)?(def|class)\s+(\w+)/);
       if (m)
         declarations.push({
           name: m[4],
@@ -256,9 +289,11 @@ export function excerptSource(
     url: file.url,
     totalLines: lines.length,
     segments,
-    symbols: symbols
+    symbols: [...symbols]
+      .sort((a, b) => Number(included(b)) - Number(included(a)))
       .slice(0, 160)
-      .map((s) => ({ ...s, bodyIncluded: included(s) })),
+      .sort((a, b) => a.startLine - b.startLine)
+      .map((s) => ({ ...s, bodyIncluded: s.kind !== "declaration" && included(s) })),
     clipped: segments.length !== 1 || segments[0]?.endLine !== lines.length,
     characters: segments.reduce((n, s) => n + s.text.length, 0),
   };
