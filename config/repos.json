@@ -336,10 +336,11 @@
       "reason": "从消息和线程状态出发，学习可组合的对话交互界面。",
       "sourceRoots": ["packages/react/src/", "packages/core/src/"],
       "analysis": {
-        "scenario": "用户已打开聊天并发送一条消息，沿 LocalThreadRuntimeCore.append → startRun → performRoundtrip → ChatModelAdapter.run → 流式结果合并 → MessageRepository → 订阅通知追踪。初始化/Provider/hydration 只简短交代，不得代替消息执行逻辑。",
+        "scenario": "用户发送 hello，沿 LocalThreadRuntimeCore.append → startRun → performRoundtrip → ChatModelAdapter.run → MessageRepository → 订阅通知追踪。结合已读测试：adapter 先 yield content text='a'，再 yield text='ab'，说明最终为何是 ab；不要假设 adapter 输出的是原始 token delta。初始化/Provider/hydration 只简短交代。",
         "focusQuestions": [
           "状态管理和消息执行在哪里，React Provider 为什么不是执行引擎？",
           "流式消息、工具调用、线程状态如何统一？",
+          "为什么 updateMessage 用 initialContent + m.content，而不是上一块结果 + m.content？两次返回 a、ab 时怎样避免 aab？",
           "adapter 模式解决了哪些不同后端的问题，代价是什么？"
         ],
         "files": [
@@ -347,6 +348,7 @@
           "packages/core/src/runtimes/local/local-runtime-core.ts",
           "packages/core/src/runtime/utils/message-repository.ts",
           "packages/core/src/runtime/utils/chat-model-adapter.ts",
+          "packages/core/src/runtimes/local/local-thread-runtime-core.test.ts",
           "packages/core/src/react/runtimes/useLocalRuntime.ts",
           "packages/core/src/react/AssistantRuntimeProvider.tsx",
           "packages/core/src/react/RuntimeAdapter.ts",
@@ -362,6 +364,9 @@
           "packages/core/src/runtime/utils/message-repository.ts": [
             "MessageRepository.addOrUpdateMessage",
             "MessageRepository.getMessages"
+          ],
+          "packages/core/src/runtimes/local/local-thread-runtime-core.test.ts": [
+            "run"
           ]
         },
         "requiredTraceSymbols": [

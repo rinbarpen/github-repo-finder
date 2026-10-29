@@ -138,6 +138,7 @@ export function reportMessages({
           "每个 codeWalkthrough 可引用 1–3 个不连续小片段，但总计最多 30 行，解释必须覆盖这些片段。",
           "每个 flow.symbol 只含真实符号；多个符号以 / 分隔，各自必须在已读定义和引用里得到验证。",
           "初始化与 Provider/hydration 最多占主线两步；重点必须是本次用户输入如何实际执行、产生输出、更新状态。learningFocus.requiredTraceSymbols 指定必须沿方法体讲清的执行入口。",
+          "chunk 不自动等于原始 token delta。按实际赋值表达式和测试区分增量与累计快照：每次用 initialContent + 当前返回 content 重建，与把每块追加到上一个结果不同，必须用具体两次返回值解释。",
         ],
         responseShape: REPORT_SCHEMA,
         sourceEvidence: sources.map((s) => ({
