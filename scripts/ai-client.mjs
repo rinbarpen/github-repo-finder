@@ -27,65 +27,91 @@ export async function requestWikiJSON(
   { purpose = "architecture", timeout = 240000 } = {},
 ) {
   if (!configuration.key) return null;
+  const deepseek = new URL(configuration.url).hostname === "api.deepseek.com";
   const body = {
     model: configuration.model,
     messages,
     response_format: { type: "json_object" },
-    max_tokens: purpose === "planning" ? 8000 : 24000,
+    max_tokens: purpose === "planning" ? 8000 : deepseek ? 32000 : 24000,
     stream: false,
   };
-  if (
-    purpose === "planning" &&
-    new URL(configuration.url).hostname === "api.deepseek.com"
-  )
-    body.thinking = { type: "disabled" };
+  if (deepseek) {
+    body.thinking = { type: purpose === "planning" ? "disabled" : "enabled" };
+    if (purpose !== "planning") body.reasoning_effort = "low";
+    else body.temperature = 0.2;
+  }
   const started = Date.now();
   let response;
-  try {
-    response = await fetch(configuration.url, {
-      method: "POST",
-      signal: AbortSignal.timeout(timeout),
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${configuration.key}`,
-      },
-      body: JSON.stringify(body),
-    });
-    if (!response.ok)
-      throw new Error(`Wiki ${purpose} API returned HTTP ${response.status}`);
-    const result = await response.json();
-    const choice = result.choices?.[0];
-    if (choice?.finish_reason === "length")
-      throw new Error(`Wiki ${purpose} output was truncated`);
-    if (typeof choice?.message?.content !== "string")
-      throw new Error(`Wiki ${purpose} API returned no final content`);
-    const raw = choice.message.content
-      .trim()
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/\s*```$/, "");
-    let value;
+  for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      value = JSON.parse(raw);
-    } catch {
-      throw new Error(`Wiki ${purpose} API returned invalid JSON`);
+      response = await fetch(configuration.url, {
+        method: "POST",
+        signal: AbortSignal.timeout(timeout),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${configuration.key}`,
+        },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        const error = new Error(
+          `Wiki ${purpose} API returned HTTP ${response.status}`,
+        );
+        error.retryable = response.status === 429 || response.status >= 500;
+        throw error;
+      }
+      const result = await response.json();
+      const choice = result.choices?.[0];
+      if (choice?.finish_reason === "length")
+        throw new Error(`Wiki ${purpose} output was truncated`);
+      if (typeof choice?.message?.content !== "string")
+        throw new Error(`Wiki ${purpose} API returned no final content`);
+      const raw = choice.message.content
+        .trim()
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/\s*```$/, "");
+      let value;
+      try {
+        value = JSON.parse(raw);
+      } catch {
+        throw new Error(`Wiki ${purpose} API returned invalid JSON`);
+      }
+      if (!value || Array.isArray(value) || typeof value !== "object")
+        throw new Error(`Wiki ${purpose} API returned a non-object JSON value`);
+      return {
+        value,
+        actualModel:
+          typeof result.model === "string" ? result.model : configuration.model,
+        usage: result.usage
+          ? {
+              prompt_tokens: result.usage.prompt_tokens ?? 0,
+              completion_tokens: result.usage.completion_tokens ?? 0,
+            }
+          : null,
+        durationMs: Date.now() - started,
+        formatRetries: attempt,
+      };
+    } catch (error) {
+      const timeoutError =
+        error.name === "TimeoutError" || error.name === "AbortError";
+      const retryable =
+        error.retryable ||
+        timeoutError ||
+        /truncated|invalid JSON|no final content/.test(error.message);
+      if (attempt === 0 && retryable) {
+        // A new complete JSON response is required; never publish a salvaged fragment.
+        // Keep the same source evidence, but reserve the retry's budget for final output.
+        if (deepseek) {
+          body.thinking = { type: "disabled" };
+          delete body.reasoning_effort;
+          body.temperature = 0.2;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        continue;
+      }
+      if (timeoutError)
+        throw new Error(`Wiki ${purpose} request exceeded ${timeout / 1000}s`);
+      throw error;
     }
-    if (!value || Array.isArray(value) || typeof value !== "object")
-      throw new Error(`Wiki ${purpose} API returned a non-object JSON value`);
-    return {
-      value,
-      actualModel:
-        typeof result.model === "string" ? result.model : configuration.model,
-      usage: result.usage
-        ? {
-            prompt_tokens: result.usage.prompt_tokens ?? 0,
-            completion_tokens: result.usage.completion_tokens ?? 0,
-          }
-        : null,
-      durationMs: Date.now() - started,
-    };
-  } catch (error) {
-    if (error.name === "TimeoutError" || error.name === "AbortError")
-      throw new Error(`Wiki ${purpose} request exceeded ${timeout / 1000}s`);
-    throw error;
   }
 }

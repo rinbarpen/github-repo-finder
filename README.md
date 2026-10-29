@@ -79,7 +79,9 @@ node scripts/collect.mjs --force
 
 前端支持架构图/流程图、章节跳转和源码行引用，图表按需加载。结构化报告另存为同名 `.analysis.json`，供复核阅读计划和证据。仅有迁移 README 的分支生成导航说明，不虚构其架构。模型名称和接口依据 [DeepSeek 官方文档](https://api-docs.deepseek.com/)。
 
-可先阅读人工逐项核对的[Mem0 架构写法示例](docs/examples/mem0-architecture.md)与[DeepAgents 架构写法示例](docs/examples/deepagents-architecture.md)：分别从记忆写入检索、长任务执行出发，解释核心机制、真实边界和设计取舍。
+DeepSeek 阅读计划关闭思考，架构分析使用 `low` 思考档和 32,000 token 上限。截断、无效 JSON、超时或暂时性服务错误最多重试一次；重试关闭思考，重新请求完整 JSON，不拼接残缺内容。无法逐字核实的作者动机降为明确标注的工程推断，源码引用与完整方法体检查仍须通过。参数依据 [Chat Completions API](https://api-docs.deepseek.com/api/create-chat-completion/) 与[思考模式说明](https://api-docs.deepseek.com/guides/thinking_mode/)。
+
+可先阅读人工逐项核对的写法示例：[Mem0](docs/examples/mem0-architecture.md)、[DeepAgents](docs/examples/deepagents-architecture.md)、[AG-UI](docs/examples/ag-ui-architecture.md)。三篇分别从记忆写入检索、长任务执行、事件与界面状态出发，解释核心机制、真实边界和设计取舍。
 
 在 GitHub 仓库 **Settings → Secrets and variables → Actions** 配置：
 

@@ -98,10 +98,62 @@ test("structured analysis uses Flash JSON output and does not store reasoning co
   );
   assert.equal(request.url, "https://api.deepseek.com/chat/completions");
   assert.equal(request.body.model, "deepseek-flash");
+  assert.equal(request.body.reasoning_effort, "low");
+  assert.equal(request.body.max_tokens, 32000);
   assert.equal(request.options.headers.Authorization, "Bearer test-key");
   assert.deepEqual(request.body.response_format, { type: "json_object" });
   assert.deepEqual(result.value, value);
   assert.ok(!JSON.stringify(result).includes("private reasoning"));
+});
+
+test("truncation retries a complete JSON response with the same evidence and output-only budget", async (t) => {
+  const requests = [];
+  t.mock.method(globalThis, "fetch", async (_url, options) => {
+    requests.push(JSON.parse(options.body));
+    return new Response(
+      JSON.stringify({
+        choices:
+          requests.length === 1
+            ? [
+                {
+                  finish_reason: "length",
+                  message: { content: '{"overview":' },
+                },
+              ]
+            : [
+                {
+                  finish_reason: "stop",
+                  message: { content: '{"overview":"complete"}' },
+                },
+              ],
+      }),
+    );
+  });
+  const messages = [
+    { role: "user", content: "Return JSON using these exact source lines" },
+  ];
+  const result = await requestWikiJSON(
+    messages,
+    resolveWikiAIConfig({ DEEPSEEK_API_KEY: "test-key" }),
+  );
+  assert.deepEqual(result.value, { overview: "complete" });
+  assert.equal(result.formatRetries, 1);
+  assert.deepEqual(requests[0].thinking, { type: "enabled" });
+  assert.deepEqual(requests[1].thinking, { type: "disabled" });
+  assert.deepEqual(requests[1].messages, messages);
+});
+
+test("authentication failures do not trigger paid repeated requests", async (t) => {
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    calls++;
+    return new Response("", { status: 401 });
+  });
+  await assert.rejects(
+    requestWikiJSON([], resolveWikiAIConfig({ DEEPSEEK_API_KEY: "test-key" })),
+    /401/,
+  );
+  assert.equal(calls, 1);
 });
 
 test("truncated or non-JSON model outputs are rejected before a guide can be published", async (t) => {

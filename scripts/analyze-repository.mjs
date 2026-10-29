@@ -3,6 +3,7 @@ import {
   ARCHITECTURE_VERSION,
   planMessages,
   reportMessages,
+  groundReport,
   reviewReport,
   renderArchitecture,
   renderNavigation,
@@ -228,6 +229,12 @@ export async function analyzeRepository({
       ai,
       { purpose: "architecture" },
     );
+    const grounded = groundReport(result.value, sources);
+    result.value = grounded.report;
+    for (const note of grounded.notes)
+      if (!notes.includes(note)) notes.push(note);
+    if (result.formatRetries)
+      notes.push(`完整 JSON 重试 ${result.formatRetries} 次，未使用截断片段`);
     issues = reviewReport(result.value, sources);
     await saveDraft({
       phase: issues.length ? "needs-repair" : "accepted",

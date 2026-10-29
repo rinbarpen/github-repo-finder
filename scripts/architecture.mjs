@@ -28,7 +28,8 @@ export const REPORT_SCHEMA = {
       title: "一次运行的一个具体步骤",
       phase: "装配、写入、查询等实际阶段",
       condition: "此步触发条件；必经步骤写明必经",
-      symbol: "实际类.方法或函数名；多个函数以 / 分隔，每个均须有完整方法体和对应引用",
+      symbol:
+        "实际类.方法或函数名；多个函数以 / 分隔，每个均须有完整方法体和对应引用",
       owner: "project 或 dependency",
       input: "此时的数据",
       action: "实际做了什么，交给谁",
@@ -170,6 +171,55 @@ export function evidenceText(source, startLine, endLine) {
     : null;
 }
 
+function matchesQuote(decision, sources) {
+  const quote = decision.maintainerQuote;
+  const normalize = (text) =>
+    text
+      .split("\n")
+      .map((line) => line.replace(/^\s*(?:#|\/\/)\s?/, ""))
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+  return (
+    typeof quote === "string" &&
+    quote.length >= 8 &&
+    quote.length <= 240 &&
+    Array.isArray(decision.evidence) &&
+    decision.evidence.some((e) => {
+      const source = sources.find((s) => s.path === e.path);
+      return normalize(
+        evidenceText(source, e.startLine, e.endLine) ?? "",
+      ).includes(normalize(quote));
+    })
+  );
+}
+
+export function groundReport(value, sources) {
+  const report = structuredClone(value);
+  const notes = [];
+  for (const [i, decision] of (Array.isArray(report?.decisions)
+    ? report.decisions
+    : []
+  ).entries()) {
+    if (
+      decision?.kind !== "maintainer-stated" ||
+      matchesQuote(decision, sources)
+    )
+      continue;
+    decision.kind = "engineering-inference";
+    decision.maintainerQuote = "";
+    for (const key of ["constraint", "alternative", "why", "cost"]) {
+      if (typeof decision[key] === "string")
+        decision[key] = decision[key].replace(
+          /(?:作者|维护者|文档)(?:明确)?(?:说明|指出|表示|写道)[，：:]?/g,
+          "从实现推断，",
+        );
+    }
+    notes.push(`decisions[${i}] 无法逐字核对作者说明，已标为工程推断`);
+  }
+  return { report, notes };
+}
+
 export function reviewReport(report, sources) {
   try {
     return reviewStructuredReport(report, sources);
@@ -284,7 +334,9 @@ function reviewStructuredReport(report, sources) {
     citations(step.evidence, `flow[${i}]`, { code: true });
     const symbols =
       typeof step.symbol === "string"
-        ? step.symbol.split(/\s*\/\s*/).map((s) => s.trim().replace(/\(.*$/, ""))
+        ? step.symbol
+            .split(/\s*\/\s*/)
+            .map((s) => s.trim().replace(/\(.*$/, ""))
         : [""];
     const excerpts = (step.evidence ?? []).map(
       (e) => evidenceText(byPath.get(e.path), e.startLine, e.endLine) ?? "",
@@ -308,7 +360,10 @@ function reviewStructuredReport(report, sources) {
               e.endLine <= s.endLine,
           ),
       );
-      if (!name || (!excerpts.some((s) => s.includes(name)) && !citedInsideBody))
+      if (
+        !name ||
+        (!excerpts.some((s) => s.includes(name)) && !citedInsideBody)
+      )
         issues.push(`flow[${i}] 的符号 ${symbol} 不在其引用代码中`);
       if (step.owner !== "dependency" || exactDefinitions.length) {
         if (!definitions.some((s) => s.bodyIncluded))
@@ -357,17 +412,7 @@ function reviewStructuredReport(report, sources) {
       issues.push(`decisions[${i}] 未区分作者说明与工程推断`);
     citations(decision.evidence, `decisions[${i}]`);
     if (decision.kind === "maintainer-stated") {
-      const quote = decision.maintainerQuote;
-      if (
-        typeof quote !== "string" ||
-        quote.length < 8 ||
-        quote.length > 180 ||
-        !(decision.evidence ?? []).some((e) =>
-          (
-            evidenceText(byPath.get(e.path), e.startLine, e.endLine) ?? ""
-          ).includes(quote),
-        )
-      )
+      if (!matchesQuote(decision, sources))
         issues.push(
           `decisions[${i}] 声称作者意图，但没有提供引用行中真实存在的短原文`,
         );
@@ -388,7 +433,9 @@ function reviewStructuredReport(report, sources) {
     else if (
       snippet.evidence.reduce((n, e) => n + e.endLine - e.startLine + 1, 0) > 30
     )
-      issues.push(`codeWalkthroughs[${i}] 的代码总计超过 30 行，请选决定性的片段`);
+      issues.push(
+        `codeWalkthroughs[${i}] 的代码总计超过 30 行，请选决定性的片段`,
+      );
     citations(snippet.evidence, `codeWalkthroughs[${i}]`, {
       code: true,
       maxLines: 31,
@@ -559,13 +606,17 @@ ${report.codeWalkthroughs
   .map((s, i) => {
     return `### ${i + 1}. ${s.title}
 
-${s.evidence.map((e) => `
+${s.evidence
+  .map(
+    (e) => `
 \`${e.path}:${e.startLine}-${e.endLine}\` ${cite([e])}
 
 \`\`\`${e.path.endsWith(".py") ? "python" : /\.[jt]sx?$/.test(e.path) ? "typescript" : "text"}
 ${evidenceText(byPath.get(e.path), e.startLine, e.endLine)}
 \`\`\`
-`).join("\n")}
+`,
+  )
+  .join("\n")}
 
 ${s.explanation}`;
   })

@@ -91,7 +91,10 @@ function pythonCodeLines(content) {
         code += ch === "\n" ? "\n" : " ";
       }
     } else if (ch === "#") {
-      while (i < content.length && content[i] !== "\n") { code += " "; i++; }
+      while (i < content.length && content[i] !== "\n") {
+        code += " ";
+        i++;
+      }
       if (i < content.length) code += "\n";
     } else if (ch === '"' || ch === "'") {
       quote = content.startsWith(ch.repeat(3), i) ? ch.repeat(3) : ch;
@@ -139,7 +142,11 @@ export function indexSource(name, content) {
           startLine:
             file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1,
           endLine: file.getLineAndCharacterOfPosition(node.end).line + 1,
-          kind: isClass ? "class" : callable && !node.body ? "declaration" : "function",
+          kind: isClass
+            ? "class"
+            : callable && !node.body
+              ? "declaration"
+              : "function",
         });
       }
       ts.forEachChild(node, (child) =>
@@ -293,7 +300,10 @@ export function excerptSource(
       .sort((a, b) => Number(included(b)) - Number(included(a)))
       .slice(0, 160)
       .sort((a, b) => a.startLine - b.startLine)
-      .map((s) => ({ ...s, bodyIncluded: s.kind !== "declaration" && included(s) })),
+      .map((s) => ({
+        ...s,
+        bodyIncluded: s.kind !== "declaration" && included(s),
+      })),
     clipped: segments.length !== 1 || segments[0]?.endLine !== lines.length,
     characters: segments.reduce((n, s) => n + s.text.length, 0),
   };

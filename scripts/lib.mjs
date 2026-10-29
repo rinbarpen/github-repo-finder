@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export const GENERATOR_VERSION = "atlas-architecture-3";
+export const GENERATOR_VERSION = "atlas-architecture-3.1";
 export const repoSlug = (name) => name.toLowerCase().replace("/", "--");
 // A readable prefix plus a hash avoids collisions such as feature/a vs feature-a.
 export const refSlug = (ref) =>

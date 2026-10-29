@@ -41,19 +41,35 @@ test("TypeScript AST follows the actual method body through nested braces and st
 test("Python declaration evidence excludes executable-looking docstring examples", () => {
   const content = `class Agent:\n    \"\"\"Example:\n    class Imaginary:\n        def execute(self):\n            pass\n    \"\"\"\n    def run(self):\n        text = 'escaped \\' quote'\n        return text  # \"\"\"not a string opener\n`;
   const { symbols } = indexSource("agent.py", content);
-  assert.deepEqual(symbols.map((s) => s.name), ["Agent", "Agent.run"]);
+  assert.deepEqual(
+    symbols.map((s) => s.name),
+    ["Agent", "Agent.run"],
+  );
   assert.equal(symbols[1].startLine, 7);
 });
 
 test("TypeScript abstract signatures do not count as implementations, while arrow methods do", () => {
-  const source = excerptSource({ path: "agent.ts", content: "abstract class Agent {\n  abstract run(): void;\n  execute = () => { return actual_work(); };\n}\n" });
-  assert.equal(source.symbols.find((s) => s.name === "Agent.run").bodyIncluded, false);
-  assert.equal(source.symbols.find((s) => s.name === "Agent.execute").bodyIncluded, true);
+  const source = excerptSource({
+    path: "agent.ts",
+    content:
+      "abstract class Agent {\n  abstract run(): void;\n  execute = () => { return actual_work(); };\n}\n",
+  });
+  assert.equal(
+    source.symbols.find((s) => s.name === "Agent.run").bodyIncluded,
+    false,
+  );
+  assert.equal(
+    source.symbols.find((s) => s.name === "Agent.execute").bodyIncluded,
+    true,
+  );
 });
 
 test("a late implementation remains indexed even after 160 earlier declarations", () => {
   const content = `${Array.from({ length: 180 }, (_, i) => `def early${i}():\n    pass\n`).join("\n")}\ndef late():\n    return actual_work()\n`;
-  const source = excerptSource({ path: "large.py", content }, { focus: ["late"], maxCharacters: 500 });
+  const source = excerptSource(
+    { path: "large.py", content },
+    { focus: ["late"], maxCharacters: 500 },
+  );
   assert.ok(source.symbols.find((s) => s.name === "late")?.bodyIncluded);
 });
 
