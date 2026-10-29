@@ -10,6 +10,10 @@ on:
         description: Regenerate every tracked version
         type: boolean
         default: false
+      repositories:
+        description: Comma-separated owner/repo names; leave empty for every repository
+        type: string
+        default: ""
 permissions:
   contents: read
 concurrency:
@@ -17,8 +21,8 @@ concurrency:
   cancel-in-progress: false
 jobs:
   collect-and-build:
-    # Manual runs are restricted to the production branch.
-    if: github.ref == 'refs/heads/main'
+    # Manual dev runs produce review artifacts; only main can publish the site.
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     permissions:
@@ -48,21 +52,45 @@ jobs:
           WIKI_API_URL: ${{ vars.WIKI_API_URL || 'https://api.deepseek.com/chat/completions' }}
           WIKI_MODEL: ${{ vars.WIKI_MODEL || 'deepseek-flash' }}
           FORCE_REGENERATE: ${{ inputs.force }}
+          SELECTED_REPOSITORIES: ${{ inputs.repositories }}
         shell: bash
         run: |
-          if [ "$FORCE_REGENERATE" = "true" ]; then
-            node scripts/collect.mjs --force
-          else
-            npm run collect
-          fi
+          args=()
+          if [ "$FORCE_REGENERATE" = "true" ]; then args+=(--force); fi
+          if [ -n "$SELECTED_REPOSITORIES" ]; then args+=("--repos=$SELECTED_REPOSITORIES"); fi
+          node scripts/collect.mjs "${args[@]}"
       - run: npm run validate
-      - run: npm run build
       - name: Persist generated knowledge on its own branch
+        if: github.ref == 'refs/heads/main'
         run: node scripts/persist-knowledge.mjs
+      - name: Require complete architecture guides for the selected repositories
+        env:
+          SELECTED_REPOSITORIES: ${{ inputs.repositories }}
+        shell: bash
+        run: |
+          node scripts/validate.mjs --require-architecture "--repos=$SELECTED_REPOSITORIES"
+      - run: npm run build
       - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main'
         with:
           path: dist
+      - name: Upload an architecture preview for review
+        if: github.ref != 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-preview
+          path: dist
+          retention-days: 7
+      - name: Upload source-reading diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-diagnostics
+          path: .cache/architecture-review
+          if-no-files-found: ignore
+          retention-days: 7
   deploy:
+    if: github.ref == 'refs/heads/main'
     needs: collect-and-build
     runs-on: ubuntu-latest
     permissions:

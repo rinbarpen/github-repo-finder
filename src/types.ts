@@ -6,17 +6,36 @@ export type Category = {
   color: string;
   questions: string[];
 };
-export type Source = { path: string; url: string; characters: number };
+export type Source = {
+  path: string;
+  url: string;
+  characters: number;
+  totalLines?: number;
+  ranges?: { startLine: number; endLine: number }[];
+};
 export type Wiki = {
   ref: string;
   sha: string;
   treeSha: string;
   generatedAt: string;
-  mode: "evidence" | "ai";
+  mode: "evidence" | "ai" | "navigation";
   markdown: string;
   path: string;
   sources: Source[];
   truncated: boolean;
+  analysis?: {
+    version: number;
+    kind: "architecture" | "navigation";
+    filesRead: number;
+    charactersRead: number;
+    modules?: number;
+    flowSteps?: number;
+    mechanisms?: number;
+    decisions?: number;
+    requestedModel?: string;
+    structuralChecks?: string;
+  };
+  analysisPath?: string;
 };
 export type Repo = {
   id: string;

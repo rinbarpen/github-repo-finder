@@ -20,6 +20,18 @@ assert.ok(catalog.repos.length > 0, "Catalog must not be empty");
 const categories = new Set(config.categories.map((c) => c.id));
 const ids = new Set();
 const paths = new Set();
+const requireArchitecture = process.argv.includes("--require-architecture");
+const selectedArgument = process.argv
+  .find((v) => v.startsWith("--repos="))
+  ?.slice(8);
+const selected = selectedArgument
+  ? new Set(
+      selectedArgument
+        .split(",")
+        .map((v) => v.trim().toLowerCase())
+        .filter(Boolean),
+    )
+  : null;
 for (const repo of catalog.repos) {
   assert.ok(!ids.has(repo.id), `Duplicate ${repo.id}`);
   ids.add(repo.id);
@@ -28,6 +40,28 @@ for (const repo of catalog.repos) {
   assert.ok(repo.wikis.length > 0, `No wiki for ${repo.id}`);
   const refs = new Set();
   for (const wiki of repo.wikis) {
+    if (requireArchitecture && (!selected || selected.has(repo.id))) {
+      assert.equal(
+        wiki.analysis?.version,
+        3,
+        `Architecture generation did not succeed for ${repo.id}@${wiki.ref}`,
+      );
+      assert.ok(["architecture", "navigation"].includes(wiki.analysis.kind));
+      if (wiki.analysis.kind === "architecture") {
+        assert.equal(wiki.mode, "ai");
+        assert.equal(wiki.analysis.structuralChecks, "passed");
+        assert.ok(
+          wiki.analysis.flowSteps >= 5 &&
+            wiki.analysis.mechanisms >= 3 &&
+            wiki.analysis.decisions >= 3,
+        );
+        const artifact = JSON.parse(
+          await readFile(resolve(root, "public", wiki.analysisPath), "utf8"),
+        );
+        assert.equal(artifact.sha, wiki.sha);
+        assert.equal(artifact.version, 3);
+      }
+    }
     assert.ok(!refs.has(wiki.ref), `Duplicate ref ${repo.id}@${wiki.ref}`);
     refs.add(wiki.ref);
     assert.match(wiki.sha, /^[a-f0-9]{40}$/, "Wiki must be pinned to a commit");

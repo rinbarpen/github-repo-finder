@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export const GENERATOR_VERSION = "atlas-evidence-2";
+export const GENERATOR_VERSION = "atlas-architecture-3";
 export const repoSlug = (name) => name.toLowerCase().replace("/", "--");
 // A readable prefix plus a hash avoids collisions such as feature/a vs feature-a.
 export const refSlug = (ref) =>
@@ -41,15 +41,29 @@ export function validateConfig(config) {
   if (
     !Number.isInteger(config.maxSourceFiles) ||
     config.maxSourceFiles < 2 ||
-    config.maxSourceFiles > 15
+    config.maxSourceFiles > 32
   )
-    throw new Error("maxSourceFiles must be 2–15");
+    throw new Error("maxSourceFiles must be 2–32");
   if (
     !Number.isInteger(config.maxSourceCharacters) ||
     config.maxSourceCharacters < 1000 ||
-    config.maxSourceCharacters > 30000
+    config.maxSourceCharacters > 120000
   )
-    throw new Error("maxSourceCharacters must be 1000–30000");
+    throw new Error("maxSourceCharacters must be 1000–120000");
+  if (
+    config.repoConcurrency !== undefined &&
+    (!Number.isInteger(config.repoConcurrency) ||
+      config.repoConcurrency < 1 ||
+      config.repoConcurrency > 4)
+  )
+    throw new Error("repoConcurrency must be 1–4");
+  if (
+    config.maxTotalSourceCharacters !== undefined &&
+    (!Number.isInteger(config.maxTotalSourceCharacters) ||
+      config.maxTotalSourceCharacters < 10000 ||
+      config.maxTotalSourceCharacters > 700000)
+  )
+    throw new Error("maxTotalSourceCharacters must be 10000–700000");
   if (
     !config.trendingPeriods?.every((p) =>
       ["daily", "weekly", "monthly"].includes(p),

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "maxSourceFiles": 5,
-  "maxSourceCharacters": 10000,
+  "maxSourceFiles": 24,
+  "maxSourceCharacters": 70000,
   "trendingPeriods": ["daily", "weekly", "monthly"],
   "categories": [
     {
@@ -50,7 +50,38 @@
       "summary": "集成规划、文件系统和子 Agent 的任务执行框架。",
       "reason": "沿着规划 → 工具调用 → 子任务委派，学习长任务 Agent 的执行闭环。",
       "featured": true,
-      "sourceRoots": ["libs/deepagents/"]
+      "sourceRoots": ["libs/deepagents/"],
+      "analysis": {
+        "scenario": "让 Agent 读取材料、把子任务委派给子 Agent，再把结果写回文件。沿 create_deep_agent 的真实装配和工具调用路径解释。",
+        "focusQuestions": [
+          "DeepAgents 自己实现什么，哪些执行循环、状态图和持久化能力交给 LangChain/LangGraph？",
+          "文件工具如何从模型请求到后端状态更新？为什么把大结果移出上下文？",
+          "子 Agent 为什么有独立上下文，结果如何回到主 Agent？"
+        ],
+        "files": [
+          "libs/deepagents/deepagents/graph.py",
+          "libs/deepagents/deepagents/middleware/filesystem.py",
+          "libs/deepagents/deepagents/middleware/subagents.py",
+          "libs/deepagents/deepagents/backends/state.py",
+          "libs/deepagents/deepagents/backends/composite.py",
+          "libs/deepagents/deepagents/middleware/summarization.py"
+        ],
+        "focus": {
+          "libs/deepagents/deepagents/graph.py": [
+            "create_deep_agent",
+            "_apply_custom_middleware"
+          ],
+          "libs/deepagents/deepagents/middleware/subagents.py": [
+            "_create_task_tool",
+            "SubAgentMiddleware"
+          ],
+          "libs/deepagents/deepagents/middleware/filesystem.py": [
+            "FilesystemMiddleware.wrap_tool_call",
+            "FilesystemMiddleware.awrap_tool_call",
+            "_create_filesystem_tools"
+          ]
+        }
+      }
     },
     {
       "repo": "anthropics/claude-agent-sdk-python",
@@ -59,7 +90,38 @@
       "tags": ["SDK", "Tools", "Python"],
       "summary": "以 Python 程序接入 Claude Agent 的工具与执行能力。",
       "reason": "从 SDK 的客户端入口学习事件、工具权限与会话生命周期。",
-      "sourceRoots": ["src/claude_agent_sdk/"]
+      "sourceRoots": ["src/claude_agent_sdk/"],
+      "analysis": {
+        "scenario": "Python 调用 query 或 ClaudeSDKClient，启动 CLI 子进程，发送一次请求，处理权限/工具回调并消费返回的消息。",
+        "focusQuestions": [
+          "Python SDK 与实际 Agent 执行引擎的边界在哪里？",
+          "子进程流上的控制消息与普通结果如何分开？",
+          "会话、取消、权限和工具回调如何协作，为什么不用简单的一次 HTTP 请求？"
+        ],
+        "files": [
+          "src/claude_agent_sdk/query.py",
+          "src/claude_agent_sdk/client.py",
+          "src/claude_agent_sdk/_internal/client.py",
+          "src/claude_agent_sdk/_internal/query.py",
+          "src/claude_agent_sdk/_internal/transport/subprocess_cli.py",
+          "src/claude_agent_sdk/_internal/message_parser.py",
+          "src/claude_agent_sdk/types.py"
+        ],
+        "focus": {
+          "src/claude_agent_sdk/_internal/query.py": [
+            "Query.start",
+            "Query.query",
+            "Query.receive_messages",
+            "Query._read_messages",
+            "Query._handle_control_request"
+          ],
+          "src/claude_agent_sdk/_internal/transport/subprocess_cli.py": [
+            "SubprocessCLITransport.connect",
+            "SubprocessCLITransport.read_messages",
+            "SubprocessCLITransport.write"
+          ]
+        }
+      }
     },
     {
       "repo": "OpenHands/OpenHands",
@@ -68,7 +130,23 @@
       "tags": ["Coding agent", "Sandbox"],
       "summary": "面向软件开发任务的 Agent 平台与运行环境。",
       "reason": "研究代码执行环境、动作反馈和开发任务的协作边界。",
-      "sourceRoots": ["src/"]
+      "sourceRoots": ["src/"],
+      "analysis": {
+        "scenario": "从当前仓库真实入口发起一次对话/开发任务，沿前端状态、服务适配器和流式事件更新追踪；先确定本仓库是否仍包含执行引擎。",
+        "focusQuestions": [
+          "当前仓库负责应用前端还是 Agent 执行器？不要因为名称叫 OpenHands 就把其他仓库的 sandbox/SDK 写成这里的实现。",
+          "对话状态、后端连接和事件更新如何串联？",
+          "哪些逻辑在服务端/SDK，源码边界在哪里？"
+        ],
+        "files": [
+          "src/entry.client.tsx",
+          "src/api/agent-server-adapter.ts",
+          "src/api/agent-server-config.ts",
+          "src/api/cloud/conversation-service.api.ts",
+          "src/api/README.md"
+        ],
+        "focus": {}
+      }
     },
     {
       "repo": "mem0ai/mem0",
@@ -78,7 +156,40 @@
       "summary": "为 AI 应用提供持久化记忆、检索与个性化上下文。",
       "reason": "追踪一次记忆写入与检索，理解记忆抽取和存储接口。",
       "featured": true,
-      "sourceRoots": ["mem0/"]
+      "sourceRoots": ["mem0/"],
+      "analysis": {
+        "scenario": "Python OSS Memory.add 收到“我不吃辣，喜欢川菜”，先提取记忆再写入；下一次 search 查询“给我推荐晚餐”如何检索。必须读当前算法，不沿用旧版本 UPDATE/DELETE 的印象。",
+        "focusQuestions": [
+          "add 和 search 的真实调用顺序及中间数据是什么？",
+          "LLM、embedding、向量检索、关键词/实体评分分别负责哪一步？",
+          "当前实现采用什么写入/更新策略，为什么，牺牲什么？不要把托管 MemoryClient 的 HTTP/遥测当成 OSS 记忆核心。"
+        ],
+        "files": [
+          "mem0/memory/main.py",
+          "mem0/configs/base.py",
+          "mem0/configs/prompts.py",
+          "mem0/utils/factory.py",
+          "mem0/memory/storage.py",
+          "mem0/vector_stores/base.py",
+          "mem0/vector_stores/qdrant.py",
+          "mem0/utils/scoring.py",
+          "mem0/utils/entity_extraction.py"
+        ],
+        "focus": {
+          "mem0/memory/main.py": [
+            "Memory.add",
+            "Memory.search",
+            "Memory._add_to_vector_store",
+            "Memory._create_memory",
+            "Memory._search_vector_store",
+            "Memory.__init__"
+          ],
+          "mem0/memory/storage.py": [
+            "SQLiteManager.add_history",
+            "SQLiteManager.get_history"
+          ]
+        }
+      }
     },
     {
       "repo": "letta-ai/letta",
@@ -87,7 +198,30 @@
       "tags": ["Stateful agents", "Memory", "Historical source"],
       "summary": "围绕状态与记忆构建 Agent，对照迁移说明和历史服务端学习。",
       "reason": "对照 main 的源码迁移说明与 archive 历史服务端研究记忆状态；当前实现位于 letta-ai/letta-code。",
-      "sourceRoots": ["letta/"]
+      "sourceRoots": ["letta/"],
+      "analysis": {
+        "scenario": "在 archive 历史服务端中沿一次消息处理理解上下文记忆、工具循环及持久状态；main 只按 README 说明迁移入口，不编造主分支架构。",
+        "focusQuestions": [
+          "核心上下文、检索记忆和持久状态怎样分工？",
+          "消息如何触发模型、工具、记忆变更，再继续下一轮？",
+          "为什么将记忆暴露为可操作状态，和简单追加完整聊天记录有什么不同？"
+        ],
+        "files": [
+          "letta/agents/letta_agent.py",
+          "letta/agents/agent_loop.py",
+          "letta/agent.py",
+          "letta/schemas/memory.py",
+          "letta/server/server.py"
+        ],
+        "focus": {
+          "letta/agents/letta_agent.py": [
+            "LettaAgent.step",
+            "LettaAgent._step",
+            "LettaAgent.step_user_message"
+          ],
+          "letta/agent.py": ["Agent.step", "Agent._step", "Agent._get_ai_reply"]
+        }
+      }
     },
     {
       "repo": "getzep/graphiti",
@@ -96,7 +230,32 @@
       "tags": ["Knowledge graph", "Temporal"],
       "summary": "面向 Agent 记忆的时序知识图谱构建与检索框架。",
       "reason": "研究事实随时间变化时，图谱写入、实体解析和检索的实现。",
-      "sourceRoots": ["graphiti_core/"]
+      "sourceRoots": ["graphiti_core/"],
+      "analysis": {
+        "scenario": "写入两段时间不同且事实冲突的对话，再查询人物/关系；追踪 add_episode、实体解析、边的时间有效性和检索融合。",
+        "focusQuestions": [
+          "episode、entity、edge 的数据关系是什么？",
+          "新事实如何去重、合并和使旧关系失效？",
+          "为什么使用图谱、向量和关键词的组合，哪一步由数据库提供？"
+        ],
+        "files": [
+          "graphiti_core/graphiti.py",
+          "graphiti_core/nodes.py",
+          "graphiti_core/edges.py",
+          "graphiti_core/search/search.py",
+          "graphiti_core/search/search_utils.py",
+          "graphiti_core/utils/maintenance/node_operations.py",
+          "graphiti_core/utils/maintenance/edge_operations.py",
+          "graphiti_core/utils/maintenance/temporal_edge_utils.py"
+        ],
+        "focus": {
+          "graphiti_core/graphiti.py": [
+            "Graphiti.add_episode",
+            "Graphiti.search",
+            "Graphiti.__init__"
+          ]
+        }
+      }
     },
     {
       "repo": "ag-ui-protocol/ag-ui",
@@ -106,7 +265,35 @@
       "summary": "通过事件协议连接 Agent 后端与交互式前端。",
       "reason": "从事件类型入手，理解 Agent 状态和前端视图如何同步。",
       "featured": true,
-      "sourceRoots": ["sdks/typescript/packages/"]
+      "sourceRoots": ["sdks/typescript/packages/"],
+      "analysis": {
+        "scenario": "浏览器发起一轮 Agent 请求，收到文本增量、工具调用和状态更新，再完成或中断；从 HttpAgent 和 AbstractAgent 的方法体追到事件验证、归一化、状态应用及订阅者。",
+        "focusQuestions": [
+          "为什么协议用事件而不是一次性完整消息？",
+          "文本增量、工具调用和状态 delta 如何变成前端状态？",
+          "规范、传输和客户端运行时各自的边界是什么？"
+        ],
+        "files": [
+          "sdks/typescript/packages/client/src/agent/agent.ts",
+          "sdks/typescript/packages/client/src/agent/http.ts",
+          "sdks/typescript/packages/client/src/apply/default.ts",
+          "sdks/typescript/packages/client/src/chunks/transform.ts",
+          "sdks/typescript/packages/client/src/verify/verify.ts",
+          "sdks/typescript/packages/client/src/enforce/enforce.ts",
+          "sdks/typescript/packages/client/src/agent/subscriber.ts"
+        ],
+        "focus": {
+          "sdks/typescript/packages/client/src/agent/agent.ts": [
+            "AbstractAgent.runAgent",
+            "AbstractAgent.connectAgent",
+            "AbstractAgent.onInitialize"
+          ],
+          "sdks/typescript/packages/client/src/agent/http.ts": [
+            "HttpAgent.run",
+            "HttpAgent.requestInit"
+          ]
+        }
+      }
     },
     {
       "repo": "CopilotKit/CopilotKit",
@@ -115,7 +302,30 @@
       "tags": ["Copilot", "React", "Human-in-the-loop"],
       "summary": "把 AI 助手、共享状态和人工协作嵌入产品界面。",
       "reason": "学习生成式界面、前端动作和人工介入的集成方式。",
-      "sourceRoots": ["packages/react-core/src/", "packages/runtime/src/"]
+      "sourceRoots": [
+        "packages/core/src/",
+        "packages/react-core/src/v2/",
+        "packages/runtime/src/v2/"
+      ],
+      "analysis": {
+        "scenario": "React 界面用当前 v2 的 useAgent 发起任务，经 core 的 Agent 注册/运行和 runtime runner，返回事件流并更新 UI。避开 v1-deprecated。",
+        "focusQuestions": [
+          "React 绑定层、core 状态、runtime 和外部 Agent 各自负责什么？",
+          "事件如何变成 UI 状态，共享状态/前端动作如何回流？",
+          "为什么将 Agent 和 UI 通过协议/运行时分开，而不把 LLM 请求写在组件中？"
+        ],
+        "files": [
+          "packages/core/src/core/core.ts",
+          "packages/core/src/core/agent-registry.ts",
+          "packages/core/src/agent.ts",
+          "packages/core/src/utils/http-agent.ts",
+          "packages/react-core/src/v2/hooks/use-agent.tsx",
+          "packages/runtime/src/v2/runtime/core/runtime.ts",
+          "packages/runtime/src/v2/runtime/runner/agent-runner.ts",
+          "packages/runtime/src/v2/runtime/runner/in-memory.ts"
+        ],
+        "focus": {}
+      }
     },
     {
       "repo": "assistant-ui/assistant-ui",
@@ -124,7 +334,25 @@
       "tags": ["React", "Chat UI", "Components"],
       "summary": "用于构建 AI 对话体验的 React 组件与运行时。",
       "reason": "从消息和线程状态出发，学习可组合的对话交互界面。",
-      "sourceRoots": ["packages/react/src/", "packages/core/src/"]
+      "sourceRoots": ["packages/react/src/", "packages/core/src/"],
+      "analysis": {
+        "scenario": "输入一条用户消息，沿 useLocalRuntime/运行时、模型 adapter 和消息状态更新到 React 组件；先确认当前代码的运行时架构，不照搬旧版本名称。",
+        "focusQuestions": [
+          "状态管理和消息执行在哪里，React Provider 为什么不是执行引擎？",
+          "流式消息、工具调用、线程状态如何统一？",
+          "adapter 模式解决了哪些不同后端的问题，代价是什么？"
+        ],
+        "files": [
+          "packages/core/src/react/runtimes/useLocalRuntime.ts",
+          "packages/core/src/react/AssistantRuntimeProvider.tsx",
+          "packages/core/src/react/RuntimeAdapter.ts",
+          "packages/core/src/react/client/RemoteThreadList.ts",
+          "packages/core/src/adapters/thread-history.ts"
+        ],
+        "focus": {}
+      }
     }
-  ]
+  ],
+  "maxTotalSourceCharacters": 350000,
+  "repoConcurrency": 3
 }

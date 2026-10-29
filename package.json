@@ -16,7 +16,9 @@
     "check": "npm run test && npm run validate && npm run build"
   },
   "dependencies": {
+    "dompurify": "^3.4.17",
     "lucide-react": "^0.468.0",
+    "mermaid": "^11.17.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",

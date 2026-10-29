@@ -39,8 +39,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { Markdown, guideSections } from "./Markdown";
 import type { Catalog, Note, Personal, Repo, Wiki } from "./types";
 import {
   download,
@@ -75,26 +74,6 @@ const noteKey = (repo: Repo, wiki: Wiki) => `${repo.id}@${wiki.ref}`;
 const repoHash = (repo: string, ref?: string) =>
   `#repo/${encodeURIComponent(repo)}${ref ? `/${encodeURIComponent(ref)}` : ""}`;
 const externalProps = { target: "_blank", rel: "noreferrer" };
-
-function Markdown({ children }: { children: string }) {
-  return (
-    <div className="markdown">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          a: ({ children, href }) => (
-            <a href={href} {...externalProps}>
-              {children}
-            </a>
-          ),
-          img: () => null,
-        }}
-      >
-        {children}
-      </ReactMarkdown>
-    </div>
-  );
-}
 
 export default function App() {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
@@ -615,8 +594,14 @@ export default function App() {
                   {wiki.sha.slice(0, 8)}
                 </a>
                 <span className="branch-analysis-label">
-                  {wiki.mode === "ai" ? "AI 辅助分析" : "源码证据索引"} ·{" "}
-                  {wiki.sources.length} 个来源
+                  {wiki.mode === "navigation"
+                    ? "迁移导航"
+                    : wiki.analysis?.version === 3
+                      ? "架构导读"
+                      : wiki.mode === "ai"
+                        ? "AI 辅助分析"
+                        : "源码证据索引"}{" "}
+                  · {wiki.sources.length} 个来源
                 </span>
                 {opened.wikis.length > 1 && (
                   <a
@@ -635,7 +620,36 @@ export default function App() {
               )}
               <div className={`reader-layout ${noteOpen ? "with-notes" : ""}`}>
                 <article className="wiki-article">
-                  <Markdown>{wiki.markdown}</Markdown>
+                  {wiki.analysis?.kind === "architecture" && (
+                    <div className="guide-navigation">
+                      <div>
+                        <strong>从主线理解这个项目</strong>
+                        <span>
+                          {wiki.analysis.filesRead} 个源码文件 ·{" "}
+                          {wiki.analysis.flowSteps} 步运行路径 ·{" "}
+                          {wiki.analysis.mechanisms} 个核心机制
+                        </span>
+                      </div>
+                      <nav aria-label="架构导读章节">
+                        {guideSections.map(([id, label]) => (
+                          <button
+                            key={id}
+                            onClick={() =>
+                              document
+                                .getElementById(`guide-${id}`)
+                                ?.scrollIntoView({
+                                  behavior: "smooth",
+                                  block: "start",
+                                })
+                            }
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </nav>
+                    </div>
+                  )}
+                  <Markdown anchorPrefix="guide">{wiki.markdown}</Markdown>
                   <div className="complete-reading">
                     <span>
                       <BookCheck size={20} />

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { enrichWithAI, resolveWikiAIConfig } from "../scripts/collect.mjs";
+import { requestWikiJSON, resolveWikiAIConfig } from "../scripts/ai-client.mjs";
 
 test("DeepSeek Flash defaults work with only a provider key, including blank Actions variables", () => {
   const config = resolveWikiAIConfig({
@@ -69,41 +69,61 @@ test("missing model credentials keep the evidence fallback without making an API
   const config = resolveWikiAIConfig({});
   assert.equal(config.model, "deepseek-flash");
   assert.equal(config.enabled, false);
-  assert.equal(await enrichWithAI("# Evidence", [], config), null);
+  assert.equal(await requestWikiJSON([], config), null);
   assert.equal(fetch.mock.callCount(), 0);
 });
 
-test("AI analysis sends the default Flash model and returns only cited final Markdown", async (t) => {
-  const source = {
-    path: "src/agent.py",
-    url: `https://github.com/org/repo/blob/${"a".repeat(40)}/src/agent.py`,
-    content: "class Agent: pass",
-  };
-  const content = `## 架构分析\n[来源](${source.url})\n${"基于提供的源码分析。".repeat(70)}`;
+test("structured analysis uses Flash JSON output and does not store reasoning content", async (t) => {
+  const value = { overview: { plainLanguage: "分析内容" } };
   let request;
   t.mock.method(globalThis, "fetch", async (url, options) => {
     request = { url, options, body: JSON.parse(options.body) };
     return new Response(
       JSON.stringify({
         choices: [
-          { message: { content, reasoning_content: "private reasoning" } },
+          {
+            finish_reason: "stop",
+            message: {
+              content: JSON.stringify(value),
+              reasoning_content: "private reasoning",
+            },
+          },
         ],
       }),
     );
   });
-  const result = await enrichWithAI(
-    "# 项目\n> commit aaaa\n\n## 项目概览\n证据索引",
-    [source],
+  const result = await requestWikiJSON(
+    [{ role: "user", content: "Return architecture JSON" }],
     resolveWikiAIConfig({ DEEPSEEK_API_KEY: "test-key" }),
   );
   assert.equal(request.url, "https://api.deepseek.com/chat/completions");
   assert.equal(request.body.model, "deepseek-flash");
   assert.equal(request.options.headers.Authorization, "Bearer test-key");
-  assert.equal(
-    JSON.parse(request.body.messages[1].content).untrustedSourceData[0].content,
-    source.content,
+  assert.deepEqual(request.body.response_format, { type: "json_object" });
+  assert.deepEqual(result.value, value);
+  assert.ok(!JSON.stringify(result).includes("private reasoning"));
+});
+
+test("truncated or non-JSON model outputs are rejected before a guide can be published", async (t) => {
+  const configuration = resolveWikiAIConfig({ DEEPSEEK_API_KEY: "test-key" });
+  t.mock.method(
+    globalThis,
+    "fetch",
+    async () =>
+      new Response(
+        JSON.stringify({
+          choices: [
+            { finish_reason: "length", message: { content: '{"overview":' } },
+          ],
+        }),
+      ),
   );
-  assert.ok(result.includes(content));
-  assert.ok(result.includes("AI 辅助分析"));
-  assert.ok(!result.includes("private reasoning"));
+  await assert.rejects(requestWikiJSON([], configuration), /truncated/);
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        choices: [{ message: { content: "a long unstructured article" } }],
+      }),
+    );
+  await assert.rejects(requestWikiJSON([], configuration), /invalid JSON/);
 });

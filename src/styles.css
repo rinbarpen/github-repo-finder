@@ -20,6 +20,163 @@
   --line: #e8ecf0;
   --sidebar: 236px;
 }
+
+.guide-navigation {
+  background: #f2f8f4;
+  border: 1px solid #deebe3;
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin-bottom: 27px;
+}
+.guide-navigation > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.guide-navigation strong {
+  font-size: 12px;
+  color: #588270;
+  font-weight: 550;
+}
+.guide-navigation span {
+  font-size: 9px;
+  color: #95aa9d;
+}
+.guide-navigation nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 13px;
+}
+.guide-navigation nav button {
+  border: 1px solid #dce8e0;
+  background: #fff;
+  color: #779380;
+  font-size: 10px;
+  padding: 6px 10px;
+  border-radius: 5px;
+}
+.guide-navigation nav button:hover {
+  border-color: #88b6a0;
+  color: var(--teal);
+}
+.markdown h2 {
+  scroll-margin-top: 22px;
+}
+.markdown a.source-reference {
+  font-size: 10px;
+  vertical-align: super;
+  border: 0;
+  padding: 0 2px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.architecture-diagram {
+  border: 1px solid #e1eae5;
+  border-radius: 8px;
+  margin: 20px 0 25px;
+  background: #fff;
+  overflow: hidden;
+}
+.diagram-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 9px 12px;
+  border-bottom: 1px solid #edf1ef;
+  background: #f8fbf9;
+  font-size: 9px;
+  color: #8da497;
+}
+.diagram-toolbar button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #6e9580;
+  font-size: 9px;
+  padding: 3px 5px;
+}
+.diagram-scroll {
+  padding: 24px 16px;
+  overflow: auto;
+  min-height: 100px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.diagram-svg {
+  width: 100%;
+  min-width: 450px;
+}
+.diagram-svg svg {
+  display: block;
+  min-width: 450px;
+  max-height: 800px;
+  margin: auto;
+  max-width: 100%;
+  height: auto;
+}
+.architecture-diagram.expanded {
+  position: fixed;
+  inset: 24px;
+  z-index: 80;
+  box-shadow:
+    0 0 0 80px #203a4855,
+    0 20px 80px #203a4840;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+.architecture-diagram.expanded .diagram-toolbar {
+  padding: 14px 20px;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.architecture-diagram.expanded .diagram-scroll {
+  flex: 1;
+  padding: 30px;
+  align-items: flex-start;
+}
+.architecture-diagram.expanded .diagram-svg {
+  min-width: 650px;
+  max-width: 1500px;
+}
+.architecture-diagram.expanded svg {
+  max-height: none;
+  width: 100%;
+}
+.diagram-fallback > span {
+  color: #a3916c;
+  font-size: 10px;
+}
+.diagram-fallback pre {
+  font-size: 10px;
+}
+@media (max-width: 600px) {
+  .architecture-diagram.expanded {
+    inset: 12px;
+  }
+  .diagram-scroll {
+    justify-content: flex-start;
+    padding: 18px 8px;
+  }
+  .guide-navigation {
+    padding: 13px;
+  }
+  .guide-navigation strong {
+    font-size: 11px;
+  }
+  .guide-navigation span {
+    font-size: 8px;
+  }
+  .guide-navigation nav button {
+    font-size: 9px;
+    padding: 6px 8px;
+  }
+}
 * {
   box-sizing: border-box;
 }

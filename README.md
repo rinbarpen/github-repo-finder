@@ -54,9 +54,11 @@ node scripts/collect.mjs --repo=mem0ai/mem0
 node scripts/collect.mjs --force
 ```
 
-每个版本依次读取仓库元数据、解析提交、获取目录树、抽样 README / 包清单 / 源码文件。配置、生成器、模型设置或提交变化时重新生成。文件名包含 ref 的哈希，`feature/a` 和 `feature-a` 不会冲突。
+每个版本依次读取仓库元数据、固定提交和目录树，然后先制定阅读计划，再读取入口、关键方法、数据结构、适配器及相关测试/示例。TypeScript 使用编译器 AST 定位方法范围，Python 按定义和缩进建立符号索引；大文件优先读取指定方法体，不再只截取文件开头。配置、生成器、模型设置或提交变化时重新生成。文件名包含 ref 的哈希，`feature/a` 和 `feature-a` 不会冲突。
 
-默认限制为每个版本 5 个文件、每文件 10,000 字符。失败的仓库 / 分支保留上次快照；全部选中仓库失败则退出非零，不覆盖已有目录。部分失败会写入 `public/data/status.json` 并显示在自动化页面。
+当前预算为每个版本最多 24 个文件、单文件最多 70,000 字符、合计最多 350,000 字符。仓库配置的 `analysis` 记录一个贯穿全文的场景、重点问题、核心文件和需完整读取的方法。阅读计划与本地导入关系共同决定补读范围，三个仓库并行处理，单仓库内的版本分别分析。
+
+可用 `node scripts/collect.mjs --repos=langchain-ai/deepagents,mem0ai/mem0` 只重建选中仓库。失败的仓库 / 分支保留上次快照；部分失败会写入 `public/data/status.json`。架构质量检查不通过时，不将未经确认的调用链作为新文档发布。
 
 网络不能访问 `raw.githubusercontent.com` 时，自动从 GitHub 公开代码页的 JSON 数据读取原始行，再回退到 Git Blob API。可在本地设置 `$env:SOURCE_TRANSPORT = 'github-page'` 跳过原始域名。原始代码不会执行。
 
@@ -64,7 +66,18 @@ node scripts/collect.mjs --force
 
 **没有密钥时**，生成可追溯的源码证据索引：项目定位、实际目录、核心文件和识别到的符号、阅读路线、分类研究问题、实验和来源。文档明确声明抽样覆盖及未验证内容；它不是对全仓架构已经验证的深度结论。
 
-**配置密钥后**，默认使用 **DeepSeek Flash（`deepseek-flash`）**，接口为 `https://api.deepseek.com/chat/completions`。根据采集的源码片段生成中文架构分析、调用链、设计取舍及实验。只在采集进程中使用密钥，浏览器中没有模型凭证。文档会标记为“AI 辅助分析”，仍需人工核实。模型名称和接口依据 [DeepSeek 官方文档](https://api-docs.deepseek.com/)。
+**配置密钥后**，默认使用 **DeepSeek Flash（`deepseek-flash`）**，接口为 `https://api.deepseek.com/chat/completions`。第一阶段生成源码阅读计划，第二阶段依据带行号的实现生成结构化架构导读：
+
+1. 用一句话建立直觉，再给出贯穿全文的具体输入和输出。
+2. 用模块图解释职责、数据和状态边界。
+3. 沿实际方法体走完一次请求，明确外部依赖的执行边界。
+4. 解释 3–4 个核心机制：问题、算法、数据结构、本项目实现及依赖提供的部分。
+5. 对比另一种做法，解释设计收益、代价和适用边界；作者意图需要源码原文，否则只能标为工程推断。
+6. 精读直接从实际源码行截取的代码，并提出可观察的验证实验。
+
+发布前会检查方法体覆盖、调用步骤、跨模块证据、引用行段、核心机制和设计取舍，不再只检查篇幅和一个链接。代码片段由渲染器从实际已读行段截取。结构检查通过不等于自动证明所有解释正确，仍需人工复核关键因果关系。
+
+前端支持架构图/流程图、章节跳转和源码行引用，图表按需加载。结构化报告另存为同名 `.analysis.json`，供复核阅读计划和证据。仅有迁移 README 的分支生成导航说明，不虚构其架构。模型名称和接口依据 [DeepSeek 官方文档](https://api-docs.deepseek.com/)。
 
 在 GitHub 仓库 **Settings → Secrets and variables → Actions** 配置：
 
@@ -93,9 +106,11 @@ node scripts/collect.mjs --force
 
 1. 检出 `main`，安装锁定依赖并执行单元测试。
 2. 从 `knowledge` 分支恢复上次数据，进行增量采集。
-3. 校验数据、固定源码引用与分支文件唯一性，构建前端。
-4. 仅将 `public/data/` 和 `public/knowledge/` 写入 `knowledge` 分支，不改写 `main`。
-5. 上传 `dist/` 作为 Pages artifact，在独立的最小权限部署任务中发布。
+3. 校验数据与来源，将通过检查的文档增量保存到 `knowledge` 分支。失败版本保留上次文档，重试时可复用已成功的结果。
+4. 对本轮选中仓库做架构检查；任何版本仍未生成合格导读时，不部署新站点。全部通过后构建前端。
+5. 仅 `main` 上传 Pages artifact 并部署。手动在 `dev` 运行时生成 `architecture-preview` 预览产物，不更新线上站点和正式知识库分支。
+
+手动运行工作流时，`repositories` 可以填写逗号分隔的仓库名做小范围质量预览，留空则处理全部。`force` 用于忽略已有分析缓存。
 
 源码、数据和部署相互分离：
 
@@ -137,4 +152,4 @@ tests/                             分支、来源、笔记与 Git 持久化测�
 npm run check
 ```
 
-执行测试、知识库验证和 TypeScript / Vite 生产构建。采集脚本使用 Node.js 内置 API，没有 Python 或运行时后端依赖。官方部署和数据接口参考：[Vite GitHub Pages](https://vite.dev/guide/static-deploy.html#github-pages)、[GitHub Git Trees API](https://docs.github.com/en/rest/git/trees)。
+执行测试、知识库验证和 TypeScript / Vite 生产构建。采集使用 Node.js 和已安装的 TypeScript 编译器做静态读取，不执行目标仓库代码，不依赖 Python 运行时。官方部署和数据接口参考：[Vite GitHub Pages](https://vite.dev/guide/static-deploy.html#github-pages)、[GitHub Git Trees API](https://docs.github.com/en/rest/git/trees)。
