@@ -79,6 +79,8 @@ node scripts/collect.mjs --force
 
 前端支持架构图/流程图、章节跳转和源码行引用，图表按需加载。结构化报告另存为同名 `.analysis.json`，供复核阅读计划和证据。仅有迁移 README 的分支生成导航说明，不虚构其架构。模型名称和接口依据 [DeepSeek 官方文档](https://api-docs.deepseek.com/)。
 
+可先阅读人工逐项核对的[Mem0 架构写法示例](docs/examples/mem0-architecture.md)：它从一次写入和检索出发，解释事实提取、确定性写入、候选召回与混合评分，并指出当前追加路径与旧版增删改印象的区别。
+
 在 GitHub 仓库 **Settings → Secrets and variables → Actions** 配置：
 
 | 类型     | 名称               | 内容                                             |
@@ -98,7 +100,7 @@ node scripts/collect.mjs --force
 
 本项目计划发布到 `rinbarpen/github-repo-finder`。首次发布脚本 `scripts/publish.ps1` 会创建公开仓库、推送已经提交的 `main` 和 `dev`、设置默认分支，并启用 GitHub Actions 作为 Pages 的构建来源。脚本复用现有 `gh` 登录和 Git 代理，不写入模型密钥，也不强制覆盖远程分支。
 
-运行脚本前需要完成 GitHub CLI 登录，并确保本地 `main` 和 `dev` 已提交且工作目录干净。可传入 `-DryRun` 只查看操作计划；可用 `-Repository owner/name` 指定其他新仓库。运行脚本后，由 `main` 的首次工作流生成 `knowledge` 分支并部署站点。
+运行脚本前需要完成 GitHub CLI 登录，并确保本地 `main` 和 `dev` 已提交且工作目录干净。可传入 `-DryRun` 只查看操作计划；可用 `-Repository owner/name` 指定其他新仓库。推送后，脚本会确认对应 `main` 提交已有成功或进行中的发布任务；没有时主动触发一次。随后工作流生成 `knowledge` 分支并部署站点。
 
 将本项目推送到你自己的 GitHub 仓库，生产分支名设为 `main`。在仓库 **Settings → Pages → Build and deployment → Source** 选择 **GitHub Actions**。需允许工作流写入仓库内容以更新 `knowledge` 分支，部署环境使用 `github-pages`。
 

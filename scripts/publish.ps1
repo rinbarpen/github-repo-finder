@@ -59,6 +59,7 @@ try {
         Write-Output 'Plan: push main and dev without force, and set main as the default branch.'
         Write-Output 'Plan: configure GitHub Pages to use GitHub Actions.'
         Write-Output 'Plan: the main workflow generates and maintains the knowledge branch.'
+        Write-Output 'Plan: ensure a matching main workflow run exists after the push.'
         Write-Output "Pages target: $pagesUrl"
         return
     }
@@ -87,6 +88,17 @@ try {
         Invoke-Checked 'gh' @('api', '--method', 'POST', "repos/$Repository/pages", '-f', 'build_type=workflow', '--silent')
     } elseif ($pagesResult.Output -ne 'workflow') {
         Invoke-Checked 'gh' @('api', '--method', 'PUT', "repos/$Repository/pages", '-f', 'build_type=workflow', '--silent')
+    }
+
+    # Some initial pushes do not produce a run immediately. Ensure publication
+    # has a run without duplicating a successful or currently running one.
+    $mainCommitResult = Get-OptionalResult 'git' @('rev-parse', 'main')
+    if ($mainCommitResult.ExitCode -ne 0) { throw 'Cannot resolve the main commit.' }
+    $mainCommit = ([string]$mainCommitResult.Output).Trim()
+    $runsEndpoint = "repos/$Repository/actions/workflows/refresh-and-deploy.yml/runs?branch=main&head_sha=$mainCommit&per_page=10"
+    $runResult = Get-OptionalResult 'gh' @('api', $runsEndpoint, '--jq', '[.workflow_runs[] | select(.conclusion == null or .conclusion == "success")] | length')
+    if ($runResult.ExitCode -ne 0 -or [int]$runResult.Output -eq 0) {
+        Invoke-Checked 'gh' @('workflow', 'run', 'refresh-and-deploy.yml', '--repo', $Repository, '--ref', 'main')
     }
 
     Write-Output "Repository: https://github.com/$Repository"

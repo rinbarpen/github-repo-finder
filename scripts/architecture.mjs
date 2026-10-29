@@ -26,7 +26,9 @@ export const REPORT_SCHEMA = {
   flow: [
     {
       title: "一次运行的一个具体步骤",
-      symbol: "实际类.方法或函数名",
+      phase: "装配、写入、查询等实际阶段",
+      condition: "此步触发条件；必经步骤写明必经",
+      symbol: "实际类.方法或函数名；多个函数以 / 分隔，每个均须有完整方法体和对应引用",
       owner: "project 或 dependency",
       input: "此时的数据",
       action: "实际做了什么，交给谁",
@@ -126,6 +128,15 @@ export function reportMessages({
         category: category.name,
         learningFocus: entry.analysis ?? {},
         scenario: plan.scenario,
+        accuracyRules: [
+          "flow.phase 与 condition 区分初始化、写入、查询、可选分支和并发；不要把多个独立 API 连成必经顺序。",
+          "示例只说明可能的数据形状。不得声称模型一定提取某事实、调用某工具、选择某条路或得出某个排序；没有实际向量/模型结果就不能预测排名。",
+          "明确默认配置和可选配置：例如默认 StateBackend 不能画成默认经过 CompositeBackend；只有指定路由后才走路由。",
+          "不要把 add 路径只追加扩大为整个项目不可变、全库幂等、永久不会更新；去重说明精确作用范围，检索不等于去重。",
+          "decision 的选择事实、作者给出的原因和你的推断分开。原文只说做了什么、不解释为何如此时，kind 仍为 engineering-inference。其他方案的限制也是工程分析，不能说成根本不可能实现。",
+          "每个 codeWalkthrough 可引用 1–3 个不连续小片段，但总计最多 30 行，解释必须覆盖这些片段。",
+          "每个 flow.symbol 只含真实符号；多个符号以 / 分隔，各自必须在已读定义和引用里得到验证。",
+        ],
         responseShape: REPORT_SCHEMA,
         sourceEvidence: sources.map((s) => ({
           path: s.path,
@@ -271,39 +282,40 @@ function reviewStructuredReport(report, sources) {
         ["symbol", "stateChange"].includes(key) ? 1 : key === "action" ? 15 : 3,
       );
     citations(step.evidence, `flow[${i}]`, { code: true });
-    const name =
+    const symbols =
       typeof step.symbol === "string"
-        ? step.symbol.replace(/\(.*$/, "").split(".").at(-1)
-        : "";
+        ? step.symbol.split(/\s*\/\s*/).map((s) => s.trim().replace(/\(.*$/, ""))
+        : [""];
     const excerpts = (step.evidence ?? []).map(
       (e) => evidenceText(byPath.get(e.path), e.startLine, e.endLine) ?? "",
     );
     const allDefinitions = sources.flatMap((s) =>
       s.symbols.map((symbol) => ({ ...symbol, path: s.path })),
     );
-    const exactDefinitions = allDefinitions.filter(
-      (s) => s.name === step.symbol,
-    );
-    const definitions = exactDefinitions.length
-      ? exactDefinitions
-      : allDefinitions.filter((s) => s.name.split(".").at(-1) === name);
-    const citedInsideBody = definitions.some(
-      (s) =>
-        s.bodyIncluded &&
-        (step.evidence ?? []).some(
-          (e) =>
-            e.path === s.path &&
-            e.startLine >= s.startLine &&
-            e.endLine <= s.endLine,
-        ),
-    );
-    if (!name || (!excerpts.some((s) => s.includes(name)) && !citedInsideBody))
-      issues.push(`flow[${i}] 的符号 ${step.symbol} 不在其引用代码中`);
-    if (step.owner !== "dependency" || exactDefinitions.length) {
-      if (!definitions.some((s) => s.bodyIncluded))
-        issues.push(
-          `flow[${i}] 尚未完整读取 ${step.symbol} 的方法体，不能确认该步逻辑`,
-        );
+    for (const symbol of symbols) {
+      const name = symbol.split(".").at(-1);
+      const exactDefinitions = allDefinitions.filter((s) => s.name === symbol);
+      const definitions = exactDefinitions.length
+        ? exactDefinitions
+        : allDefinitions.filter((s) => s.name.split(".").at(-1) === name);
+      const citedInsideBody = definitions.some(
+        (s) =>
+          s.bodyIncluded &&
+          (step.evidence ?? []).some(
+            (e) =>
+              e.path === s.path &&
+              e.startLine >= s.startLine &&
+              e.endLine <= s.endLine,
+          ),
+      );
+      if (!name || (!excerpts.some((s) => s.includes(name)) && !citedInsideBody))
+        issues.push(`flow[${i}] 的符号 ${symbol} 不在其引用代码中`);
+      if (step.owner !== "dependency" || exactDefinitions.length) {
+        if (!definitions.some((s) => s.bodyIncluded))
+          issues.push(
+            `flow[${i}] 尚未完整读取 ${symbol} 的方法体，不能确认该步逻辑`,
+          );
+      }
     }
     for (const e of step.evidence ?? [])
       if (isImplementation(e.path)) flowFiles.add(e.path);
@@ -367,8 +379,16 @@ function reviewStructuredReport(report, sources) {
   ).entries()) {
     text(snippet.title, `codeWalkthroughs[${i}].title`, 3);
     text(snippet.explanation, `codeWalkthroughs[${i}].explanation`, 35);
-    if (snippet.evidence?.length !== 1)
-      issues.push(`codeWalkthroughs[${i}] 必须指向一个精确片段`);
+    if (
+      !Array.isArray(snippet.evidence) ||
+      snippet.evidence.length < 1 ||
+      snippet.evidence.length > 3
+    )
+      issues.push(`codeWalkthroughs[${i}] 必须指向 1–3 个精确片段`);
+    else if (
+      snippet.evidence.reduce((n, e) => n + e.endLine - e.startLine + 1, 0) > 30
+    )
+      issues.push(`codeWalkthroughs[${i}] 的代码总计超过 30 行，请选决定性的片段`);
     citations(snippet.evidence, `codeWalkthroughs[${i}]`, {
       code: true,
       maxLines: 31,
@@ -445,13 +465,6 @@ export function renderArchitecture({
       })
       .join(" ");
   const byPath = new Map(sources.map((s) => [s.path, s]));
-  const flowDiagram = [
-    "flowchart TD",
-    ...report.flow.map(
-      (s, i) => `  S${i}["${i + 1}. ${diagramText(s.title)}"]`,
-    ),
-    ...report.flow.slice(1).map((_, i) => `  S${i} --> S${i + 1}`),
-  ].join("\n");
   let markdown = `# ${entry.repo.split("/")[1]}：架构、运行逻辑与设计取舍
 
 > ${ref} · [${sha.slice(0, 12)}](https://github.com/${entry.repo}/commit/${sha}) · ${model} 辅助分析 · ${now}
@@ -480,17 +493,13 @@ ${report.modules.map((m) => `| ${cell(m.name)}${m.kind === "dependency" ? "（�
 
 ## 3. 跟着一个请求跑完整条主线
 
-这是对已读方法体的源码推演，沿用上面的输入，不是执行日志。
-
-\`\`\`mermaid
-${flowDiagram}
-\`\`\`
+这是对已读方法体的源码推演，不是执行日志。编号是阅读顺序；装配、写入、查询与条件分支是否发生，取决于每步的触发条件。
 
 ${report.flow
   .map(
     (s, i) => `### ${i + 1}. ${s.title}
 
-入口/调用：\`${s.symbol}\`${s.owner === "dependency" ? "（外部依赖的调用边界）" : ""} ${cite(s.evidence)}
+${s.phase ? `**阶段：** ${s.phase}\n\n` : ""}${s.condition ? `**触发条件：** ${s.condition}\n\n` : ""}入口/调用：\`${s.symbol}\`${s.owner === "dependency" ? "（外部依赖的调用边界）" : ""} ${cite(s.evidence)}
 
 **此时输入：** ${s.input}
 
@@ -532,7 +541,7 @@ ${report.decisions
   .map(
     (d, i) => `### ${i + 1}. ${d.decision}
 
-${d.kind === "maintainer-stated" ? "**依据：作者在代码/文档中的说明。**" : "**依据：对已确认实现的工程推断，不代表作者亲述。**"} ${cite(d.evidence)}
+${d.kind === "maintainer-stated" ? `**作者原文：** “${d.maintainerQuote.replaceAll("\n", " ")}”` : "**依据：已确认实现；以下原因是工程分析，不代表作者亲述。**"} ${cite(d.evidence)}
 
 **面临的约束：** ${d.constraint}
 
@@ -548,14 +557,15 @@ ${d.kind === "maintainer-stated" ? "**依据：作者在代码/文档中的说�
 
 ${report.codeWalkthroughs
   .map((s, i) => {
-    const e = s.evidence[0];
     return `### ${i + 1}. ${s.title}
 
-\`${e.path}:${e.startLine}-${e.endLine}\` ${cite(s.evidence)}
+${s.evidence.map((e) => `
+\`${e.path}:${e.startLine}-${e.endLine}\` ${cite([e])}
 
 \`\`\`${e.path.endsWith(".py") ? "python" : /\.[jt]sx?$/.test(e.path) ? "typescript" : "text"}
 ${evidenceText(byPath.get(e.path), e.startLine, e.endLine)}
 \`\`\`
+`).join("\n")}
 
 ${s.explanation}`;
   })
