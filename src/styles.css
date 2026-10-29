@@ -1974,6 +1974,22 @@ svg {
   border-radius: 3px;
   font-family: Consolas, monospace;
 }
+.source-code:not(.is-expanded) pre {
+  max-height: 24em;
+  overflow: auto;
+}
+.source-code .source-code-toggle {
+  display: block;
+  margin: -0.2rem 0 1.2rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid #d9e7de;
+  border-radius: 7px;
+  background: #f5faf7;
+  color: #47725e;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
 .markdown pre {
   background: #f1f5f6;
   padding: 15px;

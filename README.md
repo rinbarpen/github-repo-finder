@@ -79,7 +79,7 @@ node scripts/collect.mjs --force
 
 发布前会检查方法体覆盖、调用步骤、跨模块证据、引用行段、核心机制和设计取舍，不再只检查篇幅和一个链接。代码片段由渲染器从实际已读行段截取。结构检查通过不等于自动证明所有解释正确，仍需人工复核关键因果关系。
 
-前端支持架构图/流程图、章节跳转和源码行引用，图表按需加载。结构化报告另存为同名 `.analysis.json`，供复核阅读计划和证据。仅有迁移 README 的分支生成导航说明，不虚构其架构。模型名称和接口依据 [DeepSeek 官方文档](https://api-docs.deepseek.com/)。
+前端支持架构图/流程图、章节跳转和源码行引用，图表按需加载。长代码默认限制高度，可展开完整片段；优先选短片段，单个精读主题最多 120 行。实现和验证它的测试可以共同引用，测试不能替代实现证据。结构化报告另存为同名 `.analysis.json`，供复核阅读计划和证据。仅有迁移 README 的分支生成导航说明，不虚构其架构。模型名称和接口依据 [DeepSeek 官方文档](https://api-docs.deepseek.com/)。
 
 DeepSeek 阅读计划关闭思考，架构分析使用 `low` 思考档和 32,000 token 上限。截断、无效 JSON、超时或暂时性服务错误最多重试一次；重试关闭思考，重新请求完整 JSON，不拼接残缺内容。无法逐字核实的作者动机降为明确标注的工程推断，源码引用与完整方法体检查仍须通过。参数依据 [Chat Completions API](https://api-docs.deepseek.com/api/create-chat-completion/) 与[思考模式说明](https://api-docs.deepseek.com/guides/thinking_mode/)。
 

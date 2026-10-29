@@ -142,6 +142,24 @@ export const guideSections = [
   ["7", "验证实验"],
 ];
 
+function SourceCode({ children }: { children: ReactNode }) {
+  const [expanded, setExpanded] = useState(false);
+  const lines = textContent(children).trimEnd().split("\n").length;
+  if (lines <= 30) return <pre>{children}</pre>;
+  return (
+    <div className={`source-code ${expanded ? "is-expanded" : ""}`}>
+      <pre>{children}</pre>
+      <button
+        className="source-code-toggle"
+        aria-expanded={expanded}
+        onClick={() => setExpanded(!expanded)}
+      >
+        {expanded ? "收起代码" : `展开完整代码（${lines} 行）`}
+      </button>
+    </div>
+  );
+}
+
 export function Markdown({
   children,
   anchorPrefix,
@@ -191,7 +209,7 @@ export function Markdown({
               return (
                 <Diagram definition={textContent(code.props.children).trim()} />
               );
-            return <pre>{children}</pre>;
+            return <SourceCode>{children}</SourceCode>;
           },
           img: () => null,
         }}

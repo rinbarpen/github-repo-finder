@@ -125,6 +125,26 @@ test("initialization alone cannot substitute for a configured execution path", (
   );
 });
 
+test("an execution claim may cite its implementation and a confirming test together", () => {
+  const { report, sources } = architectureFixture();
+  sources.push({
+    ...structuredClone(sources[0]),
+    path: "tests/engine.test.ts",
+  });
+  report.flow[0].evidence.push({
+    path: "tests/engine.test.ts",
+    startLine: 1,
+    endLine: 3,
+  });
+  assert.deepEqual(reviewReport(report, sources), []);
+  report.flow[0].evidence = report.flow[0].evidence.filter((e) =>
+    e.path.startsWith("tests/"),
+  );
+  assert.ok(
+    reviewReport(report, sources).some((s) => s.includes("不能只引用")),
+  );
+});
+
 test("code excerpts are copied from the evidence, never from model-invented snippet text", () => {
   const { sources, report } = architectureFixture();
   report.codeWalkthroughs[0].code = "launch_the_imaginary_runtime()";
@@ -189,9 +209,9 @@ test("separate real source excerpts render separately and share a strict total l
   report.codeWalkthroughs[0].evidence = Array.from({ length: 3 }, () => ({
     path: "src/engine.ts",
     startLine: 1,
-    endLine: 12,
+    endLine: 50,
   }));
   assert.ok(
-    reviewReport(report, sources).some((s) => s.includes("总计超过 30 行")),
+    reviewReport(report, sources).some((s) => s.includes("总计超过 120 行")),
   );
 });

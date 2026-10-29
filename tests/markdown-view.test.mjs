@@ -57,3 +57,14 @@ test("untrusted raw HTML in generated reports remains inert", () => {
   assert.ok(!html.includes("<script"));
   assert.ok(!html.includes("<img"));
 });
+
+test("long source excerpts start in a bounded view and preserve the complete code", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(Markdown, {
+      children: `\`\`\`typescript\n${Array.from({ length: 55 }, (_, i) => `const line${i} = ${i};`).join("\n")}\n\`\`\``,
+    }),
+  );
+  assert.ok(html.includes('aria-expanded="false"'));
+  assert.ok(html.includes("展开完整代码（55 行）"));
+  assert.ok(html.includes("const line54 = 54;"));
+});
