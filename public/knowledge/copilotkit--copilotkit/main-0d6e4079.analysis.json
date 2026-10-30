@@ -1,0 +1,918 @@
+{
+  "version": 3,
+  "repo": "CopilotKit/CopilotKit",
+  "ref": "main",
+  "sha": "be9a2caa72ac2b999cdcb3708303f5ad9211e5fc",
+  "analysis": {
+    "version": 3,
+    "kind": "architecture",
+    "requestedModel": "deepseek-flash",
+    "actualModel": "deepseek-flash",
+    "filesRead": 12,
+    "charactersRead": 349977,
+    "modules": 6,
+    "flowSteps": 7,
+    "mechanisms": 4,
+    "decisions": 5,
+    "readingStrategy": "model-and-profile",
+    "structuralChecks": "passed",
+    "usage": {
+      "prompt_tokens": 140464,
+      "completion_tokens": 15410
+    },
+    "notes": [
+      "已统一 2 个图表内部 ID，模块与连线含义未变",
+      "decisions[3] 无法逐字核对作者说明，已标为工程推断"
+    ]
+  },
+  "plan": {
+    "scenario": "React v2 的 useAgent 发起一次任务：组件通过 useAgent 拿到 core 注册的 ProxiedCopilotRuntimeAgent，调用 runAgent 后由 core 的 RunHandler/StateManager 驱动 agent.run，ProxiedCopilotRuntimeAgent 经 runtime fetch 把 RunAgentInput 发到 runtime 的 /run 端点，runtime 的 handle-run 解析请求、经 agent-utils 解析出实际 agent，再由 in-memory runner 执行 agent 并产出 AG-UI 事件流（SSE），core 的 StateManager 订阅事件流把消息/状态/前端工具调用写回，React 订阅 core 变更重渲染 UI。",
+    "files": [
+      {
+        "path": "packages/react-core/src/v2/hooks/use-agent.tsx",
+        "focus": [
+          "useAgent",
+          "useAgentInternal"
+        ],
+        "reason": "React 绑定层公开入口：把 core 的 agent 实例、订阅与 runAgent 暴露给组件，是 UI 触发一次任务的起点，并负责把 core 状态变化转成 React 重渲染。"
+      },
+      {
+        "path": "packages/core/src/core/core.ts",
+        "focus": [
+          "CopilotKitCore.constructor",
+          "CopilotKitCore.runAgent",
+          "CopilotKitCore.subscribeToAgentWithOptions",
+          "CopilotKitCore.notifySubscribers"
+        ],
+        "reason": "core 门面：构造时装配 AgentRegistry/RunHandler/StateManager 等子系统，runAgent 委托给 RunHandler，订阅机制把 agent 事件变化通知给 React 层。"
+      },
+      {
+        "path": "packages/core/src/core/run-handler.ts",
+        "focus": [
+          "RunHandler.runAgent",
+          "RunHandler.buildFrontendTools"
+        ],
+        "reason": "实际被调用的实现：core.runAgent 的真正落点，负责组装 RunAgentInput、注入前端工具/上下文、调用 agent.run 并处理结果。"
+      },
+      {
+        "path": "packages/core/src/core/state-manager.ts",
+        "focus": [
+          "StateManager.subscribeToAgent",
+          "StateManager.handleAgentEvent"
+        ],
+        "reason": "事件如何变成 UI 状态的核心：订阅 agent 事件流，把 AG-UI 事件累积成消息、共享状态、工具调用记录，供 React 读取。"
+      },
+      {
+        "path": "packages/core/src/core/agent-registry.ts",
+        "focus": [
+          "AgentRegistry.registerProxiedAgent",
+          "AgentRegistry.getAgent",
+          "AgentRegistry.performRuntimeConnection"
+        ],
+        "reason": "Agent 注册与运行时连接：从 runtime /info 发现 agent 并创建 ProxiedCopilotRuntimeAgent，getAgent 是 useAgent 取实例的来源。"
+      },
+      {
+        "path": "packages/core/src/agent.ts",
+        "focus": [
+          "ProxiedCopilotRuntimeAgent.run",
+          "ProxiedCopilotRuntimeAgent.#runViaHttp",
+          "ProxiedCopilotRuntimeAgent.connectAgent"
+        ],
+        "reason": "实际被调用的 agent 实现：把 RunAgentInput 通过 runtime fetch 发到 runtime，并把 SSE 事件流转成 Observable 返回给 core。"
+      },
+      {
+        "path": "packages/core/src/utils/http-agent.ts",
+        "focus": [
+          "ɵisHttpAgent"
+        ],
+        "reason": "类型判定辅助，用于区分 HttpAgent 与代理 agent，影响 header/credentials 注入路径，是 agent 与传输适配的衔接点。"
+      },
+      {
+        "path": "packages/runtime/src/v2/runtime/core/runtime.ts",
+        "focus": [
+          "CopilotRuntime.handleRequest",
+          "CopilotRuntime.constructor"
+        ],
+        "reason": "runtime 门面：接收 HTTP 请求、路由到 handler，并持有 runner/agent 解析配置，是服务端一次请求的入口。"
+      },
+      {
+        "path": "packages/runtime/src/v2/runtime/handlers/handle-run.ts",
+        "focus": [
+          "handleRun"
+        ],
+        "reason": "公开入口的真实请求处理：解析 /run 请求体、校验 agentId、调用 agent-utils 解析 agent 并交给 runner 执行，返回 SSE。"
+      },
+      {
+        "path": "packages/runtime/src/v2/runtime/handlers/shared/agent-utils.ts",
+        "focus": [
+          "resolveAgent",
+          "getAgent"
+        ],
+        "reason": "runtime 侧 agent 解析：把请求里的 agentId 映射到实际 agent 实现（内置/远程），是 runtime 与外部 Agent 的边界。"
+      },
+      {
+        "path": "packages/runtime/src/v2/runtime/runner/agent-runner.ts",
+        "focus": [
+          "AgentRunner.run"
+        ],
+        "reason": "runner 接口/基类：定义 runtime 如何执行一次 agent run 并产出事件流，是 in-memory 实现的契约。"
+      },
+      {
+        "path": "packages/runtime/src/v2/runtime/runner/in-memory.ts",
+        "focus": [
+          "InMemoryAgentRunner.run",
+          "InMemoryAgentRunner.runAgent"
+        ],
+        "reason": "实际被调用的 runner 实现：在进程内调用 agent.run，把事件流包装成 SSE 响应，是 runtime 侧核心执行逻辑。"
+      },
+      {
+        "path": "packages/runtime/src/v2/runtime/handlers/shared/sse-response.ts",
+        "focus": [
+          "createSSEResponse"
+        ],
+        "reason": "具体传输适配器：把 runner 产出的事件流转成 SSE HTTP 响应，是 runtime 到 core 的传输边界。"
+      },
+      {
+        "path": "packages/core/src/types.ts",
+        "focus": [],
+        "reason": "类型文件（限两个之一）：定义 CopilotRuntimeTransport、RuntimeMode 等跨层契约，帮助理解 core 与 runtime 的接口。"
+      },
+      {
+        "path": "packages/runtime/src/v2/runtime/runner/__tests__/in-memory-runner.test.ts",
+        "focus": [
+          "describe",
+          "it"
+        ],
+        "reason": "测试/示例：验证 in-memory runner 如何执行 agent 并产出事件，是理解 runtime 执行路径的具体示例。"
+      },
+      {
+        "path": "packages/react-core/src/v2/hooks/__tests__/use-agent.e2e.test.tsx",
+        "focus": [
+          "describe",
+          "it"
+        ],
+        "reason": "测试/示例：端到端验证 useAgent 触发 run 并更新 UI 的路径，覆盖 React 绑定到 core 的调用链。"
+      }
+    ]
+  },
+  "report": {
+    "overview": {
+      "plainLanguage": "一个共享核心把用户界面和可替换的智能体连接起来：界面只读写 agent 的消息与状态，真正的模型/工具执行由运行时一侧的 agent 和 runner 负责，事件通过协议流回并驱动界面更新。",
+      "problem": "如果每个 React 组件自己发 LLM 请求，就会重复处理连接、认证头、流式事件、线程并发、前端工具注册和状态合并；多个组件共享同一个 agent 时还容易互相覆盖 threadId 或重复渲染。",
+      "scenarioInput": "组件调用 useAgent({ agentId: \"chat-1\", runtimeAgentId: \"default\", threadId: \"t1\" })，拿到一个注册在本地 chat-1、出站路由到 runtime 的 default agent 的代理；随后对该 agent 发起一次运行，输入一条用户消息（例如“查订单 A 状态”）。",
+      "scenarioOutput": "推演结果可能是：代理向运行时发出 /agent/default/run 或单端点 envelope，运行时 runner 执行 agent 并产出 AG-UI 事件流；客户端的 agent.messages 追加助手消息，agent.state 或按 run 保存的状态随 STATE_SNAPSHOT/STATE_DELTA 更新，useAgent 的订阅触发重渲染，界面显示新消息和状态。若模型选择前端工具，工具调用和结果会进入消息/状态链路；具体执行细节见 gaps。"
+    },
+    "modules": [
+      {
+        "id": "entry",
+        "name": "React 绑定 hook",
+        "role": "把组件参数解析成具体 agent，并在运行时尚未同步时提供稳定的临时代理；同时把 agent 通知转换成组件重渲染。",
+        "input": "useAgent 的 agentId/threadId/runtimeAgentId/updates/throttleMs，以及 provider 里的 core。",
+        "output": "返回 agent 与 isReady，并建立/清理订阅。",
+        "state": "registeredProxyAgent、provisionalAgentCache、订阅句柄；不拥有消息本身，消息在 agent 上。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "packages/react-core/src/v2/hooks/use-agent.tsx",
+            "startLine": 207,
+            "endLine": 214
+          },
+          {
+            "path": "packages/react-core/src/v2/hooks/use-agent.tsx",
+            "startLine": 237,
+            "endLine": 254
+          },
+          {
+            "path": "packages/react-core/src/v2/hooks/use-agent.tsx",
+            "startLine": 372,
+            "endLine": 427
+          }
+        ]
+      },
+      {
+        "id": "core",
+        "name": "Core 注册与运行编排",
+        "role": "维护 agent 注册表、运行入口、订阅通知和状态管理；RunHandler 负责一次运行的准备与调用，StateManager 订阅 agent 事件记录消息/状态。",
+        "input": "来自 hook 的 getAgent/registerProxiedAgent/subscribeToAgentWithOptions，以及运行参数。",
+        "output": "向代理 agent 调用 runAgent，并向 UI 订阅者发出 agents/run/message 相关通知。",
+        "state": "subscribers、agentRegistry、runHandler、stateManager 以及运行中的请求 ID/abort controller。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "packages/core/src/core/core.ts",
+            "startLine": 513,
+            "endLine": 561
+          },
+          {
+            "path": "packages/core/src/core/core.ts",
+            "startLine": 1714,
+            "endLine": 1718
+          },
+          {
+            "path": "packages/core/src/core/run-handler.ts",
+            "startLine": 743,
+            "endLine": 770
+          },
+          {
+            "path": "packages/core/src/core/state-manager.ts",
+            "startLine": 284,
+            "endLine": 349
+          }
+        ]
+      },
+      {
+        "id": "proxied",
+        "name": "运行时代理 Agent",
+        "role": "继承 HttpAgent，统一处理 run/connect/stop 的运行时路由、transport 选择、消息过滤和工具调用配对修复。",
+        "input": "RunHandler 构造的 RunAgentInput，以及 runtimeUrl、transport、headers、messageFilter。",
+        "output": "Observable<BaseEvent>，由 HTTP/SSE 或 Intelligence delegate 产生。",
+        "state": "runtimeMode、transport、delegate、activeRun、messages/state（继承自 agent）。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "packages/core/src/agent.ts",
+            "startLine": 126,
+            "endLine": 201
+          },
+          {
+            "path": "packages/core/src/agent.ts",
+            "startLine": 685,
+            "endLine": 699
+          },
+          {
+            "path": "packages/core/src/agent.ts",
+            "startLine": 767,
+            "endLine": 801
+          }
+        ]
+      },
+      {
+        "id": "fetch",
+        "name": "Core 运行时 Fetch 边界",
+        "role": "为代理 agent 提供统一 fetch：发送前解析并覆盖最新 headers，处理 single-route 包装，并用 watchdog 把请求结果反馈到运行时连接状态。",
+        "input": "代理 agent 的 fetch 调用和 RequestInit。",
+        "output": "标准 Response，交给 @ag-ui/client 的 HTTP 事件流解析。",
+        "state": "runtimeFetch 缓存、单端点资源开关、运行时健康探测状态。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "packages/core/src/core/agent-registry.ts",
+            "startLine": 748,
+            "endLine": 802
+          },
+          {
+            "path": "packages/core/src/core/agent-registry.ts",
+            "startLine": 825,
+            "endLine": 835
+          }
+        ]
+      },
+      {
+        "id": "runtime",
+        "name": "运行时与 Runner 契约",
+        "role": "服务端创建 runtime 并选择 runner；AgentRunner 定义 run/connect/isRunning/stop 的抽象，SSE runtime 默认使用 InMemoryAgentRunner。",
+        "input": "runtime 配置里的 agents 与 runner 选项。",
+        "output": "统一 runner 实例和 runtime 模式（SSE/Intelligence）。",
+        "state": "runtime.agents、runtime.runner、runtime.mode。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "packages/runtime/src/v2/runtime/core/runtime.ts",
+            "startLine": 587,
+            "endLine": 625
+          },
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/agent-runner.ts",
+            "startLine": 199,
+            "endLine": 212
+          }
+        ]
+      },
+      {
+        "id": "runner",
+        "name": "内存 Runner 与线程存储",
+        "role": "执行具体 agent，缓冲并回报 AG-UI 事件，同时维护线程级并发锁、事件历史和消息快照。",
+        "input": "AgentRunnerRunRequest（threadId、agent、input、ownerId）。",
+        "output": "run() 返回只含 agent 事件的 Observable；connect() 可重放历史并桥接活跃 run。",
+        "state": "进程全局 BoundedThreadStore：isRunning、currentRunId、subject、historicRuns、messagesSnapshot、owner。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/in-memory.ts",
+            "startLine": 753,
+            "endLine": 807
+          },
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/in-memory.ts",
+            "startLine": 809,
+            "endLine": 864
+          },
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/in-memory.ts",
+            "startLine": 1114,
+            "endLine": 1170
+          }
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "from": "entry",
+        "to": "core",
+        "label": "解析/注册 agent 并订阅通知"
+      },
+      {
+        "from": "core",
+        "to": "proxied",
+        "label": "RunHandler 调用 agent.runAgent"
+      },
+      {
+        "from": "proxied",
+        "to": "fetch",
+        "label": "通过注入的 fetch 发送运行时请求"
+      },
+      {
+        "from": "proxied",
+        "to": "runtime",
+        "label": "HTTP POST 到 runtime 的 agent run 端点"
+      },
+      {
+        "from": "runtime",
+        "to": "runner",
+        "label": "runtime 持有 AgentRunner 并执行 run/connect/stop"
+      },
+      {
+        "from": "runner",
+        "to": "core",
+        "label": "事件流经代理/HttpAgent 订阅回到 Core 订阅者与 UI"
+      }
+    ],
+    "flow": [
+      {
+        "title": "Hook 解析并注册本次私有代理",
+        "phase": "装配/初始化",
+        "condition": "当 runtimeAgentId 与 threadId 同时提供且 threadId 合法时走私有代理分支；只给 agentId 时走共享 agent 查询分支。",
+        "symbol": "useAgent / CopilotKitCore.registerProxiedAgent / AgentRegistry.registerProxiedAgent",
+        "owner": "project",
+        "input": "agentId='chat-1'、runtimeAgentId='default'、threadId='t1'。",
+        "action": "useAgent 先做三者配套校验；effect 调 copilotkit.registerProxiedAgent，AgentRegistry 检查 id 冲突，构造 ProxiedCopilotRuntimeAgent，应用 headers/fetch 后写入 localAgents/_agents，并通知 agents 变化。",
+        "stateChange": "localAgents 与 _agents 出现 chat-1 代理；hook 的 registeredProxyAgent 被设置，后续渲染返回真实代理。",
+        "output": "useAgent 返回注册好的 ProxiedCopilotRuntimeAgent。",
+        "evidence": [
+          {
+            "path": "packages/react-core/src/v2/hooks/use-agent.tsx",
+            "startLine": 160,
+            "endLine": 198
+          },
+          {
+            "path": "packages/react-core/src/v2/hooks/use-agent.tsx",
+            "startLine": 237,
+            "endLine": 254
+          },
+          {
+            "path": "packages/core/src/core/agent-registry.ts",
+            "startLine": 497,
+            "endLine": 552
+          }
+        ]
+      },
+      {
+        "title": "Hook 建立 agent 通知订阅",
+        "phase": "装配/订阅",
+        "condition": "updateFlags 非空且 agent 引用变化时重建订阅。",
+        "symbol": "useAgent / CopilotKitCore.subscribeToAgentWithOptions",
+        "owner": "project",
+        "input": "UseAgentUpdate 选择的消息/状态/运行生命周期回调，以及 throttleMs。",
+        "action": "useAgent 把 onMessagesChanged/onStateChanged 映射到 batchedForceUpdate，把 onRunInitialized/onRunStartedEvent/onRunFinalized/onRunFailed/onRunErrorEvent 也映射到 batchedForceUpdate；core 用 safeCall 包裹回调，有效 throttleMs>0 时只把消息/状态回调放进共享 Throttler，生命周期回调立即执行。",
+        "stateChange": "agent 上增加订阅；core 记录订阅句柄；尚未产生消息。",
+        "output": "后续 agent 事件会进入 batchedForceUpdate 或立即生命周期回调。",
+        "evidence": [
+          {
+            "path": "packages/react-core/src/v2/hooks/use-agent.tsx",
+            "startLine": 397,
+            "endLine": 427
+          },
+          {
+            "path": "packages/core/src/core/core.ts",
+            "startLine": 1627,
+            "endLine": 1697
+          }
+        ]
+      },
+      {
+        "title": "任务进入 Core 运行入口",
+        "phase": "写入/执行入口",
+        "condition": "调用方调用 core.runAgent 时；headers 解析失败会取消 continuation 并返回空结果。",
+        "symbol": "CopilotKitCore.runAgent / RunHandler.runAgent",
+        "owner": "project",
+        "input": "agent、forwardedProps、resume、runId。",
+        "action": "Core 直接委托 RunHandler；RunHandler 清中断状态和 suggestions，重新准备 headers，await detach 旧运行，计算 continuation/runId/requestId，创建或复用 AbortController，并临时拦截 agent.abortRun 以便停止时同时中止工具链。",
+        "stateChange": "设置运行代次、活跃 requestId、abort controller 集合，并挂接 agent.abortRun 包装。",
+        "output": "准备好运行上下文后继续构造 RunAgentInput。",
+        "evidence": [
+          {
+            "path": "packages/core/src/core/core.ts",
+            "startLine": 1714,
+            "endLine": 1718
+          },
+          {
+            "path": "packages/core/src/core/run-handler.ts",
+            "startLine": 760,
+            "endLine": 770
+          },
+          {
+            "path": "packages/core/src/core/run-handler.ts",
+            "startLine": 786,
+            "endLine": 793
+          }
+        ]
+      },
+      {
+        "title": "构造输入并调用代理 agent",
+        "phase": "写入/调用",
+        "condition": "headers 准备成功且旧运行 detach 成功；否则中止 continuation 并返回空结果。",
+        "symbol": "RunHandler.runAgent / RunHandler.buildFrontendTools / ProxiedCopilotRuntimeAgent.run",
+        "owner": "project",
+        "input": "agent 当前 threadId、forwardedProps、properties、context、前端工具注册表。",
+        "action": "runAgent 把 properties 与 forwardedProps 合并，加入 __copilotkitRequestId，按需带 resume/runId，调用 buildFrontendTools 过滤 wildcard/disabled/其他 agent 的工具并生成 schema，取 agent 作用域 context，然后调用 agent.runAgent(input, subscriber)。",
+        "stateChange": "RunAgentInput 形成；requestId 与逻辑 runId 绑定；agent 进入运行态。",
+        "output": "ProxiedCopilotRuntimeAgent.run(input) 被调用。",
+        "evidence": [
+          {
+            "path": "packages/core/src/core/run-handler.ts",
+            "startLine": 913,
+            "endLine": 928
+          },
+          {
+            "path": "packages/core/src/core/run-handler.ts",
+            "startLine": 1877,
+            "endLine": 1895
+          },
+          {
+            "path": "packages/core/src/agent.ts",
+            "startLine": 685,
+            "endLine": 699
+          }
+        ]
+      },
+      {
+        "title": "代理 agent 选择 HTTP 路由并准备出站消息",
+        "phase": "可选分支/写入",
+        "condition": "runtimeMode 为 pending，或 transport 为 auto 且不是 Intelligence 时，先 ensureRuntimeConfiguration；随后不是 Intelligence 则走 HTTP。默认 transport 是 auto，默认 runtimeMode 在未收到 /info 时可能是 pending。",
+        "symbol": "ProxiedCopilotRuntimeAgent.run / ProxiedCopilotRuntimeAgent.ensureRuntimeConfiguration / ProxiedCopilotRuntimeAgent.#runViaHttp / ProxiedCopilotRuntimeAgent.#prepareOutboundMessages",
+        "owner": "project",
+        "input": "RunAgentInput 与当前 runtimeUrl/transport/runtimeMode。",
+        "action": "run 在 defer 中先确保 /info 配置，再递归进入 run；#runViaHttp 先对消息应用可选 messageFilter 并修复 tool call 与 result 的配对，再按 transport 选择 single-route envelope 或 super.run 生成的 REST /agent/default/run 请求。",
+        "stateChange": "transport/runtimeMode 可能被解析；activeRun 记录 {threadId, runId}，流 finalize 时释放；出站 messages 可能被过滤/修复。",
+        "output": "HTTP fetch 到 runtime 的 /agent/default/run，返回 SSE/HTTP 事件流。",
+        "evidence": [
+          {
+            "path": "packages/core/src/agent.ts",
+            "startLine": 906,
+            "endLine": 935
+          },
+          {
+            "path": "packages/core/src/agent.ts",
+            "startLine": 767,
+            "endLine": 801
+          },
+          {
+            "path": "packages/core/src/agent.ts",
+            "startLine": 335,
+            "endLine": 380
+          }
+        ]
+      },
+      {
+        "title": "运行时 Runner 执行 agent 并缓冲事件",
+        "phase": "执行/并发控制/写入",
+        "condition": "当 runtime 的 handle-run 选择 InMemoryAgentRunner 并调用 run 时；若同线程已有活跃或 finalizing run，按 onConcurrentRun 默认 throw，配置 supersede 时中止旧 run。handle-run 如何解析 /run 并选出 runner 不在已读证据中，作为边界。",
+        "symbol": "InMemoryAgentRunner.run",
+        "owner": "project",
+        "input": "AgentRunnerRunRequest：threadId='t1'、agent、input.runId、ownerId。",
+        "action": "run 先 canClaim 检查 owner，再 getOrCreate 线程 store；若已有运行则按 onConcurrentRun 抛错或 supersede；随后设置 isRunning/currentRunId/agent，创建 runSubject 和 nextSubject，异步调用 request.agent.runAgent，在 onEvent 中把每个事件 push 到两个 subject 与 currentRunEvents。完成后内部 finalizeRun 用 finalizeRunEvents 补终止事件，按 currentRunId 是否仍属于本 run 决定 appendRun 历史。",
+        "stateChange": "store.isRunning=true、currentRunId 与 agent 被占用；完成后若仍拥有线程则写 historicRuns/messagesSnapshot 并清空运行字段；被 supersede 的旧 run 不覆盖新 run 状态。",
+        "output": "runSubject.asObservable() 产出 agent 事件；SSE 编码由未读的 runtime handler 负责。",
+        "evidence": [
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/in-memory.ts",
+            "startLine": 809,
+            "endLine": 864
+          },
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/in-memory.ts",
+            "startLine": 1021,
+            "endLine": 1046
+          },
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/in-memory.ts",
+            "startLine": 1085,
+            "endLine": 1111
+          }
+        ]
+      },
+      {
+        "title": "事件回到客户端并驱动 UI 重渲染",
+        "phase": "查询/通知",
+        "condition": "agent 的 onMessagesChanged/onStateChanged/onRunFinalized 等通知到达；StateManager 也订阅同一 agent，并在已读回调片段中把事件交给 handle*，其合并算法未完整读取，见 gaps。",
+        "symbol": "useAgent / batchedForceUpdate",
+        "owner": "project",
+        "input": "agent 通知（onMessagesChanged、onStateChanged、运行生命周期事件）。",
+        "action": "useAgent 在订阅 effect 中把消息/状态回调设为 batchedForceUpdate，把运行生命周期回调也设为 batchedForceUpdate；batchedForceUpdate 用 queueMicrotask 合并同一 tick 的多次通知，active 标志防止卸载后更新。React 组件随后重新读取 agent.messages/agent.state。",
+        "stateChange": "组件重新渲染；agent.messages/agent.state 由 agent 的订阅链更新，StateManager 的 handle* 具体写入逻辑见 gaps。",
+        "output": "界面显示助手消息和状态变化；下一次 run 可从更新后的消息/状态继续。",
+        "evidence": [
+          {
+            "path": "packages/react-core/src/v2/hooks/use-agent.tsx",
+            "startLine": 384,
+            "endLine": 395
+          },
+          {
+            "path": "packages/react-core/src/v2/hooks/use-agent.tsx",
+            "startLine": 397,
+            "endLine": 427
+          },
+          {
+            "path": "packages/core/src/core/state-manager.ts",
+            "startLine": 381,
+            "endLine": 421
+          }
+        ]
+      }
+    ],
+    "technologies": [
+      {
+        "name": "AG-UI 事件流水线与 RxJS 缓冲",
+        "problem": "一次 agent 运行会持续产出文本、状态、工具调用和终止事件，客户端需要在运行中增量消费，连接重放时还要能拿到历史。",
+        "mechanism": "输入 RunAgentInput → HTTP 请求返回事件流 → transformHttpEventStream 转成 BaseEvent 序列 → runner 对每个事件调用 runSubject.next/nextSubject.next 并同时累积 currentRunEvents → finalizeRunEvents 补齐终止边界 → 完成后 compactEvents 写入 historicRuns，connect 时再重放/桥接。",
+        "pseudocode": "events = transformHttpEventStream(httpResponse)\nfor e in events:\n  runSubject.next(e)\n  nextSubject.next(e)\n  currentRunEvents.push(e)\nterminal = finalizeRunEvents(currentRunEvents)\nfor e in terminal: subjects.next(e)\nappendRun(compactEvents(currentRunEvents))\n",
+        "dataStructures": "ReplaySubject<BaseEvent>(Infinity)、currentRunEvents、HistoricRun.events、messagesSnapshot；不变量是每个 run 自己的终止事件只 finalize 一次，supersede 的旧 run 不能清空新 run 的 subject。",
+        "projectCode": "ProxiedCopilotRuntimeAgent 负责 HTTP/代理路径；InMemoryAgentRunner 负责 subject、事件累积、finalize 和历史写入。",
+        "externalDependency": "@ag-ui/client 的 runHttpRequest、transformHttpEventStream、compactEvents 和 HttpAgent 订阅机制；rxjs 的 ReplaySubject 与 Observable。",
+        "tradeoff": "流式体验和可重放性好，但活跃 run 的 ReplaySubject 缓冲在完成前不计入 maxBytes，极端单 run 可能暂时超限。",
+        "evidence": [
+          {
+            "path": "packages/core/src/agent.ts",
+            "startLine": 712,
+            "endLine": 758
+          },
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/in-memory.ts",
+            "startLine": 883,
+            "endLine": 891
+          },
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/in-memory.ts",
+            "startLine": 1044,
+            "endLine": 1046
+          }
+        ]
+      },
+      {
+        "name": "前端工具声明与工具结果配对修复",
+        "problem": "模型需要看到前端可调用的工具 schema，同时后端从消息历史重建状态时不能遇到孤立的 tool result。",
+        "mechanism": "RunHandler 从工具注册表过滤 wildcard、available=false、其他 agent 的工具和 disabled 工具，映射为 name/description/parameters；代理 agent 在 HTTP 出站前对消息应用可选 filter，再用 ɵkeepToolResultsWithCalls 或 ɵrepairToolCallPairs 修复 call/result 配对，失败则逐级回退到未修复但保留过滤结果的消息。",
+        "pseudocode": "tools = registry.filter(enabled && scope).map(toSchema)\nkept = messageFilter ? filter(clone(messages)) : undefined\nif kept: messages = repairToolCallPairs(kept, full)\nelse: messages = keepToolResultsWithCalls(full)\nreturn {...input, messages}\n",
+        "dataStructures": "Tool[]、Message[]、toolCallId 与 tool result 的对应关系；过滤后的消息是 second clone，避免 filter 改写原对象影响修复基线。",
+        "projectCode": "RunHandler.buildFrontendTools 生成工具声明；ProxiedCopilotRuntimeAgent.#prepareOutboundMessages/#applyMessageFilter 在 HTTP 路径执行过滤和修复。",
+        "externalDependency": "@ag-ui/client 的 Tool/Message/RunAgentInput 类型；工具实际执行由模型/运行时与前端工具处理链路完成，本段未完整读取。",
+        "tradeoff": "修复能避免 provider 拒绝孤立 tool result，但修复会改动顺序/去重/替换编辑副本；失败时回退到完整历史可能增加 payload。",
+        "evidence": [
+          {
+            "path": "packages/core/src/core/run-handler.ts",
+            "startLine": 1877,
+            "endLine": 1895
+          },
+          {
+            "path": "packages/core/src/agent.ts",
+            "startLine": 335,
+            "endLine": 380
+          },
+          {
+            "path": "packages/core/src/agent.ts",
+            "startLine": 393,
+            "endLine": 437
+          }
+        ]
+      },
+      {
+        "name": "运行时连接、代理路由与请求头覆盖",
+        "problem": "客户端不知道 runtime 是 REST 还是单端点，且认证头可能随登录态变化，不能在构造 agent 时固化。",
+        "mechanism": "proxied agent 在 pending/auto 时 ensureRuntimeConfiguration 先请求 /info 决定 mode/transport；AgentRegistry.createRuntimeFetch 在每次实际 fetch 前 resolveHeaders，把 core headers 覆盖到请求上，必要时把 REST 调用包装成 {method, params, body} 单端点 envelope，并用 watchdog 记录运行时可达性。",
+        "pseudocode": "if mode pending or transport auto:\n  info = fetchRuntimeInfo()\n  mode = info.mode; transport = resolved\nfetch = (input, init) => {\n  headers = overlay(resolveHeaders(), init.headers)\n  if singleRoute: input, init = envelope(input, init)\n  response = fetch(input, init)\n  reportOutcome(response)\n  return response\n}\n",
+        "dataStructures": "HeaderSourceResolver、runtimeFetch 闭包、runtimeMode/transport、singleEndpointUrl。",
+        "projectCode": "AgentRegistry.createRuntimeFetch 与 ProxiedCopilotRuntimeAgent.ensureRuntimeConfiguration/run/connect。",
+        "externalDependency": "浏览器/Node fetch、@ag-ui/client HttpAgent 的 requestInit 与事件流解析。",
+        "tradeoff": "每次发送都解析 headers 能避免过期 token，但增加异步解析和单端点分支复杂度；auto 检测会先试 REST 再回退 single。",
+        "evidence": [
+          {
+            "path": "packages/core/src/core/agent-registry.ts",
+            "startLine": 748,
+            "endLine": 802
+          },
+          {
+            "path": "packages/core/src/agent.ts",
+            "startLine": 906,
+            "endLine": 935
+          },
+          {
+            "path": "packages/core/src/agent.ts",
+            "startLine": 1014,
+            "endLine": 1058
+          }
+        ]
+      },
+      {
+        "name": "有界内存线程存储",
+        "problem": "开发/SSE 模式下线程历史不能无限增长，同时要防止正在运行的线程被驱逐后丢失完成事件。",
+        "mechanism": "进程全局 BoundedThreadStore 用 Map 维持 LRU 顺序；getOrCreate 创建线程并按 maxThreads 驱逐；appendRun 在运行完成时更新线程级消息快照、累积事件字节、按 maxRunsPerThread FIFO 裁剪、按 maxBytes 驱逐其他非运行线程；被移除线程的 owner 记录保留一段时间，防止 id 被其他身份重新占用。",
+        "pseudocode": "getOrCreate(threadId, owner):\n  if exists: touch; return\n  store = new(threadId, owner)\n  map.set; evictThreadsIfNeeded(protect=threadId)\nappendRun(run):\n  if writer not current: return\n  messagesSnapshot = nonempty run.messages\n  historicRuns.push(run)\n  enforceRunCap(); evictByBytesIfNeeded(protect=threadId)\n",
+        "dataStructures": "Map<string, InMemoryEventStore>、ReplaySubject、historicRuns、messagesSnapshot、removedOwners；不变量是 running/stopRequested 线程不被 LRU 驱逐，消息快照在 run-cap 驱逐后仍保留。",
+        "projectCode": "InMemoryAgentRunner 与 ɵBoundedThreadStore 全部在项目内实现。",
+        "externalDependency": "无外部存储；AgentRunner 抽象允许替换为 Intelligence/SQLite runner。",
+        "tradeoff": "进程内实现简单且可重放，但进程全局、非持久，最后一个 runner 的 limits 会影响所有内存线程，且单活跃 run 的流式缓冲不受 maxBytes 约束。",
+        "evidence": [
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/in-memory.ts",
+            "startLine": 69,
+            "endLine": 73
+          },
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/in-memory.ts",
+            "startLine": 333,
+            "endLine": 361
+          },
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/in-memory.ts",
+            "startLine": 472,
+            "endLine": 546
+          },
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/in-memory.ts",
+            "startLine": 593,
+            "endLine": 653
+          }
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "decision": "把组件与 agent 之间通过 core 的注册/订阅隔离，而不是让组件直接请求 LLM。",
+        "constraint": "React 并发渲染可能重复构造/丢弃实例，runtime 的 /info 异步同步，多个 hook 可能共享同一 agent，且流式更新频繁。",
+        "alternative": "每个组件内直接 fetch /run，把返回文本 setState 到局部状态。",
+        "why": "本项目中 useAgent 在 runtime 未同步时返回缓存的 provisional 代理，真实 agent 到达后替换引用；订阅统一经 core 的 safeCall 和可选 Throttler，组件只消费 agent.messages/state。若组件直接请求，就无法自然处理共享 threadId、连接中占位、多个组件重复请求和错误上报。",
+        "cost": "多出代理 agent、订阅和状态同步层，调试调用链更长；错误路径和 provisional 与真实 agent 的切换需要理解 isReady。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "packages/react-core/src/v2/hooks/use-agent.tsx",
+            "startLine": 223,
+            "endLine": 320
+          },
+          {
+            "path": "packages/core/src/core/core.ts",
+            "startLine": 1627,
+            "endLine": 1697
+          }
+        ]
+      },
+      {
+        "decision": "用 ProxiedCopilotRuntimeAgent 适配运行时 HTTP，而不是把 fetch 逻辑散落在 RunHandler。",
+        "constraint": "同一 agent 要支持 REST、单端点、Intelligence delegate，run/connect/stop 路由不同，headers 需要在发送时取最新值。",
+        "alternative": "RunHandler 直接拼 URL 并 fetch，把流解析写回 agent。",
+        "why": "代理类在 run() 中先 ensureRuntimeConfiguration，再按 runtimeMode 选择 #runViaHttp 或 delegate；#runViaHttp 统一做消息过滤、activeRun 跟踪和 abort；headers 由注入的 fetch 在每次请求发送时解析覆盖。这样 RunHandler 只负责构造输入，不需要知道传输差异。",
+        "cost": "代理类继承 HttpAgent 并维护 runtimeMode/transport/delegate 多态，状态组合多；代理和 delegate 之间需要同步 messages/state。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "packages/core/src/agent.ts",
+            "startLine": 126,
+            "endLine": 201
+          },
+          {
+            "path": "packages/core/src/agent.ts",
+            "startLine": 685,
+            "endLine": 699
+          },
+          {
+            "path": "packages/core/src/core/agent-registry.ts",
+            "startLine": 748,
+            "endLine": 802
+          }
+        ]
+      },
+      {
+        "decision": "运行时用 AgentRunner 抽象执行，并让 InMemoryAgentRunner 管理线程并发、历史与重放。",
+        "constraint": "同一 thread 不能无约束并发运行；connect 需要重放历史并桥接活跃 run；SSE 与 Intelligence 需要可替换执行后端。",
+        "alternative": "HTTP handler 里直接调用 agent.runAgent，收到事件就写 SSE，不保存历史。",
+        "why": "Runner 在 run() 中先检查 owner 和 isRunning/stopRequested，再建立 ReplaySubject；connect() 可从 historicRuns 重放并桥接活跃 subject。这样 SSE handler 只做传输，停止/重连/并发语义集中在 runner，避免每个入口重复实现。",
+        "cost": "内存 runner 是进程级、非持久，不能跨重启；需要 Intelligence/SQLite runner 才适合生产长期线程。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/agent-runner.ts",
+            "startLine": 199,
+            "endLine": 212
+          },
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/in-memory.ts",
+            "startLine": 809,
+            "endLine": 864
+          },
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/in-memory.ts",
+            "startLine": 1114,
+            "endLine": 1170
+          }
+        ]
+      },
+      {
+        "decision": "消息/状态通知可节流，但运行生命周期回调立即触发。",
+        "constraint": "流式消息和状态可能在短时间内高频变化；同时停止按钮/busy 状态需要及时反映。",
+        "alternative": "所有回调统一节流，或全部不节流。",
+        "why": "本项目让 onMessagesChanged/onStateChanged 共享一个 leading+trailing Throttler，而 onRunInitialized/onRunFinalized/onRunFailed/onRunErrorEvent 不加节流；React 侧再用 queueMicrotask 合并同一 tick 的 forceUpdate。这样既减少流式重渲染，又不会延迟运行状态切换。",
+        "cost": "throttleMs 配置错误会回退为不节流；消息/状态 UI 可能有最多一个窗口的延迟。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "packages/react-core/src/v2/hooks/use-agent.tsx",
+            "startLine": 42,
+            "endLine": 43
+          },
+          {
+            "path": "packages/react-core/src/v2/hooks/use-agent.tsx",
+            "startLine": 397,
+            "endLine": 427
+          },
+          {
+            "path": "packages/core/src/core/core.ts",
+            "startLine": 1627,
+            "endLine": 1697
+          }
+        ]
+      },
+      {
+        "decision": "InMemory 线程存储采用有界 LRU/运行上限/字节上限，并为被移除线程保留 owner 记录。",
+        "constraint": "进程全局共享存储，匿名身份也可能反复创建线程；运行中的线程被驱逐会导致完成事件写入失败。",
+        "alternative": "普通 Map 无上限保存所有线程，删除后立即忘记 owner。",
+        "why": "实现用 maxThreads LRU、maxRunsPerThread FIFO 和 maxBytes 跨线程驱逐控制内存；evictOneLru 跳过 isRunning 或 stopRequested 的线程，避免正在 finalize 的 run 丢失；removedOwners 保留一段时间，防止旧 thread id 被另一个身份立刻 claim。",
+        "cost": "存储是进程全局的，后构造 runner 的 limits 会影响所有内存线程；owner 记录本身也有限额，极端多身份 churn 仍可能挤出他人记录。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/in-memory.ts",
+            "startLine": 69,
+            "endLine": 73
+          },
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/in-memory.ts",
+            "startLine": 472,
+            "endLine": 546
+          },
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/in-memory.ts",
+            "startLine": 593,
+            "endLine": 653
+          }
+        ]
+      }
+    ],
+    "codeWalkthroughs": [
+      {
+        "title": "useAgent 如何得到真实代理并订阅重渲染",
+        "explanation": "这段先处理 runtimeAgentId 分支：effect 调 registerProxiedAgent 拿到私有代理并存入 registeredProxyAgent；在 effect 尚未运行或 runtime 连接中时，useMemo 用 provisionalAgentCache 返回稳定的临时 ProxiedCopilotRuntimeAgent，避免每次渲染新建引用。之后订阅 effect 只把消息、状态和运行生命周期事件映射成 batchedForceUpdate，交给 core 的 subscribeToAgentWithOptions 统一 safeCall/节流；因此 UI 不直接解析 SSE，而是等 agent 字段变化后重渲染。",
+        "evidence": [
+          {
+            "path": "packages/react-core/src/v2/hooks/use-agent.tsx",
+            "startLine": 256,
+            "endLine": 293
+          },
+          {
+            "path": "packages/react-core/src/v2/hooks/use-agent.tsx",
+            "startLine": 372,
+            "endLine": 421
+          }
+        ]
+      },
+      {
+        "title": "RunHandler 如何把一次任务变成 RunAgentInput",
+        "explanation": "runAgent 先重新应用当前 headers，await detach 旧运行，避免新运行覆盖旧管道；然后计算 resumedRunId/continuation/requestId，并创建 AbortController。构造输入时把 agent 作用域 properties 与调用方 forwardedProps 合并，加入请求 ID，带上 resume/runId 条件字段、buildFrontendTools 过滤后的工具 schema 和 getContextForAgent 的上下文，最后调用 agent.runAgent。这里的输入就是代理 agent 判断 transport 和出站消息的基础。",
+        "evidence": [
+          {
+            "path": "packages/core/src/core/run-handler.ts",
+            "startLine": 760,
+            "endLine": 770
+          },
+          {
+            "path": "packages/core/src/core/run-handler.ts",
+            "startLine": 786,
+            "endLine": 793
+          },
+          {
+            "path": "packages/core/src/core/run-handler.ts",
+            "startLine": 913,
+            "endLine": 928
+          }
+        ]
+      },
+      {
+        "title": "InMemoryAgentRunner 如何执行并 finalize 一次运行",
+        "explanation": "run 先用 canClaim 做 owner 检查，再 getOrCreate 线程 store；若已有运行则按 throw/supersede 处理，然后设置 isRunning、currentRunId、agent，创建两个 ReplaySubject。异步 runAgent 调用真实 agent，onEvent 把每个事件同时推给 runSubject（run 返回值）和 nextSubject（connect/存储桥接），并累积 currentRunEvents。完成后内部 finalizeRun 先补 RUN_STARTED（若 stop 早于首事件），再用 finalizeRunEvents 补终止事件；只有当 currentRunId 仍属于本 run 时才 appendRun 并把运行字段清空，防止被 supersede 的旧 run 覆盖新 run。",
+        "evidence": [
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/in-memory.ts",
+            "startLine": 825,
+            "endLine": 864
+          },
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/in-memory.ts",
+            "startLine": 1021,
+            "endLine": 1046
+          },
+          {
+            "path": "packages/runtime/src/v2/runtime/runner/in-memory.ts",
+            "startLine": 1085,
+            "endLine": 1111
+          }
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "question": "节流是否只合并消息/状态通知，而不延迟运行生命周期？",
+        "change": "在流式输出期间把 useAgent 的 throttleMs 从 0 改为 50（或反过来），观察 onMessagesChanged/onStateChanged 的 forceUpdate 次数与 onRunInitialized/onRunFinalized 的触发时机。",
+        "expected": "throttleMs=50 时消息/状态更新按 leading+trailing 窗口合并，同一 tick 的多个通知只触发一次 microtask forceUpdate；运行开始/结束回调仍立即进入 batchedForceUpdate，因此 busy/停止按钮不会被窗口拖慢。",
+        "evidence": [
+          {
+            "path": "packages/react-core/src/v2/hooks/use-agent.tsx",
+            "startLine": 397,
+            "endLine": 427
+          },
+          {
+            "path": "packages/core/src/core/core.ts",
+            "startLine": 1627,
+            "endLine": 1697
+          }
+        ]
+      },
+      {
+        "question": "threadId 与 runtimeAgentId 的配套校验是否真的阻止共享 agent 被覆盖？",
+        "change": "把调用从 useAgent({ agentId: \"default\" }) 改为 useAgent({ agentId: \"chat-1\", runtimeAgentId: \"default\", threadId: \"t1\" })，或故意只传 threadId 不传 runtimeAgentId。",
+        "expected": "前者会注册一个本地 id 为 chat-1、出站路由到 default 的私有代理，并把 agent.threadId 写成 t1；后者应在渲染时抛出错误，因为共享单例上的 threadId 会被多个 hook 互相覆盖。",
+        "evidence": [
+          {
+            "path": "packages/react-core/src/v2/hooks/use-agent.tsx",
+            "startLine": 160,
+            "endLine": 198
+          },
+          {
+            "path": "packages/core/src/core/agent-registry.ts",
+            "startLine": 497,
+            "endLine": 552
+          },
+          {
+            "path": "packages/react-core/src/v2/hooks/use-agent.tsx",
+            "startLine": 463,
+            "endLine": 466
+          }
+        ]
+      },
+      {
+        "question": "messageFilter 返回不可用结果时是否回退到完整历史而不是让 run 失败？",
+        "change": "配置一个 messageFilter，使其第一次返回非数组（或抛错），再发起一次 run；观察控制台警告和出站请求体。",
+        "expected": "代理 agent 会打印“sending the full message history instead”并发送未过滤的完整消息；若 filter 返回合法数组但配对修复失败，则先尝试保留过滤结果并只移动漂移的 tool result，最后才发送未修复的过滤结果。",
+        "evidence": [
+          {
+            "path": "packages/core/src/agent.ts",
+            "startLine": 393,
+            "endLine": 437
+          },
+          {
+            "path": "packages/core/src/agent.ts",
+            "startLine": 350,
+            "endLine": 378
+          }
+        ]
+      }
+    ],
+    "takeaways": [
+      "UI 层只应绑定 agent 并订阅其消息/状态；连接时序、临时占位、节流和错误保护由 core 统一处理，避免每个组件重复实现。",
+      "ProxiedCopilotRuntimeAgent 是传输边界：它决定 run/connect/stop 的路由、runtimeMode/transport、出站消息修复和 abort，RunHandler 只构造运行输入。",
+      "运行时 runner 负责执行、并发控制和事件重放；InMemoryAgentRunner 用 ReplaySubject + historicRuns + 线程级消息快照把一次运行变成可回放的事件历史。",
+      "前端工具不是直接执行就会生效：工具 schema 要随 RunAgentInput 发给模型，消息中的 tool call/result 配对必须在出站前修复，否则后端重建状态会出问题。",
+      "有界内存存储是开发/SSE 的便利设施而非持久存储：它用 LRU、run cap、byte cap 和 owner retention 控制内存，但仍是进程全局且单活跃 run 的流式缓冲不受 maxBytes 限制。"
+    ],
+    "gaps": [
+      "runtime 的 handle-run 与 agent-utils 未在已读证据中：无法确认 /run 请求如何解析、如何按 agentId 选出 agent、如何把 runner Observable 编码成 SSE。",
+      "StateManager.subscribeToAgent 的方法体只读到 425 行附近，且 handleRunStarted、handleRunFinished、handleStateSnapshot、handleStateDelta、handleMessagesSnapshot 等方法体未包含在已读片段中：只能确认订阅回调会调用它们，无法精确说明状态 delta 合并、runId/messageId 映射和 raw event 裁剪算法。",
+      "RunHandler.processAgentResult 的方法体未包含在已读片段中：无法确认前端工具调用被模型返回后，RunHandler 如何执行工具、如何插入 tool result、如何递归 follow-up，以及 HITL 中断恢复的完整路径。",
+      "useAgent 本身只返回 agent，不直接调用 runAgent；实际发起任务通常由 CopilotChat 或其他调用方完成，本回答只按“调用方随后对 agent 发起运行”这一场景推演。",
+      "@ag-ui/client 的 HttpAgent/transformHttpEventStream 内部如何逐块解析 SSE、如何判定 MESSAGES_SNAPSHOT 与文本增量，属于外部依赖行为，未在仓库已读代码中展开。"
+    ]
+  }
+}

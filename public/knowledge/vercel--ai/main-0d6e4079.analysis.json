@@ -1,0 +1,977 @@
+{
+  "version": 3,
+  "repo": "vercel/ai",
+  "ref": "main",
+  "sha": "dfed8e8234b684c3e2a0571ad1a1078c8364b44c",
+  "analysis": {
+    "version": 3,
+    "kind": "architecture",
+    "requestedModel": "deepseek-flash",
+    "actualModel": "deepseek-flash",
+    "filesRead": 24,
+    "charactersRead": 206715,
+    "modules": 6,
+    "flowSteps": 9,
+    "mechanisms": 4,
+    "decisions": 5,
+    "readingStrategy": "model-and-profile",
+    "structuralChecks": "passed",
+    "usage": {
+      "prompt_tokens": 90183,
+      "completion_tokens": 11836
+    },
+    "notes": [
+      "已统一 5 个图表内部 ID，模块与连线含义未变"
+    ]
+  },
+  "plan": {
+    "scenario": "useChat 发出用户消息，经 AbstractChat 的请求和 transport 收到 UIMessage 流，逐步更新文本与工具状态；工具需要确认时怎样把审批结果送回下一轮。",
+    "files": [
+      {
+        "path": "packages/react/src/use-chat.ts",
+        "focus": [
+          "useChat",
+          "registerAutomaticResume",
+          "resumeOnVisible"
+        ],
+        "reason": "公开入口：React hook 创建/复用 Chat 实例，用稳定包装器把最新 transport 与回调注入 Chat，并订阅 messages/status/error 回调生成渲染快照；同时处理 resume 与可见性重连。"
+      },
+      {
+        "path": "packages/react/src/chat.react.ts",
+        "focus": [
+          "Chat"
+        ],
+        "reason": "React 侧 Chat 子类，连接 useChat 与 AbstractChat，确认 hook 返回的 sendMessage/addToolApprovalResponse 实际来自哪个类。"
+      },
+      {
+        "path": "packages/ai/src/ui/chat.ts",
+        "focus": [
+          "AbstractChat.sendMessage",
+          "AbstractChat.addToolApprovalResponse",
+          "AbstractChat.makeRequestForToolApproval",
+          "AbstractChat.makeRequest",
+          "AbstractChat.makeRequestImpl",
+          "AbstractChat.runAutomaticRequest",
+          "AbstractChat.shouldSendAutomatically",
+          "AbstractChat.stop"
+        ],
+        "reason": "核心实现：sendMessage 构造/替换 UIMessage 后调用 makeRequest；makeRequestImpl 负责状态机、transport.sendMessages/reconnectToStream、processUIMessageStream 消费、取消与断线保存、结束后自动续跑；addToolApprovalResponse 把审批写回工具 part 并触发下一轮请求。"
+      },
+      {
+        "path": "packages/ai/src/ui/chat-transport.ts",
+        "focus": [
+          "ChatTransport.sendMessages",
+          "ChatTransport.reconnectToStream"
+        ],
+        "reason": "传输适配器接口，界定 AbstractChat 与具体 HTTP/WebSocket 实现之间的边界（类型文件，仅用于确认契约）。"
+      },
+      {
+        "path": "packages/ai/src/ui/http-chat-transport.ts",
+        "focus": [
+          "HttpChatTransport.sendMessages",
+          "HttpChatTransport.reconnectToStream",
+          "HttpChatTransport.prepareSendMessagesRequest"
+        ],
+        "reason": "实际默认传输实现：把 messages/trigger/messageId 序列化为 HTTP 请求，读取响应体并转成 UIMessageChunk 流；reconnectToStream 用于断线重连。"
+      },
+      {
+        "path": "packages/ai/src/ui/default-chat-transport.ts",
+        "focus": [
+          "DefaultChatTransport"
+        ],
+        "reason": "useChat 未提供 transport 时的默认适配器，确认它如何委托 HttpChatTransport 并确定默认 API 路径。"
+      },
+      {
+        "path": "packages/ai/src/ui/process-ui-message-stream.ts",
+        "focus": [
+          "processUIMessageStream",
+          "createStreamingUIMessageState"
+        ],
+        "reason": "核心算法：把 UIMessageChunk 增量（text-delta、tool-input、tool-output、approval 等）折叠进 StreamingUIMessageState，并通过 runUpdateMessageJob 串行写回 AbstractChat 的 messages。"
+      },
+      {
+        "path": "packages/ai/src/ui-message-stream/ui-message-chunks.ts",
+        "focus": [
+          "UIMessageChunk"
+        ],
+        "reason": "流协议数据结构：定义 text/tool/approval/data 等 chunk 形状，是传输层与 UI 状态折叠之间的契约（类型文件）。"
+      },
+      {
+        "path": "packages/ai/src/ui/ui-messages.ts",
+        "focus": [
+          "UIMessage",
+          "ToolUIPart"
+        ],
+        "reason": "核心数据结构：UI 消息与工具 part 的状态机（input-streaming/input-available/approval-requested/approval-responded/output-available 等），解释审批如何影响 UI 状态。"
+      },
+      {
+        "path": "packages/ai/src/ui/convert-to-model-messages.ts",
+        "focus": [
+          "convertToModelMessages"
+        ],
+        "reason": "把 UIMessage（含 approval-responded 工具 part）转换为 ModelMessage，服务端据此重建 tool-approval-response 与 tool-result，是审批结果回到下一轮模型调用的关键转换。"
+      },
+      {
+        "path": "packages/ai/src/generate-text/stream-text.ts",
+        "focus": [
+          "streamText"
+        ],
+        "reason": "服务端生成入口：接收 ModelMessage 与 tools，产出 UI message stream；解释工具调用、审批请求与多步续跑在生成侧如何发生。"
+      },
+      {
+        "path": "packages/ai/src/generate-text/collect-tool-approvals.ts",
+        "focus": [
+          "collectToolApprovals"
+        ],
+        "reason": "核心算法：从最后一条 tool 消息收集 approval-response，匹配 approval-request 与 tool-call，区分 approved/denied 并按模型调用顺序排序，决定哪些工具可执行。"
+      },
+      {
+        "path": "packages/ai/src/generate-text/resolve-tool-approval.ts",
+        "focus": [
+          "resolveToolApproval"
+        ],
+        "reason": "审批决策解析：把 approval 配置与响应合并为执行/拒绝/待审批结果，解释自动续跑条件。"
+      },
+      {
+        "path": "packages/ai/src/ui/last-assistant-message-is-complete-with-approval-responses.ts",
+        "focus": [
+          "lastAssistantMessageIsCompleteWithApprovalResponses"
+        ],
+        "reason": "sendAutomaticallyWhen 的典型实现：判断最后一条 assistant 消息是否已带审批响应，从而触发下一轮请求。"
+      },
+      {
+        "path": "packages/ai/src/ui/chat.test.ts",
+        "focus": [
+          "addToolApprovalResponse",
+          "sendMessage"
+        ],
+        "reason": "相关测试：覆盖审批响应写回、自动续跑、取消与重连等行为，验证上述实现路径。"
+      },
+      {
+        "path": "packages/ai/src/generate-text/collect-tool-approvals.test.ts",
+        "focus": [
+          "collectToolApprovals"
+        ],
+        "reason": "相关测试：覆盖审批匹配、重复响应、拒绝与排序等核心算法边界。"
+      }
+    ]
+  },
+  "report": {
+    "overview": {
+      "plainLanguage": "它把一次聊天拆成三层：界面保存可渲染消息，请求层拿完整消息换来一条分块事件流，再把每个事件折叠进当前界面消息。",
+      "problem": "模型输出是增量事件，界面却要稳定渲染文本、工具调用和审批状态；断线还要续传，而模型协议需要的 tool-call/result 与 UI 的 approval-requested 等状态并不相同。",
+      "scenarioInput": "用户调用 sendMessage({ text: '把报告保存到 report.md' })。这里假设服务端本轮返回文本流，并发出 writeFile 工具的审批请求；这不是模型必然行为，只是贯穿示例。",
+      "scenarioOutput": "推演输出：界面先出现用户消息，assistant 文本随 text-delta 增长，随后出现 writeFile 的 approval-requested；用户批准后工具部变为 approval-responded。若配置 sendAutomaticallyWhen 且返回真，下一次 POST 会带上完整消息历史，服务端可把该批准转成 tool-approval-response 后继续生成。",
+      "scenario": "useChat 发出用户消息，经 AbstractChat 的请求和 transport 收到 UIMessage 流，逐步更新文本与工具状态；工具需要确认时怎样把审批结果送回下一轮。"
+    },
+    "modules": [
+      {
+        "id": "atlas_0",
+        "name": "React 绑定与外部状态桥",
+        "role": "把 Chat 实例做成稳定引用，订阅消息、状态和错误回调，只把快照交给 React 渲染；它不解析流协议，也不直接拼请求体。",
+        "input": "useChat 的 options、throttle、resume 配置或外部 Chat 实例。",
+        "output": "sendMessage、addToolApprovalResponse、messages、status 等 helper。",
+        "state": "Chat 持有实时状态；React 只保存 readChatSnapshot 返回的渲染快照。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "packages/react/src/use-chat.ts",
+            "startLine": 189,
+            "endLine": 259
+          },
+          {
+            "path": "packages/react/src/use-chat.ts",
+            "startLine": 279,
+            "endLine": 324
+          },
+          {
+            "path": "packages/react/src/chat.react.ts",
+            "startLine": 111,
+            "endLine": 122
+          },
+          {
+            "path": "packages/react/src/chat.react.ts",
+            "startLine": 162,
+            "endLine": 172
+          }
+        ]
+      },
+      {
+        "id": "atlas_1",
+        "name": "AbstractChat 状态机",
+        "role": "维护消息数组、status、activeResponse 和 pendingApprovalMessageId；决定何时创建请求、何时消费审批、何时自动续跑。",
+        "input": "UIMessage 输入、ChatRequestOptions、transport 返回的 chunk 流。",
+        "output": "读写 ChatState，并调用 transport.sendMessages/reconnectToStream。",
+        "state": "messages、status、error、activeResponse、resumableStreamState、pendingApprovalMessageId、interruptedMessageIds。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 251,
+            "endLine": 315
+          },
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 589,
+            "endLine": 664
+          },
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 989,
+            "endLine": 1066
+          },
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 1068,
+            "endLine": 1118
+          }
+        ]
+      },
+      {
+        "id": "transport",
+        "name": "HTTP 传输与事件流解码",
+        "role": "把 chatId、messages、trigger 等组装成 HTTP 请求，检查响应，再把响应体解析成 UIMessageChunk 流；不决定 UI 消息语义。",
+        "input": "AbstractChat 传入的 sendMessages/reconnectToStream 参数。",
+        "output": "ReadableStream<UIMessageChunk> 或 null。",
+        "state": "保存 api、headers、body、fetch、prepareSendMessagesRequest；解析过程本身不改 ChatState。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/http-chat-transport.ts",
+            "startLine": 158,
+            "endLine": 230
+          },
+          {
+            "path": "packages/ai/src/ui/default-chat-transport.ts",
+            "startLine": 32,
+            "endLine": 48
+          }
+        ]
+      },
+      {
+        "id": "atlas_3",
+        "name": "UIMessage 流处理器",
+        "role": "按 chunk.type 分支修改当前 streaming message：文本累加、工具输入拼接、审批请求/结果改变工具状态，并通过 write 把状态提交给 Chat。",
+        "input": "UIMessageChunk 流、上一轮 assistant 消息、runUpdateMessageJob。",
+        "output": "更新后的 message.parts，以及 onToolCall/onData 回调。",
+        "state": "activeTextParts、activeReasoningParts、partialToolCalls、finishReason。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/process-ui-message-stream.ts",
+            "startLine": 117,
+            "endLine": 152
+          },
+          {
+            "path": "packages/ai/src/ui/process-ui-message-stream.ts",
+            "startLine": 490,
+            "endLine": 520
+          },
+          {
+            "path": "packages/ai/src/ui/process-ui-message-stream.ts",
+            "startLine": 649,
+            "endLine": 738
+          },
+          {
+            "path": "packages/ai/src/ui/process-ui-message-stream.ts",
+            "startLine": 820,
+            "endLine": 844
+          }
+        ]
+      },
+      {
+        "id": "atlas_4",
+        "name": "UI 消息与审批状态模型",
+        "role": "定义 UIMessage 的 parts、工具状态机和审批字段；它是渲染与传输之间的共同形状，但不是模型消息本身。",
+        "input": "chunk 处理器写入的 part 数据、用户审批动作。",
+        "output": "可渲染的 UIMessage；经 convertToModelMessages 后才成为 ModelMessage。",
+        "state": "TextUIPart、ToolUIPart、DynamicToolUIPart 及其 approval 状态。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/ui-messages.ts",
+            "startLine": 45,
+            "endLine": 76
+          },
+          {
+            "path": "packages/ai/src/ui/ui-messages.ts",
+            "startLine": 326,
+            "endLine": 359
+          },
+          {
+            "path": "packages/ai/src/ui/convert-to-model-messages.ts",
+            "startLine": 260,
+            "endLine": 335
+          },
+          {
+            "path": "packages/ai/src/ui/convert-to-model-messages.ts",
+            "startLine": 336,
+            "endLine": 405
+          }
+        ]
+      },
+      {
+        "id": "atlas_5",
+        "name": "服务端生成入口与审批收集",
+        "role": "streamText 是对外生成入口；已读片段只确认它转调 startStreamText。collectToolApprovals 从 ModelMessage 中收集审批响应并与 tool-call 配对。",
+        "input": "streamText 的 options；collectToolApprovals 接收 ModelMessage[]。",
+        "output": "streamText 返回 StreamTextResult；collectToolApprovals 返回 approved/denied 两组审批。",
+        "state": "collectToolApprovals 内部用对象映射保存 toolCall、approval request、tool result 和已收集 toolCallId。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "packages/ai/src/generate-text/stream-text.ts",
+            "startLine": 387,
+            "endLine": 395
+          },
+          {
+            "path": "packages/ai/src/generate-text/collect-tool-approvals.ts",
+            "startLine": 23,
+            "endLine": 90
+          },
+          {
+            "path": "packages/ai/src/generate-text/collect-tool-approvals.ts",
+            "startLine": 91,
+            "endLine": 155
+          }
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "from": "atlas_0",
+        "to": "atlas_1",
+        "label": "调用 sendMessage/审批"
+      },
+      {
+        "from": "atlas_1",
+        "to": "transport",
+        "label": "sendMessages/reconnect"
+      },
+      {
+        "from": "transport",
+        "to": "atlas_3",
+        "label": "UIMessageChunk 流"
+      },
+      {
+        "from": "atlas_3",
+        "to": "atlas_4",
+        "label": "更新 parts 状态"
+      },
+      {
+        "from": "atlas_1",
+        "to": "atlas_4",
+        "label": "读写 ChatState"
+      },
+      {
+        "from": "atlas_4",
+        "to": "atlas_5",
+        "label": "转换为 ModelMessage"
+      }
+    ],
+    "flow": [
+      {
+        "title": "useChat 准备稳定的 Chat 与 transport",
+        "phase": "初始化",
+        "condition": "首次渲染或 chatKey 变化；必经初始化步骤",
+        "symbol": "useChat / getTransport",
+        "owner": "project",
+        "input": "useChat 的 options、可选外部 chat、transport。",
+        "action": "用 latestRef 保存最新回调与 transport；没有 transport 时惰性创建 DefaultChatTransport；用 useMemo 创建或复用 Chat，并订阅消息/状态/错误回调。",
+        "stateChange": "Chat 拥有实时状态；React snapshot 只是渲染副本。",
+        "output": "返回绑定到 chat 的 sendMessage、messages、status 等 helper。",
+        "evidence": [
+          {
+            "path": "packages/react/src/use-chat.ts",
+            "startLine": 216,
+            "endLine": 259
+          },
+          {
+            "path": "packages/react/src/use-chat.ts",
+            "startLine": 279,
+            "endLine": 324
+          }
+        ]
+      },
+      {
+        "title": "sendMessage 写入 user UIMessage 并发起 submit",
+        "phase": "写入",
+        "condition": "用户提供 text/files/message 或 parts；必经用户输入步骤",
+        "symbol": "AbstractChat.sendMessage",
+        "owner": "project",
+        "input": "{ text: '把报告保存到 report.md' } 与可选 options。",
+        "action": "把 text 转成 text part；没有 messageId 时 pushMessage，有 messageId 时截断旧消息并 replaceMessage；随后调用 makeRequest，trigger 为 submit-message。",
+        "stateChange": "messages 新增 user 消息；后续请求阶段把 status 改为 submitted。",
+        "output": "makeRequest 参数：trigger、messageId、headers/body/metadata。",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 428,
+            "endLine": 503
+          }
+        ]
+      },
+      {
+        "title": "makeRequestImpl 建立响应状态并调用 transport",
+        "phase": "装配与请求",
+        "condition": "trigger 为 submit-message 的主路径；必经请求步骤",
+        "symbol": "AbstractChat.makeRequest / AbstractChat.makeRequestImpl",
+        "owner": "project",
+        "input": "trigger、messageId、请求 options。",
+        "action": "setStatus 为 submitted；基于 responseMessage 创建 StreamingUIMessageState 和 activeResponse；调用 transport.sendMessages 取得 stream，并把 runUpdateMessageJob 交给流处理器。",
+        "stateChange": "status=submitted，activeResponse 指向当前 response，abortController 建立。",
+        "output": "ReadableStream<UIMessageChunk> 与串行更新入口。",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 883,
+            "endLine": 894
+          },
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 989,
+            "endLine": 1066
+          },
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 1068,
+            "endLine": 1118
+          }
+        ]
+      },
+      {
+        "title": "HTTP POST 与事件流解码",
+        "phase": "请求与转换",
+        "condition": "transport 为 DefaultChatTransport 且不是 resume-stream 分支",
+        "symbol": "HttpChatTransport.sendMessages / DefaultChatTransport.processResponseStream",
+        "owner": "project",
+        "input": "chatId、完整 messages、trigger、messageId、headers/body/metadata。",
+        "action": "解析 body/headers/credentials，允许 prepareSendMessagesRequest 改写；fetch POST 后检查 response.ok 和 body；DefaultChatTransport 用 parseJsonEventStream + uiMessageChunkSchema 把字节流变成 UIMessageChunk。",
+        "stateChange": "不改 ChatState；返回新的 chunk 流。",
+        "output": "UIMessageChunk 流，含 text-delta、tool-approval-request 等。",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/http-chat-transport.ts",
+            "startLine": 158,
+            "endLine": 230
+          },
+          {
+            "path": "packages/ai/src/ui/default-chat-transport.ts",
+            "startLine": 32,
+            "endLine": 48
+          }
+        ]
+      },
+      {
+        "title": "流处理器把 text delta 折叠进 UIMessage，并把审批请求变成审批状态",
+        "phase": "写入",
+        "condition": "收到 text-start/text-delta/text-end 或 tool-approval-request 等 chunk",
+        "symbol": "processUIMessageStream / AbstractChat.makeRequestImpl",
+        "owner": "project",
+        "input": "单个 UIMessageChunk 和当前 StreamingUIMessageState。",
+        "action": "text-start 创建空 text part；text-delta 对 activeTextParts[chunk.id] 做 textPart.text += chunk.delta；tool-approval-request 用 toolCallId 找到工具部并改成 approval-requested；write 通过 runUpdateMessageJob 串行提交。",
+        "stateChange": "response.state.message.parts 改变；write 把 status 改为 streaming，并替换已存在消息或追加新消息。",
+        "output": "React 可读到的 messages snapshot 随 chunk 更新。",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/process-ui-message-stream.ts",
+            "startLine": 172,
+            "endLine": 200
+          },
+          {
+            "path": "packages/ai/src/ui/process-ui-message-stream.ts",
+            "startLine": 490,
+            "endLine": 520
+          },
+          {
+            "path": "packages/ai/src/ui/process-ui-message-stream.ts",
+            "startLine": 820,
+            "endLine": 844
+          },
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 1068,
+            "endLine": 1118
+          }
+        ]
+      },
+      {
+        "title": "流结束与可选自动续跑",
+        "phase": "收尾与可选查询",
+        "condition": "流正常结束且没有 abort/error；自动续跑还要求 sendAutomaticallyWhen 返回真",
+        "symbol": "AbstractChat.makeRequestImpl / AbstractChat.runAutomaticRequest / AbstractChat.shouldSendAutomatically",
+        "owner": "project",
+        "input": "activeResponse 的结束状态、messages、sendAutomaticallyWhen。",
+        "action": "未 abort 时 setStatus 为 ready；调用 onFinish；finally 清理 activeResponse；若 finishReason 不是 interrupted，则 runAutomaticRequest 尝试 makeRequest submit lastMessage；runAutomaticRequest 先询问 shouldSendAutomatically。",
+        "stateChange": "status 回到 ready；interruptedMessageIds 根据 finishReason 增删；可能触发下一次请求。",
+        "output": "默认不自动续跑；只有配置且判定为真时才生成下一轮请求。",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 1141,
+            "endLine": 1156
+          },
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 1199,
+            "endLine": 1242
+          },
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 804,
+            "endLine": 851
+          }
+        ]
+      },
+      {
+        "title": "用户审批写回 approval-responded",
+        "phase": "写入与可选自动请求",
+        "condition": "用户调用 addToolApprovalResponse({ id, approved, reason })",
+        "symbol": "AbstractChat.addToolApprovalResponse",
+        "owner": "project",
+        "input": "审批 id、approved 布尔值、reason、可选请求 options。",
+        "action": "在 jobExecutor 串行作业中查找 state 为 approval-requested 且 approval.id 匹配的工具部，改成 approval-responded，写入 approved 和 reason；replaceMessage 立即更新 UI；设置 pendingApprovalMessageId；同步 activeResponse；若状态不是 streaming/submitted 且 sendAutomaticallyWhen 为真，则 runAutomaticRequest 调用 makeRequestForToolApproval。",
+        "stateChange": "工具部变为 approval-responded；pendingApprovalMessageId 指向被审批的 assistant 消息。",
+        "output": "要么等待后续手动发送，要么触发下一轮请求。",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 589,
+            "endLine": 664
+          }
+        ]
+      },
+      {
+        "title": "下一轮请求消费 pending approval 并带上历史",
+        "phase": "请求",
+        "condition": "自动续跑触发，或用户再次调用无参 sendMessage 且存在 pendingApprovalMessageId",
+        "symbol": "AbstractChat.sendMessage / AbstractChat.makeRequestForToolApproval",
+        "owner": "project",
+        "input": "messageId、messageIndex、请求 options。",
+        "action": "如果 messageId 等于 pendingApprovalMessageId，则先清空 pending；调用 makeRequest 发 submit-message；若请求进入 error 且没有新的 pending，则恢复 pendingApprovalMessageId 以便重试；makeRequestImpl 把完整 messages 交给 transport。",
+        "stateChange": "pendingApprovalMessageId 清空或失败后恢复；status 进入 submitted/streaming。",
+        "output": "HTTP body 带上包含 approval-responded 工具部的完整 UI 历史。",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 391,
+            "endLine": 425
+          },
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 853,
+            "endLine": 881
+          }
+        ]
+      },
+      {
+        "title": "服务端把 UI 历史转成模型消息并收集审批",
+        "phase": "转换与查询",
+        "condition": "后端选择调用 convertToModelMessages 和 collectToolApprovals；本仓库已读范围没有证明 streamText 内部自动调用它们",
+        "symbol": "convertToModelMessages / collectToolApprovals",
+        "owner": "project",
+        "input": "请求体中的 UIMessage[]，以及可选的 tools 配置。",
+        "action": "assistant 的 tool-call 与 approval request 转成 ModelMessage assistant 内容；approval-responded 转成 tool 消息中的 tool-approval-response；被拒绝的批准还会生成 execution-denied 的 tool-result。collectToolApprovals 只检查最后一条 tool 消息，按 approvalId 找请求、按 toolCallId 找调用，同一 toolCallId 只收集首个响应，并把批准项按模型调用顺序排序。",
+        "stateChange": "无客户端 ChatState；生成 ModelMessage[] 与 approved/denied 审批列表。",
+        "output": "交给服务端生成流程的模型消息和待执行审批集合。",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/convert-to-model-messages.ts",
+            "startLine": 260,
+            "endLine": 335
+          },
+          {
+            "path": "packages/ai/src/ui/convert-to-model-messages.ts",
+            "startLine": 336,
+            "endLine": 405
+          },
+          {
+            "path": "packages/ai/src/generate-text/collect-tool-approvals.ts",
+            "startLine": 23,
+            "endLine": 90
+          },
+          {
+            "path": "packages/ai/src/generate-text/collect-tool-approvals.ts",
+            "startLine": 91,
+            "endLine": 155
+          }
+        ]
+      }
+    ],
+    "technologies": [
+      {
+        "name": "按 chunk 类型折叠 UIMessage parts",
+        "problem": "文本和工具参数都是增量到达，不能把每个事件当成完整消息直接替换。",
+        "mechanism": "text-start 先建立空 text part；text-delta 用 chunk.id 找到活动 part 后累加 delta；tool-input-start 建立 partialToolCalls，tool-input-delta 继续累加原始文本并用 parsePartialJson 得到当前可显示 input；approval-request 则把已有工具部切到 approval-requested。",
+        "pseudocode": "on text-start: create activeTextParts[id]={text:''}; push part\non text-delta: activeTextParts[id].text += chunk.delta; write()\non tool-input-start: partialToolCalls[id]={text:'', toolName,...}\non tool-input-delta: partialToolCalls[id].text += chunk.inputTextDelta; input=parsePartialJson(...)\non tool-approval-request: toolPart.state='approval-requested'; toolPart.approval={id:approvalId}\nwrite(): replace existing message by id, else push",
+        "dataStructures": "state.message.parts 是渲染顺序；activeTextParts 按 chunk.id 索引活动文本；partialToolCalls 按 toolCallId 保存未完成工具输入；不变量是 text-delta 前必须有 text-start。",
+        "projectCode": "processUIMessageStream 自己实现 chunk 分支、活动 part 映射、工具状态改写和 write 提交。",
+        "externalDependency": "DefaultChatTransport 只负责把字节流解析为 UIMessageChunk；模型是否生成某个 chunk 由服务端和模型决定，本仓库客户端不预测。",
+        "tradeoff": "收益是能边流边渲染并支持多个并行文本段；代价是协议顺序严格，缺失 text-start 或 tool-input-start 会抛 UIMessageStreamError。",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/process-ui-message-stream.ts",
+            "startLine": 490,
+            "endLine": 520
+          },
+          {
+            "path": "packages/ai/src/ui/process-ui-message-stream.ts",
+            "startLine": 649,
+            "endLine": 738
+          },
+          {
+            "path": "packages/ai/src/ui/process-ui-message-stream.ts",
+            "startLine": 820,
+            "endLine": 844
+          }
+        ]
+      },
+      {
+        "name": "串行更新作业与快照订阅",
+        "problem": "流 chunk、工具回调和审批动作可能同时尝试修改同一条 assistant 消息，直接并发写会交错覆盖。",
+        "mechanism": "每个 chunk 的 transform 调用 runUpdateMessageJob，把作业送进 SerialJobExecutor 的队列；只有队首完成才取下一个。write 先检查 abort，再设 status=streaming，并通过消息 id 查找已有消息进行 replaceMessage，找不到才 pushMessage。React 侧通过回调读取完整快照。",
+        "pseudocode": "run(job): queue.push(job); if not processing: processQueue()\nprocessQueue: while queue: await queue[0](); queue.shift()\nwrite(): if aborted return; status='streaming'\n         if messages contains state.message.id: replaceMessage(index,state.message)\n         else pushMessage(state.message)",
+        "dataStructures": "SerialJobExecutor.queue 保存待执行作业；ActiveResponse 保存当前 state/abortController；ReactChatState 用 Set 保存 messages/status/error 回调。",
+        "projectCode": "AbstractChat 提供 runUpdateMessageJob 和 activeResponse；SerialJobExecutor 提供队列；ReactChatState 提供快照和订阅。",
+        "externalDependency": "React 只负责调度渲染快照，不负责流协议和工具状态机。",
+        "tradeoff": "收益是消息更新有序且 stop 可以 waitForIdle；代价是慢回调会阻塞后续工具更新，代码注释也明确 onToolCall 仍是阻塞调用。",
+        "evidence": [
+          {
+            "path": "packages/ai/src/util/serial-job-executor.ts",
+            "startLine": 3,
+            "endLine": 53
+          },
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 1068,
+            "endLine": 1118
+          },
+          {
+            "path": "packages/react/src/chat.react.ts",
+            "startLine": 111,
+            "endLine": 148
+          }
+        ]
+      },
+      {
+        "name": "审批响应配对、去重与模型顺序恢复",
+        "problem": "审批响应可能重复、冲突、乱序，或引用不存在的 approvalId/toolCallId；直接执行会导致工具执行两次或既执行又拒绝。",
+        "mechanism": "collectToolApprovals 只处理最后一条 tool 消息，先建立 toolCall 和 approval request 映射；对每个 approval-response 查请求、查已有 tool-result、查 tool-call；同一 toolCallId 只收集第一个响应；最后把 approved 列表按模型调用顺序排序。",
+        "pseudocode": "last = messages.at(-1)\nif last.role != 'tool': return empty\nmap toolCallId -> call; map approvalId -> request\nfor response in last.content where type='tool-approval-response':\n  request = requests[response.approvalId] or throw\n  existing = toolResults[request.toolCallId]\n  if existing and (approved or existing not denied): continue\n  call = calls[request.toolCallId] or throw\n  if collected.has(call.toolCallId): continue\n  push to approved or denied\nsort approved by model call order",
+        "dataStructures": "Object.create(null) 映射避免继承属性碰撞；collectedToolCallIds Set 保证一个 toolCallId 只收一次；toolCallOrder 恢复模型调用顺序。",
+        "projectCode": "collectToolApprovals 完成配对、去重、排序；convertToModelMessages 负责把 UI 审批状态生成 tool-approval-response 和 execution-denied result。",
+        "externalDependency": "真正执行已批准工具、把结果送回模型的下一次生成，属于服务端生成流程；本已读范围没有 streamText 内部调用点。",
+        "tradeoff": "收益是冲突审批不会重复执行；代价是只检查最后一条 tool 消息，且同一 toolCallId 的后续审批会被忽略，要求调用方正确组织消息边界。",
+        "evidence": [
+          {
+            "path": "packages/ai/src/generate-text/collect-tool-approvals.ts",
+            "startLine": 23,
+            "endLine": 90
+          },
+          {
+            "path": "packages/ai/src/generate-text/collect-tool-approvals.ts",
+            "startLine": 91,
+            "endLine": 155
+          },
+          {
+            "path": "packages/ai/src/ui/convert-to-model-messages.ts",
+            "startLine": 308,
+            "endLine": 405
+          }
+        ]
+      },
+      {
+        "name": "可恢复流与取消边界",
+        "problem": "网络中断后不能丢已经渲染的文本，但重连端点可能从头回放，也可能只继续后半段；取消时又可能还有工具回调在排队。",
+        "mechanism": "resume-stream 分支调用 transport.reconnectToStream；204 返回 null 表示无活动流，状态回 ready。网络 TypeError 被识别为 disconnect 时保存 resumableStreamState。DefaultChatTransport 默认 resumeStreamIsReplay=true，于是 processUIMessageStream 在首个 start chunk 重建流式状态。stop 会 abort 准备中消息、活动 resume 和活动响应，等待 completionPromise，并 waitForIdle 清空串行作业。",
+        "pseudocode": "on resume:\n  stream = transport.reconnectToStream({chatId})\n  if stream == null: status='ready'; return\n  process(stream, resetOnFirstStart=transport.resumeStreamIsReplay)\non network TypeError:\n  resumableStreamState = activeResponse.state\nstop:\n  abort all controllers; await completions; await jobExecutor.waitForIdle()",
+        "dataStructures": "activeResumeRequest、resumableStreamState、activeResponse.abortController、pendingMessagePreparations、stopGeneration。",
+        "projectCode": "AbstractChat 决定何时保存 resumableStreamState、何时重连、何时重置状态；DefaultChatTransport 提供默认重放标记；processUIMessageStream 执行重置。",
+        "externalDependency": "服务端的 /:chatId/stream 端点是否真的可重放或只续传，本仓库客户端只能通过 resumeStreamIsReplay 和 204 响应约定边界。",
+        "tradeoff": "收益是断线可恢复且取消后队列不会继续写；代价是默认假设从头 replay，若后端只续传却保持默认 true，会在首个 start 时错误重建状态。",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 935,
+            "endLine": 987
+          },
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 1157,
+            "endLine": 1192
+          },
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 769,
+            "endLine": 794
+          },
+          {
+            "path": "packages/ai/src/ui/default-chat-transport.ts",
+            "startLine": 17,
+            "endLine": 30
+          },
+          {
+            "path": "packages/ai/src/ui/process-ui-message-stream.ts",
+            "startLine": 993,
+            "endLine": 1014
+          }
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "decision": "UI 消息与模型消息分成两套形状，中间通过 convertToModelMessages 转换。",
+        "constraint": "UI 要保存 streaming text、approval-requested/responded 等渲染状态；模型协议需要 tool-call、tool-approval-request/response、tool-result 的明确配对。",
+        "alternative": "让 React 组件直接持有并发送 ModelMessage。",
+        "why": "在示例中，writeFile 的 approval-requested 是界面状态，不是模型输入；如果直接当模型消息，用户后来发新消息会留下未匹配的工具调用。转换器会过滤被后续 user 消息超越的未决审批，并为拒绝生成 execution-denied result，避免工具调用悬空。",
+        "cost": "需要维护两套状态和转换逻辑，data part、文件、provider metadata 都要映射，转换也可能丢弃未决审批。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/convert-to-model-messages.ts",
+            "startLine": 63,
+            "endLine": 87
+          },
+          {
+            "path": "packages/ai/src/ui/convert-to-model-messages.ts",
+            "startLine": 260,
+            "endLine": 335
+          },
+          {
+            "path": "packages/ai/src/ui/convert-to-model-messages.ts",
+            "startLine": 336,
+            "endLine": 405
+          }
+        ]
+      },
+      {
+        "decision": "流处理器用 chunk 类型维护活动 part，而不是每个事件都整体重建一条新消息。",
+        "constraint": "text-delta 是增量，tool-input-delta 还是未完成 JSON，UI 需要显示部分参数但还不能执行工具。",
+        "alternative": "服务端每个事件发送完整累积文本，客户端直接替换。",
+        "why": "text-delta 只携带 delta，处理器用 activeTextParts[chunk.id] 累加；tool-input-delta 先拼 rawInput，再用 parsePartialJson 得到当前 input。这样示例中的文本和 writeFile 参数可以边到边显示，而不必等完整消息。",
+        "cost": "协议顺序强约束：text-delta 找不到 text-start、tool-input-delta 找不到 tool-input-start 都会抛错；活动 part 映射也需要按 id 正确清理。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/process-ui-message-stream.ts",
+            "startLine": 504,
+            "endLine": 520
+          },
+          {
+            "path": "packages/ai/src/ui/process-ui-message-stream.ts",
+            "startLine": 694,
+            "endLine": 738
+          }
+        ]
+      },
+      {
+        "decision": "审批更新先写回本地 part，再由 sendAutomaticallyWhen 决定是否发下一轮请求，且自动请求不 await 在审批写回作业里。",
+        "constraint": "审批可能在 UI 任意时刻发生，也可能在流尚未结束时发生；如果直接 await 下一次请求，会和串行作业互相等待。",
+        "alternative": "addToolApprovalResponse 内立即 await makeRequest 并等待服务端结果。",
+        "why": "示例中用户批准 writeFile 后，代码先把工具部改为 approval-responded 并设置 pendingApprovalMessageId；只有未在 streaming/submitted 且 shouldSendAutomatically 为真时才 runAutomaticRequest。注释明确 no await to avoid deadlocking，runAutomaticRequest 还用 stopGeneration 挡住已取消的自动请求。",
+        "cost": "默认不会自动续跑；调用方必须配置 sendAutomaticallyWhen（例如 lastAssistantMessageIsCompleteWithApprovalResponses）或手动无参 sendMessage。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 637,
+            "endLine": 664
+          },
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 829,
+            "endLine": 851
+          },
+          {
+            "path": "packages/react/src/use-chat.ts",
+            "startLine": 248,
+            "endLine": 249
+          },
+          {
+            "path": "packages/ai/src/ui/last-assistant-message-is-complete-with-approval-responses.ts",
+            "startLine": 7,
+            "endLine": 43
+          }
+        ]
+      },
+      {
+        "decision": "DefaultChatTransport 把 resume 流默认视为从头 replay，并在首个 start chunk 重建状态。",
+        "constraint": "不同后端可能重放完整响应，也可能只继续中断后的片段。",
+        "alternative": "重连时一律保留现有流式状态，不重建。",
+        "why": "如果后端从头 replay 而客户端保留旧状态，示例中的文本和工具部会被重复追加或重复更新；默认 reset 可以让 replay 从空状态重建。",
+        "cost": "如果后端只续传却保持默认 true，首个 start 会清空已有状态，因此需要显式设置 resumeStreamIsReplay=false。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "Defaults to true.",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/default-chat-transport.ts",
+            "startLine": 20,
+            "endLine": 29
+          },
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 1123,
+            "endLine": 1125
+          },
+          {
+            "path": "packages/ai/src/ui/process-ui-message-stream.ts",
+            "startLine": 993,
+            "endLine": 1014
+          }
+        ]
+      },
+      {
+        "decision": "stop 不只 abort 网络请求，还等待 completionPromise 并清空串行作业队列。",
+        "constraint": "流取消可能先完成，而 onToolCall 仍阻塞在作业中，还可能在取消后排队一次消息更新。",
+        "alternative": "只 abort fetch，然后立即把状态改为 ready。",
+        "why": "示例中 writeFile 工具回调和审批写回都经过 jobExecutor；如果只 abort 流，排队中的工具更新可能在 stop 返回后继续改消息。stop 等待作业空闲，能保证取消边界覆盖已排队的消息更新。",
+        "cost": "如果 onToolCall 长时间不返回，stop 也会被拖住；这使取消不是瞬时操作。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "Stream cancellation can complete while a processing job is still\n      // blocked in onToolCall. Drain that job and any message update it queued.",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 769,
+            "endLine": 794
+          }
+        ]
+      }
+    ],
+    "codeWalkthroughs": [
+      {
+        "title": "makeRequestImpl 如何把一条流变成当前 assistant 消息",
+        "explanation": "这段先 setStatus 为 submitted，按 messageId 找响应消息，并用 createStreamingUIMessageState 决定是复用已有 assistant 消息还是新建。submit 分支把当前消息的 snapshot 作为 lastMessage，然后把完整 messages 交给 transport.sendMessages。随后 runUpdateMessageJob 把每个 chunk 的写回包进 SerialJobExecutor：write 检查 abort、切到 streaming、按 response.state.message.id 查找并替换已有消息，找不到才 push。因此同一条 assistant 消息在流式期间是被替换更新，而不是每次 delta 新加一条消息。",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 989,
+            "endLine": 1000
+          },
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 1025,
+            "endLine": 1066
+          },
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 1068,
+            "endLine": 1118
+          }
+        ]
+      },
+      {
+        "title": "审批结果如何成为下一次请求的触发点",
+        "explanation": "updatePart 只在工具部处于 approval-requested 且 approval.id 等于传入 id 时，把它改成 approval-responded，并写入 approved 和 reason。找到消息后立即 replaceMessage，同时记录 pendingApprovalMessageId；activeResponse 存在时也同步其内部 parts。随后只有在消息存在、status 不是 streaming/submitted、且 sendAutomaticallyWhen 存在时，才调用 shouldSendAutomatically；为真则 runAutomaticRequest 调 makeRequestForToolApproval。注释说明不 await 是为了避免死锁。",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 595,
+            "endLine": 635
+          },
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 637,
+            "endLine": 664
+          }
+        ]
+      },
+      {
+        "title": "text-delta 与 approval-request 在流处理器中的落点",
+        "explanation": "text-delta 分支要求 activeTextParts[chunk.id] 已存在，然后执行 textPart.text += chunk.delta，再 write。text-start 已在前面建立该 part；缺失时处理器会抛出带 chunkId 的 UIMessageStreamError。tool-approval-request 分支则按 toolCallId 找到已有工具部，把 state 改为 approval-requested，并写入 approval.id、请求原因、签名等字段，再 write。这两条路径共同说明：流协议事件先改变 StreamingUIMessageState，再通过 write 提交成 UI 消息。",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/process-ui-message-stream.ts",
+            "startLine": 504,
+            "endLine": 520
+          },
+          {
+            "path": "packages/ai/src/ui/process-ui-message-stream.ts",
+            "startLine": 820,
+            "endLine": 844
+          }
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "question": "不配置 sendAutomaticallyWhen 时，用户批准工具后会不会自动发下一轮请求？",
+        "change": "在 useChat 中不传 sendAutomaticallyWhen，或让它始终返回 false；调用 addToolApprovalResponse({ id, approved: true })。",
+        "expected": "工具部会变为 approval-responded，pendingApprovalMessageId 会被设置，但自动请求条件不满足，不会自动 makeRequest。若要让示例继续，需要再次调用无参 sendMessage 或配置一个返回真的 sendAutomaticallyWhen。",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 637,
+            "endLine": 643
+          },
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 804,
+            "endLine": 827
+          },
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 391,
+            "endLine": 425
+          }
+        ]
+      },
+      {
+        "question": "resumeStreamIsReplay=false 时，重连收到首个 start 是否还会重建流式状态？",
+        "change": "使用 new DefaultChatTransport({ resumeStreamIsReplay: false })。",
+        "expected": "makeRequestImpl 传给 processUIMessageStream 的 resetStateOnFirstMessageStart 为 false；start chunk 不会走首个 start 的重建路径，已有文本和工具部应保留。默认 true 时则会在首个 start 重建。",
+        "evidence": [
+          {
+            "path": "packages/ai/src/ui/default-chat-transport.ts",
+            "startLine": 17,
+            "endLine": 30
+          },
+          {
+            "path": "packages/ai/src/ui/chat.ts",
+            "startLine": 1120,
+            "endLine": 1126
+          },
+          {
+            "path": "packages/ai/src/ui/process-ui-message-stream.ts",
+            "startLine": 993,
+            "endLine": 1014
+          }
+        ]
+      },
+      {
+        "question": "同一 toolCallId 出现冲突审批时，服务端收集器会保留哪一个？",
+        "change": "构造一条 assistant 消息包含同一个 toolCallId 的两个 approval request，最后一条 tool 消息先放 approved=true 再放 approved=false 的响应。",
+        "expected": "collectToolApprovals 对同一 toolCallId 只收集首个响应，因此先到的 approved=true 被保留，后面的拒绝被跳过；测试也明确 conflicting decisions keep first。",
+        "evidence": [
+          {
+            "path": "packages/ai/src/generate-text/collect-tool-approvals.ts",
+            "startLine": 123,
+            "endLine": 130
+          },
+          {
+            "path": "packages/ai/src/generate-text/collect-tool-approvals.test.ts",
+            "startLine": 807,
+            "endLine": 811
+          }
+        ]
+      }
+    ],
+    "takeaways": [
+      "transport 只负责把请求变成 UIMessageChunk 流；消息语义、工具状态和审批状态由 processUIMessageStream 折叠到 UIMessage。",
+      "流式更新必须串行提交：每个 chunk 的 write 走 SerialJobExecutor，避免文本、工具回调和审批动作交错覆盖同一条 assistant 消息。",
+      "审批不是普通的工具输出：addToolApprovalResponse 先把 part 改为 approval-responded 并设置 pendingApprovalMessageId，下轮请求靠这个标记消费同一 assistant 消息。",
+      "自动续跑默认关闭；sendAutomaticallyWhen 为真且未在 streaming/submitted、未被 stop 打断时，才会触发下一次 makeRequest。",
+      "取消范围覆盖 aborted 请求、completionPromise 和串行作业队列；重连是否安全取决于后端是否 replay 与 resumeStreamIsReplay 是否匹配。",
+      "UI 消息和模型消息分开，是为了让界面能表达 approval-requested/responded，同时让服务端转换器生成模型需要的 tool-call、tool-approval-response 和 execution-denied result。"
+    ],
+    "gaps": [
+      "streamText 的已读片段只有 387-395 行，确认它转调 startStreamText，但未读 startStreamText/streamTextInternal/streamStep 的方法体；因此无法确认服务端每步如何调用模型、何时执行工具、审批如何触发下一步。",
+      "collectToolApprovals 在 streamText 内部的具体调用点不在已读范围；只能确认这个 helper 自身如何配对和排序，不能断言所有生成 API 都必经它。",
+      "reconnectToStream 的服务端端点实现未在读到的文件中；无法证明服务端一定从头 replay，还是只续传，只能确认客户端通过 resumeStreamIsReplay 和 204 响应处理两种情况。",
+      "HTTP 路由是否自动调用 convertToModelMessages 也未在读到的文件里；示例中服务端审批回传依赖后端显式转换，不能当成客户端 transport 自动完成。",
+      "示例中的 writeFile 工具调用和审批请求是假设的输入形状；本仓库客户端代码不保证模型一定调用某个工具或产生某条文本。"
+    ]
+  }
+}

@@ -1,0 +1,882 @@
+{
+  "version": 3,
+  "repo": "OpenHands/OpenHands",
+  "ref": "main",
+  "sha": "5e8052347cc021b7657abc7f30828dead944a683",
+  "analysis": {
+    "version": 3,
+    "kind": "architecture",
+    "requestedModel": "deepseek-flash",
+    "actualModel": "deepseek-flash",
+    "filesRead": 24,
+    "charactersRead": 333777,
+    "modules": 7,
+    "flowSteps": 9,
+    "mechanisms": 4,
+    "decisions": 5,
+    "readingStrategy": "model-and-profile",
+    "structuralChecks": "passed",
+    "usage": {
+      "prompt_tokens": 128672,
+      "completion_tokens": 10450
+    },
+    "notes": [
+      "已统一 5 个图表内部 ID，模块与连线含义未变"
+    ]
+  },
+  "plan": {
+    "scenario": "从当前仓库（Agent Canvas 前端）的真实入口发起一次对话/开发任务：浏览器 hydrate 后，用户在聊天输入框提交消息，前端通过 conversation-service 适配器调用 Agent Server（SDK/TypeScript client 提供，非本仓库实现）创建/续接会话，随后通过 WebSocket 上下文接收流式事件并更新事件 store 与 UI。本仓库是前端控制中心与本地栈编排，不含 Agent 执行引擎、sandbox 或 SDK 实现。",
+    "files": [
+      {
+        "path": "src/entry.client.tsx",
+        "focus": [
+          "prepareApp"
+        ],
+        "reason": "真实客户端入口：hydrate 前等待 i18n 与 MARS bridge，再挂载 AgentServerUIProviders + HydratedRouter，确定应用启动边界。"
+      },
+      {
+        "path": "src/api/agent-server-adapter.ts",
+        "focus": [
+          "buildStartConversationRequest",
+          "buildStartConversationRequestWithEncryptedSettings",
+          "buildConfiguredConversationSettings",
+          "buildAgentContext",
+          "buildInitialMessage",
+          "toAppConversation"
+        ],
+        "reason": "核心适配器：把前端 Settings/agent profile/workspace 组装成 Agent Server 的 start-conversation 请求，并把服务端会话映射为 AppConversation；是输入到传输的关键转换层。"
+      },
+      {
+        "path": "src/api/agent-server-config.ts",
+        "focus": [
+          "getAgentServerWorkingDir"
+        ],
+        "reason": "解析后端 host/working dir 等连接配置，供适配器与 client options 使用。"
+      },
+      {
+        "path": "src/api/agent-server-client-options.ts",
+        "focus": [
+          "getAgentServerClientOptions"
+        ],
+        "reason": "构造 ServerClient 选项（host、auth、timeout），是适配器到 typescript-client 的实际传输入口。"
+      },
+      {
+        "path": "src/api/conversation-service/agent-server-conversation-service.api.ts",
+        "focus": [
+          "AgentServerConversationService",
+          "startConversation",
+          "sendMessage",
+          "getConversation"
+        ],
+        "reason": "实际被调用的会话服务实现：封装 ServerClient 的 REST 调用，是前端请求真正落到 Agent Server 的位置。"
+      },
+      {
+        "path": "src/api/conversation-service/conversation-service.api.ts",
+        "focus": [
+          "ConversationService"
+        ],
+        "reason": "会话服务接口/边界声明，用于确认实现与调用方分离，避免把接口当实现。"
+      },
+      {
+        "path": "src/api/event-service/event-service.api.ts",
+        "focus": [
+          "EventService",
+          "getEvents",
+          "searchEvents"
+        ],
+        "reason": "事件历史拉取适配器，配合 WebSocket 流式事件完成会话状态回填。"
+      },
+      {
+        "path": "src/contexts/conversation-websocket-context.tsx",
+        "focus": [
+          "ConversationWebSocketProvider",
+          "connect",
+          "handleMessage"
+        ],
+        "reason": "流式传输核心：建立 WebSocket、解析 session frames、分发事件到 store，是输出侧事件更新的主链路。"
+      },
+      {
+        "path": "src/stores/use-event-store.ts",
+        "focus": [
+          "useEventStore",
+          "addEvent",
+          "setEvents"
+        ],
+        "reason": "核心数据结构：事件列表状态存储，承载流式事件与历史事件的合并。"
+      },
+      {
+        "path": "src/utils/handle-event-for-ui.ts",
+        "focus": [
+          "handleEventForUI"
+        ],
+        "reason": "事件到 UI 状态的具体处理逻辑（状态、流式文本、错误等），连接传输与渲染。"
+      },
+      {
+        "path": "src/hooks/use-send-message.ts",
+        "focus": [
+          "useSendMessage"
+        ],
+        "reason": "用户提交消息的实际 hook，串起乐观消息、conversation service 调用与错误处理。"
+      },
+      {
+        "path": "src/hooks/mutation/use-create-conversation.ts",
+        "focus": [
+          "useCreateConversation"
+        ],
+        "reason": "创建会话的 mutation，展示从 UI 动作到适配器/服务调用的完整路径。"
+      },
+      {
+        "path": "src/components/features/chat/chat-interface.tsx",
+        "focus": [
+          "ChatInterface"
+        ],
+        "reason": "聊天 UI 主组件，接收输入并触发发送，是用户可见入口。"
+      },
+      {
+        "path": "src/types/agent-server/core/openhands-event.ts",
+        "focus": [
+          "OpenHandsEvent"
+        ],
+        "reason": "事件类型定义（类型文件，限额内），说明流式事件的数据形状。"
+      },
+      {
+        "path": "src/types/agent-server/session-frames.ts",
+        "focus": [
+          "SessionFrame"
+        ],
+        "reason": "WebSocket 帧类型（类型文件，限额内），界定传输协议数据。"
+      },
+      {
+        "path": "src/api/agent-server-adapter.test.ts",
+        "focus": [
+          "buildStartConversationRequest"
+        ],
+        "reason": "相关测试：验证请求组装与映射行为，确认适配器契约。"
+      },
+      {
+        "path": "src/api/event-service/event-service.api.test.ts",
+        "focus": [
+          "EventService"
+        ],
+        "reason": "相关测试：验证事件拉取适配器行为，佐证事件链路。"
+      }
+    ]
+  },
+  "report": {
+    "overview": {
+      "plainLanguage": "浏览器端把用户输入整理成消息，交给会话连接；连接把后端返回的流式片段和持久事件写进本地事件表，再渲染成聊天记录，真正的 Agent 执行在外部服务。",
+      "problem": "同一个前端要同时面对本地 Agent Server、Docker 运行时和 Cloud 后端；既要在网络未就绪时让用户看到自己已发送，又要把 WebSocket 增量、REST 历史、后端状态更新合并成一致的消息列表。",
+      "scenarioInput": "用户在已有会话的聊天框输入“登录接口的单元测试挂了，帮我定位并修复”，可附带图片或文件。",
+      "scenarioOutput": "聊天框先出现“发送中”的乐观气泡；若 socket 已开，消息以 run:true 发出；Agent Server 回显 UserMessageEvent 后气泡被消费，随后 item_started/delta 让回复逐字出现，durable 事件按同一 id 替换流式占位并带上 seq，执行状态从 idle 变为 running 再变为 finished。"
+    },
+    "modules": [
+      {
+        "id": "entry",
+        "name": "浏览器入口与 hydration",
+        "role": "浏览器加载后先等待 i18n、MARS bridge 和可选 mock worker 就绪，再挂载 React 路由；这是所有前端状态的起点。",
+        "input": "浏览器页面和静态资源",
+        "output": "带有 AgentServerUIProviders 的 HydratedRouter 树",
+        "state": "i18n 就绪状态、window.marsBridge、开发态 preview 安装状态",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "src/entry.client.tsx",
+            "startLine": 18,
+            "endLine": 53
+          }
+        ]
+      },
+      {
+        "id": "chat",
+        "name": "聊天输入与发送 Hook",
+        "role": "把聊天框内容变成统一消息，维护本地乐观发送气泡，并调用 WebSocket 上下文发送。",
+        "input": "用户输入文本、图片 File[]、文件 File[]",
+        "output": "SendMessageRequest 和 queued 结果",
+        "state": "optimistic-user-message-store 的 pendingMessages、draftMessage、滚动位置",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "src/components/features/chat/chat-interface.tsx",
+            "startLine": 358,
+            "endLine": 457
+          },
+          {
+            "path": "src/hooks/use-send-message.ts",
+            "startLine": 22,
+            "endLine": 57
+          }
+        ]
+      },
+      {
+        "id": "atlas_2",
+        "name": "会话 WebSocket 与帧路由",
+        "role": "维护主/规划两条 socket、续传游标和流式批处理器；把发送动作分流到 WebSocket 或 REST，把收到的帧分成增量、持久、瞬态和错误。",
+        "input": "SendMessageRequest、WebSocket JSON 帧、conversationUrl/sessionApiKey",
+        "output": "持久/瞬态事件交给事件 store，错误交给错误 store",
+        "state": "mainConnectionState、planningConnectionState、heldMessagesRef、SeqCursor、StreamingDeltaBatcher",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 166,
+            "endLine": 211
+          },
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 1419,
+            "endLine": 1523
+          }
+        ]
+      },
+      {
+        "id": "atlas_3",
+        "name": "事件存储与 UI 归并",
+        "role": "用事件 id 去重，把持久事件和流式占位合并成 uiEvents；这是聊天渲染读取的本地事实源。",
+        "input": "OpenHandsEvent/UIEvent、DeltaFrame、ItemStartedFrame",
+        "output": "events、eventIds、uiEvents 的新快照",
+        "state": "events 数组、eventIds Set、uiEvents 数组、loadedConversationId、streaming slots",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "src/stores/use-event-store.ts",
+            "startLine": 113,
+            "endLine": 154
+          },
+          {
+            "path": "src/utils/handle-event-for-ui.ts",
+            "startLine": 275,
+            "endLine": 357
+          }
+        ]
+      },
+      {
+        "id": "atlas_4",
+        "name": "本地会话服务与请求组装",
+        "role": "为本地 Agent Server 组装创建会话请求、发送事件请求和客户端连接参数；真正执行 Agent loop 的不是这里。",
+        "input": "CreateConversationOptions、SendMessageRequest、Settings、AgentProfile 信息",
+        "output": "发给 @openhands/typescript-client 的 ConversationClient 请求",
+        "state": "payload.workspace、payload.tags、initial_message、client_tools；本地 metadata 缓存",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "src/api/conversation-service/agent-server-conversation-service.api.ts",
+            "startLine": 491,
+            "endLine": 526
+          },
+          {
+            "path": "src/api/conversation-service/agent-server-conversation-service.api.ts",
+            "startLine": 641,
+            "endLine": 701
+          },
+          {
+            "path": "src/api/agent-server-adapter.ts",
+            "startLine": 1121,
+            "endLine": 1200
+          }
+        ]
+      },
+      {
+        "id": "atlas_5",
+        "name": "Cloud 会话适配层",
+        "role": "当 active backend 是 cloud 时，把会话创建、事件历史、sandbox 暂停/恢复等请求转到 Cloud App API；与本地路径是不同端点。",
+        "input": "AppConversationStartRequest、conversationId、sandboxId、分页参数",
+        "output": "AppConversationStartTask、AppConversationPage、EventSearchPage 或空页",
+        "state": "Cloud 会话列表、start task、sandbox 状态",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "src/api/cloud/conversation-service.api.ts",
+            "startLine": 148,
+            "endLine": 163
+          },
+          {
+            "path": "src/api/event-service/event-service.api.ts",
+            "startLine": 84,
+            "endLine": 136
+          }
+        ]
+      },
+      {
+        "id": "atlas_6",
+        "name": "外部 Agent Server/SDK",
+        "role": "实现 REST API、会话、事件、工具、workspace 和 Agent 执行；本仓库只消费它的 API。",
+        "input": "本仓库通过 TypeScript client 发出的 HTTP/WebSocket 请求",
+        "output": "UserMessageEvent、ActionEvent、ObservationEvent、流式帧、状态更新",
+        "state": "会话日志、Agent 状态、工具执行结果、sandbox 运行时",
+        "kind": "dependency",
+        "evidence": [
+          {
+            "path": "README.md",
+            "startLine": 166,
+            "endLine": 177
+          },
+          {
+            "path": "src/api/README.md",
+            "startLine": 5,
+            "endLine": 7
+          }
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "from": "entry",
+        "to": "chat",
+        "label": "hydration 后渲染路由，聊天组件可接收输入"
+      },
+      {
+        "from": "chat",
+        "to": "atlas_2",
+        "label": "useSendMessage 调用 conversationContext.sendMessage"
+      },
+      {
+        "from": "atlas_2",
+        "to": "atlas_4",
+        "label": "socket 不可用且 runtime 可达时用 ConversationClient 发送事件"
+      },
+      {
+        "from": "atlas_2",
+        "to": "atlas_6",
+        "label": "WebSocket/HTTP 请求到 Agent Server"
+      },
+      {
+        "from": "atlas_2",
+        "to": "atlas_3",
+        "label": "持久和瞬态事件调用 addEvent，增量帧写 streaming slot"
+      },
+      {
+        "from": "atlas_3",
+        "to": "chat",
+        "label": "uiEvents 驱动消息列表和流式文本渲染"
+      },
+      {
+        "from": "atlas_4",
+        "to": "atlas_6",
+        "label": "创建会话、发送事件、搜索事件"
+      },
+      {
+        "from": "atlas_4",
+        "to": "atlas_5",
+        "label": "active backend 为 cloud 时转走 Cloud 端点"
+      }
+    ],
+    "flow": [
+      {
+        "title": "浏览器 hydrate 并装配会话 UI 上下文",
+        "phase": "初始化",
+        "condition": "必经：页面首次加载时",
+        "symbol": "prepareApp",
+        "owner": "project",
+        "input": "浏览器 document、静态资源",
+        "action": "等待 waitForI18n 和 installMarsWebBridge，必要时启动 mock worker，然后在 startTransition 中 hydrateRoot 到 AgentServerUIProviders/HydratedRouter",
+        "stateChange": "设置 i18n 就绪、window.marsBridge、开发态 preview；React 树开始接管页面",
+        "output": "可交互的聊天路由",
+        "evidence": [
+          {
+            "path": "src/entry.client.tsx",
+            "startLine": 18,
+            "endLine": 53
+          }
+        ]
+      },
+      {
+        "title": "新建会话时收集 mutation 变量并调用 launchConversation",
+        "phase": "装配/写入",
+        "condition": "可选分支：用户从首页或侧边栏新建会话时",
+        "symbol": "useCreateConversation",
+        "owner": "project",
+        "input": "query、repository、workingDir、workspaceMode、agentProfileId、llmProfile 等",
+        "action": "从变量中拆出首条消息和仓库元数据，调用 launchConversation，并把结果转成 conversation_id/url/task_id；launchConversation 的方法体未读，因此不在此断言它内部何时进入 createConversation",
+        "stateChange": "成功后 invalidate 会话列表和 start-tasks 查询；插件快照写入本地 metadata",
+        "output": "CreateConversationResponse，包含 conversation_id、url、task_id",
+        "evidence": [
+          {
+            "path": "src/hooks/mutation/use-create-conversation.ts",
+            "startLine": 116,
+            "endLine": 155
+          },
+          {
+            "path": "src/hooks/mutation/use-create-conversation.ts",
+            "startLine": 208,
+            "endLine": 217
+          }
+        ]
+      },
+      {
+        "title": "会话服务为本地新建会话组装请求并调用 ConversationClient",
+        "phase": "装配/写入",
+        "condition": "条件分支：新建路径实际进入 AgentServerConversationService.createConversation；launchConversation 中间方法体未读",
+        "symbol": "AgentServerConversationService.createConversation",
+        "owner": "project",
+        "input": "CreateConversationOptions、Settings、工作目录、AgentProfile 信息",
+        "action": "本地分支用 buildStartConversationRequestWithEncryptedSettings 组装 payload，合并 workspace/repository 标签，再用 ConversationClient.createConversation 发送；Docker 运行时改为 DockerExecutionWorkspace",
+        "stateChange": "写入 payload.tags；必要时 setStoredConversationMetadata 保存 repo/branch/workspace；返回 READY start task",
+        "output": "AppConversationStartTask，local 路径直接 READY",
+        "evidence": [
+          {
+            "path": "src/api/conversation-service/agent-server-conversation-service.api.ts",
+            "startLine": 641,
+            "endLine": 701
+          },
+          {
+            "path": "src/api/conversation-service/agent-server-conversation-service.api.ts",
+            "startLine": 723,
+            "endLine": 738
+          }
+        ]
+      },
+      {
+        "title": "聊天框提交消息并先写乐观气泡",
+        "phase": "写入/分支",
+        "condition": "必经：用户提交非 /new 的普通消息时",
+        "symbol": "ChatInterface.handleSendMessage",
+        "owner": "project",
+        "input": "content、images File[]、files File[]",
+        "action": "校验文件大小，图片转 base64，文件上传后拼出 prompt，enqueuePendingMessage 写“sending”气泡，再调用 send(createChatMessage(...))；失败则把 pending 标为 error",
+        "stateChange": "pendingMessages 增加一条；draftMessage 清空；滚动到底部",
+        "output": "交给 useSendMessage 的聊天消息",
+        "evidence": [
+          {
+            "path": "src/components/features/chat/chat-interface.tsx",
+            "startLine": 398,
+            "endLine": 456
+          }
+        ]
+      },
+      {
+        "title": "发送 Hook 把聊天输入转成 Agent Server 消息内容",
+        "phase": "装配",
+        "condition": "必经：conversationContext 存在且 action 为 message",
+        "symbol": "useSendMessage",
+        "owner": "project",
+        "input": "{ action: 'message', args: { content, image_urls, file_urls } }",
+        "action": "构造 MessageContent 数组：先放 text，再按需追加 image；调用 conversationContext.sendMessage({ role:'user', content })",
+        "stateChange": "无本地事件写入，只透传",
+        "output": "SendMessageResult（queued 布尔值）",
+        "evidence": [
+          {
+            "path": "src/hooks/use-send-message.ts",
+            "startLine": 22,
+            "endLine": 57
+          }
+        ]
+      },
+      {
+        "title": "Provider 内发送回调按 socket 状态选择直接 WS、挂起或 REST 投递",
+        "phase": "分支/写入",
+        "condition": "当前模式可为 main 或 plan；socket 可能 OPEN 或未 OPEN；cloud 可能没有 runtimeUrl",
+        "symbol": "ConversationWebSocketProvider",
+        "owner": "project",
+        "input": "SendMessageRequest、当前 conversationMode、mainSocket/planningAgentSocket、conversationUrl/sessionApiKey",
+        "action": "socket OPEN 时 currentSocket.send(JSON.stringify({...message, run:true}))；未 OPEN 且 plan 无目标则抛错；cloud 无 runtimeUrl 时把消息放进 heldMessagesRef；runtime 可达时用 ConversationClient.sendEvent 直接投递",
+        "stateChange": "heldMessagesRef 可能新增消息；打开 socket 后 flushHeldMessages 发送；错误写 error store",
+        "output": "{ queued: false } 表示 WS 已发，{ queued: true } 表示挂起或 REST 已投递",
+        "evidence": [
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 1427,
+            "endLine": 1470
+          },
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 1500,
+            "endLine": 1504
+          },
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 1318,
+            "endLine": 1334
+          }
+        ]
+      },
+      {
+        "title": "WebSocket 消息先按帧类型分流",
+        "phase": "查询/转换",
+        "condition": "每收到一条 socket 消息时",
+        "symbol": "routeSessionFrame",
+        "owner": "project",
+        "input": "JSON.parse(messageEvent.data) 的原始对象",
+        "action": "asSessionFrame 识别帧；delta 只入 batcher；其他帧先 flush batcher；item_started 打开 streaming slot，item_aborted 删除 slot，durable 推进 cursor 并返回带 seq 的事件，transient 原样返回，error 写错误 store",
+        "stateChange": "StreamingDeltaBatcher、SeqCursor、event store 的 streaming slot、error store",
+        "output": "durable/transient 事件，或 null（增量/进度/错误已就地处理）",
+        "evidence": [
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 166,
+            "endLine": 211
+          },
+          {
+            "path": "src/types/agent-server/session-frames.ts",
+            "startLine": 95,
+            "endLine": 107
+          }
+        ]
+      },
+      {
+        "title": "Provider 内主 socket 处理器把事件写入 store 并消费回显",
+        "phase": "写入",
+        "condition": "routeSessionFrame 返回非空事件，且 isAgentServerEvent 通过",
+        "symbol": "ConversationWebSocketProvider",
+        "owner": "project",
+        "input": "routeSessionFrame 返回的事件对象",
+        "action": "先查 eventIds 判断是否重放；addEvent 写入；重复事件直接跳过副作用；UserMessageEvent 按文本匹配并消费 pending 气泡；ConversationStateUpdateEvent 更新 execution_status、metrics、goal；ActionEvent 触发查询缓存失效",
+        "stateChange": "event store、optimistic pending、conversation-state-store、metrics-store、goal-store、React Query 缓存",
+        "output": "更新后的事件列表和会话状态",
+        "evidence": [
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 647,
+            "endLine": 675
+          },
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 717,
+            "endLine": 765
+          }
+        ]
+      },
+      {
+        "title": "事件存储去重、追加并生成 UI 投影",
+        "phase": "写入/计算",
+        "condition": "addEvent 被调用时",
+        "symbol": "applyAddEvent/appendEvent",
+        "owner": "project",
+        "input": "一个 UIEvent",
+        "action": "appendEvent 先看 eventIds 是否已有该 id，有则原状态返回；否则复制 Set、追加 events，并调用 handleEventForUI 生成 uiEvents；applyAddEvent 只在新事件时间戳早于末尾时排序",
+        "stateChange": "events、eventIds、uiEvents；重复事件不改变状态",
+        "output": "新的 store 快照，供聊天列表渲染",
+        "evidence": [
+          {
+            "path": "src/stores/use-event-store.ts",
+            "startLine": 113,
+            "endLine": 154
+          },
+          {
+            "path": "src/stores/use-event-store.ts",
+            "startLine": 161,
+            "endLine": 161
+          }
+        ]
+      }
+    ],
+    "technologies": [
+      {
+        "name": "会话帧分流与续传游标",
+        "problem": "同一条 socket 上混有可持久事件、不可重放的流式增量和错误帧，直接都塞进事件列表会重复或留下永远不闭合的临时气泡。",
+        "mechanism": "原始 JSON 先被 asSessionFrame 窄化为 SessionFrame；delta 只进入批处理器，其他帧先 flush；durable 帧用 seq 推进游标并返回事件，transient 原样返回，item_started/aborted 只操作 uiEvents 里的 streaming slot。",
+        "pseudocode": "frame = asSessionFrame(raw)\nif frame is null: return null\nif frame.type == 'delta': batcher.enqueue(frame); return null\nbatcher.flush()\nif frame.type == 'item_started': openStreamingSlot(frame); return null\nif frame.type == 'item_aborted': abortStreamingSlot(frame.item_id); return null\nif frame.type == 'durable': cursor.observe(frame.seq); return {...frame.event, seq: frame.seq}\nif frame.type == 'transient': return frame.event\nif frame.type == 'error': errorStore.set(frame.detail)",
+        "dataStructures": "SessionFrame 联合类型、StreamingDeltaBatcher、SeqCursor、uiEvents 中的 StreamingDeltaEvent 占位",
+        "projectCode": "routeSessionFrame、handleMainMessage/handlePlanningMessage、openStreamingSlot/appendStreamingDeltas/abortStreamingSlot",
+        "externalDependency": "Agent Server 产生 /sockets/session/{id} 帧并决定何时发 item_started、delta、durable；本仓库只解析和归并",
+        "tradeoff": "流式文本能立即显示且重连不重复，但需要维护 attempt、anchor_seq 和游标；遇到未知帧只能忽略。",
+        "evidence": [
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 166,
+            "endLine": 211
+          },
+          {
+            "path": "src/types/agent-server/session-frames.ts",
+            "startLine": 95,
+            "endLine": 107
+          }
+        ]
+      },
+      {
+        "name": "事件去重与 UI 归并",
+        "problem": "REST 历史预载和 WebSocket 重放会重叠，同一事件可能到达两次；Action 与 Observation 也需要在同一位置合并，而不是显示两张卡。",
+        "mechanism": "appendEvent 用 eventIds Set O(1) 判断 id 是否已见；新事件追加到 events 后调用 handleEventForUI；后者若发现 durable 事件 id 等于某个 streaming slot 的 id，就原地替换 slot；Observation 则按 action_id 替换对应 Action，Think/Finish 的 Observation 直接丢弃。",
+        "pseudocode": "id = event.id\nif id exists in eventIds: return state\nnextEvents = [...events, event]\nnextIds = new Set(eventIds).add(id)\nui = handleEventForUI(event, uiEvents)\nif event.timestamp < last.timestamp: sort(nextEvents); sort(ui)\nreturn {events: nextEvents, eventIds: nextIds, uiEvents: ui}",
+        "dataStructures": "events 数组、eventIds Set、uiEvents 数组、streaming slot 的 content/reasoning_content/attempt",
+        "projectCode": "appendEvent/applyAddEvent、handleEventForUI、openStreamingSlot/appendStreamingDeltas",
+        "externalDependency": "Zustand 只提供 store 容器；React 根据 store 快照重渲染",
+        "tradeoff": "去重是 O(1) 且多数追加不排序，但只对带 id 的事件生效；没有 id 的瞬态事件无法用该集合去重。",
+        "evidence": [
+          {
+            "path": "src/stores/use-event-store.ts",
+            "startLine": 113,
+            "endLine": 154
+          },
+          {
+            "path": "src/utils/handle-event-for-ui.ts",
+            "startLine": 275,
+            "endLine": 357
+          }
+        ]
+      },
+      {
+        "name": "跨后端会话请求组装",
+        "problem": "本地、Docker 和 Cloud 对 workspace、首条消息、标签、客户端工具和密钥的字段要求不同，调用点不能各自拼 JSON。",
+        "mechanism": "buildStartConversationRequest 先合并运行环境说明和 router suffix，再调用 buildConfiguredConversationSettings 处理 workspace/initial_message/plugins；最后按 profile kind 决定 client_tools，并追加 tags、max_iterations、confirmation_policy、secrets。",
+        "pseudocode": "suffix = runtimeServicesSuffix + routerSuffix\nsettings = buildConfiguredConversationSettings({settings, query, workspace, executionRuntime})\npayload = {agent_profile_id, workspace, client_tools, confirmation_policy, max_iterations, ...}\npayload.tags = {automationSetup?, acpserver?, clientsource:'agentcanvas'}\nif securityAnalyzer: payload.security_analyzer = analyzer\nif initial_message: payload.initial_message = initial_message\nif customSecrets: payload.secrets = LookupSecret map\nreturn payload",
+        "dataStructures": "ProfileStartConversationPayload/RawAgentStartConversationPayload、WorkspacePayload、InitialMessagePayload、tags Record",
+        "projectCode": "agent-server-adapter.ts 的 buildStartConversationRequest 和 buildStartConversationRequestWithEncryptedSettings",
+        "externalDependency": "Agent Server/SDK 校验这些字段、解析 LookupSecret、创建会话并执行 Agent",
+        "tradeoff": "调用点简单且字段一致，但适配层要跟随 SDK 字段演进；旧服务忽略的字段和新增字段需要兼容。",
+        "evidence": [
+          {
+            "path": "src/api/agent-server-adapter.ts",
+            "startLine": 1121,
+            "endLine": 1200
+          },
+          {
+            "path": "src/api/agent-server-adapter.ts",
+            "startLine": 1575,
+            "endLine": 1600
+          }
+        ]
+      },
+      {
+        "name": "本地/云端双路径服务适配",
+        "problem": "本地会话由 Agent Server 同步创建，Cloud 会话则要先建 start task，等 sandbox READY 后才有 runtime URL 和 session key。",
+        "mechanism": "AgentServerConversationService 先看 getActiveBackend().backend.kind；cloud 分支构造 AppConversationStartRequest 并 POST /api/v1/app-conversations，local 分支用 ConversationClient 同步创建；发送事件时 cloud 若没有 conversationUrl/sessionApiKey 先 batchGetCloudConversations 补齐，否则直接调用运行时。",
+        "pseudocode": "active = getActiveBackend().backend\nif active.kind == 'cloud':\n  request = buildCloudStartRequest(options)\n  task = createCloudAppConversation(request)\n  return task\nelse:\n  require agentProfileId\n  payload = buildStartConversationRequestWithEncryptedSettings(options)\n  data = new ConversationClient(options).createConversation(payload)\n  return {status:'READY', app_conversation_id:data.id,...}",
+        "dataStructures": "Backend.kind、AppConversationStartTask、AppConversation.conversation_url/session_api_key",
+        "projectCode": "AgentServerConversationService、cloud/conversation-service.api.ts、callCloudProxy 调用点",
+        "externalDependency": "Cloud App API 管理 sandbox 生命周期；本地 Agent Server 同步创建会话；TypeScript client 负责 HTTP 细节",
+        "tradeoff": "同一 UI 能切换后端，但分支多、错误语义不同；Cloud 消息在 sandbox 未起时只能先挂起。",
+        "evidence": [
+          {
+            "path": "src/api/conversation-service/agent-server-conversation-service.api.ts",
+            "startLine": 491,
+            "endLine": 526
+          },
+          {
+            "path": "src/api/conversation-service/agent-server-conversation-service.api.ts",
+            "startLine": 552,
+            "endLine": 606
+          },
+          {
+            "path": "src/api/cloud/conversation-service.api.ts",
+            "startLine": 148,
+            "endLine": 163
+          }
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "decision": "把 Agent 执行引擎和 canonical API 放在外部 SDK/Agent Server，本仓库只做前端控制中心和本地栈编排。",
+        "constraint": "多仓库分工明确：Agent Server API 由 SDK 实现，浏览器客户端只消费它。",
+        "alternative": "在本仓库实现 Agent loop、工具调用和 sandbox。",
+        "why": "本次场景里消息最终只是 ConversationClient.sendEvent 或 WebSocket 帧；如果执行引擎也放在前端仓库，浏览器 bundle 要承担 Python 工具、sandbox 和会话日志，且会与 canonical API 重复。",
+        "cost": "必须依赖兼容的 Agent Server；本仓库无法单独解释工具执行和 sandbox 细节，服务不可达时只能表现为连接或兼容性错误。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "The Agent Server API is implemented by the SDK and consumed through the TypeScript client by Agent Canvas.",
+        "evidence": [
+          {
+            "path": "README.md",
+            "startLine": 166,
+            "endLine": 177
+          }
+        ]
+      },
+      {
+        "decision": "本地调用优先使用 @openhands/typescript-client 的类型化 client，Cloud 调用走 cloud service 模块和 proxy。",
+        "constraint": "两边的 host、认证方式和端点不同；本地还需要统一的 host/apiKey/workingDir 解析。",
+        "alternative": "所有请求都用通用 fetch 字符串拼 URL。",
+        "why": "示例中 sendMessage 在 socket 关闭时直接 new ConversationClient(getAgentServerClientOptions(...)).sendEvent；cloud 则通过 callCloudProxy 调 /api/v1/...，类型化 client 和 cloud 适配层分别封装了不同的连接语义。",
+        "cost": "同一动作要维护本地/云端两条分支；新增端点先要改 TypeScript client 或 cloud proxy。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "Local agent-server API access should use `@openhands/typescript-client` classes directly",
+        "evidence": [
+          {
+            "path": "src/api/README.md",
+            "startLine": 5,
+            "endLine": 7
+          },
+          {
+            "path": "src/api/conversation-service/agent-server-conversation-service.api.ts",
+            "startLine": 491,
+            "endLine": 526
+          }
+        ]
+      },
+      {
+        "decision": "发送消息时优先走已打开的 WebSocket；socket 未开且 Cloud sandbox 还没有 runtime URL 时先挂起，等 socket 打开再 flush。",
+        "constraint": "Cloud sandbox PAUSED/STARTING 时 V1 agent server 尚不存在，消息没有可投递的 host。",
+        "alternative": "socket 未开就直接报错，或丢掉消息让用户重发。",
+        "why": "当前实现把消息放进 heldMessagesRef，保留“发送中”气泡，并在 main/planning socket OPEN 后调用 flushHeldMessages；这样用户不会因为 sandbox 启动窗口看到失败。",
+        "cost": "挂起消息只在内存中，页面刷新会丢；如果用户撤回气泡，flush 时会跳过该消息。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 1293,
+            "endLine": 1298
+          },
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 1454,
+            "endLine": 1469
+          },
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 1318,
+            "endLine": 1334
+          }
+        ]
+      },
+      {
+        "decision": "流式文本先放在 uiEvents 的临时 slot，持久事件到达后按同一 id 原地替换。",
+        "constraint": "progress 帧不会重放，durable 事件才会进入可恢复日志；两者必须能合并。",
+        "alternative": "每收到一个 delta 就追加一个事件，收到 durable 再删除旧增量。",
+        "why": "routeSessionFrame 对 delta 只调用 batcher.enqueue，对 item_started 才开 slot；handleEventForUI 看到 event.id 等于 slot 的 item_id 时直接替换。这样流式回复不会在列表里变成多条碎片，重连时也能由 durable cursor 恢复。",
+        "cost": "需要维护 attempt、anchor_seq 和流式批处理；如果 durable 先于 delta 到达，isFinished 会阻止迟到的 delta 重开 slot。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 178,
+            "endLine": 196
+          },
+          {
+            "path": "src/utils/handle-event-for-ui.ts",
+            "startLine": 281,
+            "endLine": 291
+          }
+        ]
+      },
+      {
+        "decision": "事件 store 用 eventIds Set 去重，只在发现新事件时间戳早于末尾时排序。",
+        "constraint": "WebSocket 重放和 REST 历史预载会重叠，但多数实时事件按顺序到达。",
+        "alternative": "每次 addEvent 都全量排序，或不去重。",
+        "why": "appendEvent 先查 Set，命中就直接返回原 state；applyAddEvent 只在 needsSorting 为真时排序。示例中 WS 重放同一 id 时不会重复渲染，也不会重复执行 UserMessageEvent 的消费逻辑。",
+        "cost": "无 id 的事件无法去重；真正乱序时才付出排序成本。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "src/stores/use-event-store.ts",
+            "startLine": 113,
+            "endLine": 154
+          },
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 660,
+            "endLine": 675
+          }
+        ]
+      }
+    ],
+    "codeWalkthroughs": [
+      {
+        "title": "发送消息的两种投递路径",
+        "explanation": "socket OPEN 时，sendMessage 不走 REST，而是把消息序列化成 {...message, run:true} 直接写 WebSocket；未 OPEN 时，如果当前是 Cloud 且 runtimeUrl 还不存在，就把消息放进 heldMessagesRef 并返回 queued:true，等 socket 打开后 flushHeldMessages 再发；如果 runtime 已经可达，则用 ConversationClient.sendEvent 直接投递。这样“已连接”“sandbox 还没起”“socket 断了但 runtime 可达”三种状态各有落点。",
+        "evidence": [
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 1427,
+            "endLine": 1470
+          },
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 1500,
+            "endLine": 1504
+          },
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 1318,
+            "endLine": 1334
+          }
+        ]
+      },
+      {
+        "title": "帧路由如何区分增量和持久事件",
+        "explanation": "routeSessionFrame 先把原始对象窄化为 SessionFrame；delta 只进 batcher 并返回 null，所以不会直接写 events。其他帧到达前先 flush batcher，保证文本不会越过后续事件。item_started 只打开 streaming slot，durable 帧推进 seq 游标并把事件返回给上层，transient 原样返回，error 写错误 store。上层 handleMainMessage 再把返回的事件送进 addEvent。",
+        "evidence": [
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 166,
+            "endLine": 211
+          },
+          {
+            "path": "src/types/agent-server/session-frames.ts",
+            "startLine": 95,
+            "endLine": 107
+          }
+        ]
+      },
+      {
+        "title": "事件存储去重和 durable 替换流式占位",
+        "explanation": "appendEvent 先用 eventIds Set 判断 id；命中则返回原 state，不追加也不重跑 UI 归并。新事件才复制 Set、追加 events 并调用 handleEventForUI。handleEventForUI 先找 id 相同的 streaming slot：找到就原地替换成 durable 事件，因此正在逐字显示的回复会变成最终消息；随后才处理普通 Action/Observation 的替换逻辑。",
+        "evidence": [
+          {
+            "path": "src/stores/use-event-store.ts",
+            "startLine": 113,
+            "endLine": 132
+          },
+          {
+            "path": "src/utils/handle-event-for-ui.ts",
+            "startLine": 281,
+            "endLine": 291
+          }
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "question": "Cloud sandbox 还没有 runtimeUrl 时发送消息，前端会失败还是挂起？",
+        "change": "把 active backend 设为 cloud，令 conversationUrl/sessionApiKey 为空，然后调用 ConversationWebSocketProvider 内的发送回调。",
+        "expected": "应返回 {queued:true}，消息进入 heldMessagesRef，不写错误 banner；等该会话 socket OPEN 后 flushHeldMessages 用 socket.send(JSON.stringify({...message, run:true})) 发出。",
+        "evidence": [
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 1454,
+            "endLine": 1469
+          },
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 1318,
+            "endLine": 1334
+          }
+        ]
+      },
+      {
+        "question": "同一事件 id 从 REST 历史与 WebSocket 重放各到达一次，会不会重复渲染？",
+        "change": "先 addEvents 预载一个 id 为 e1 的 UserMessageEvent，再通过主 socket 处理器收到同一个 e1。",
+        "expected": "appendEvent 命中 eventIds 后返回原 state，uiEvents 不增加；主 socket 处理器的 isDuplicateEvent 为真，也会跳过消费 pending、状态更新等副作用。",
+        "evidence": [
+          {
+            "path": "src/stores/use-event-store.ts",
+            "startLine": 113,
+            "endLine": 119
+          },
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 660,
+            "endLine": 675
+          }
+        ]
+      },
+      {
+        "question": "plan 模式没有 planningConversationId 且 socket 未开时，消息会不会落到父会话？",
+        "change": "把 conversationMode 设为 plan，planningConversationId 设为 null，保持 planningAgentSocket 未 OPEN，然后发送消息。",
+        "expected": "应抛出 'Planning conversation is not ready yet' 并写错误 store，而不是退回主 conversationId 发送；这保护了 plan 模式与 code agent 的边界。",
+        "evidence": [
+          {
+            "path": "src/contexts/conversation-websocket-context.tsx",
+            "startLine": 1429,
+            "endLine": 1439
+          }
+        ]
+      }
+    ],
+    "takeaways": [
+      "本仓库是 Agent Canvas 前端控制中心：它负责输入、连接、事件归并和 UI，不负责 Agent loop、工具执行或 sandbox。",
+      "一次消息发送有明确的三态：WS 已发、Cloud 无 runtime 时挂起、runtime 可达时 REST 直投；不能用单一“HTTP 调用”概括。",
+      "流式文本是临时 slot，durable 事件才是可恢复日志；两者靠 item_id 对齐，靠 seq 游标续传。",
+      "事件 store 的去重是 id 级、O(1) 的 Set 检查，排序只在检测到乱序时发生；这直接避免 REST 历史和 WS 重放产生重复消息。",
+      "乐观 UI 通过 pending 气泡和 UserMessageEvent 回显匹配来闭合，发送失败时 pending 会转 error 而不是静默消失。"
+    ],
+    "gaps": [
+      "useCreateConversation 调用的 launchConversation 方法体未读，无法确认它具体何时、以何参数进入 AgentServerConversationService.createConversation。",
+      "useWebSocket 的底层实现未读，因此重连节奏、after_seq 参数如何拼到 URL、断线重试细节无法从本仓库已读代码确认。",
+      "useConversationHistory 的 REST 预载与分页实现未读，只能根据 conversation-websocket-context 的注释知道会预载最近事件并用于 afterSeq。",
+      "Agent Server/SDK 的 Agent loop、工具执行、事件持久化和 sandbox 生命周期不在本仓库；本仓库只能看到消费端。",
+      "callCloudProxy 的内部实现未读，Cloud 的认证头、错误映射和代理路径无法进一步确认。"
+    ]
+  }
+}

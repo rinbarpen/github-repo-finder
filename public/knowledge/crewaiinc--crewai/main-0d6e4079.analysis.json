@@ -1,0 +1,863 @@
+{
+  "version": 3,
+  "repo": "crewAIInc/crewAI",
+  "ref": "main",
+  "sha": "97bbfb64811775a965304bda45c8ec0e8e4ef3a2",
+  "analysis": {
+    "version": 3,
+    "kind": "architecture",
+    "requestedModel": "deepseek-flash",
+    "actualModel": "deepseek-flash",
+    "filesRead": 22,
+    "charactersRead": 349874,
+    "modules": 6,
+    "flowSteps": 9,
+    "mechanisms": 4,
+    "decisions": 4,
+    "readingStrategy": "model-and-profile",
+    "structuralChecks": "passed",
+    "usage": {
+      "prompt_tokens": 134861,
+      "completion_tokens": 13789
+    },
+    "notes": []
+  },
+  "plan": {
+    "scenario": "两个 Agent 顺序完成调研与写作：Crew.kickoff 接收输入，按 Process.sequential 逐任务执行，前一任务输出作为后一任务的 context 注入，最终汇总为 CrewOutput。",
+    "files": [
+      {
+        "path": "lib/crewai/src/crewai/crew.py",
+        "focus": [
+          "Crew.kickoff",
+          "Crew._run_sequential_process",
+          "Crew._execute_tasks",
+          "Crew._get_context",
+          "Crew._create_crew_output"
+        ],
+        "reason": "公开入口与顺序编排核心。kickoff 做 checkpoint/streaming 分支后按 process 分派；_run_sequential_process 直接委托 _execute_tasks；_execute_tasks 是真实主循环，负责逐任务取 context、调用 task.execute_sync、收集 TaskOutput 并最终 _create_crew_output。_get_context 决定前一结果如何传给后一任务。"
+      },
+      {
+        "path": "lib/crewai/src/crewai/task.py",
+        "focus": [
+          "Task.execute_sync",
+          "Task._execute_core",
+          "Task.prompt",
+          "Task.interpolate_inputs_and_add_conversation_history"
+        ],
+        "reason": "任务对象承载执行。execute_sync 是同步入口，_execute_core 是实际被调用的实现（组装 prompt、调用 agent.execute_task、处理 guardrail/输出）。prompt 与 interpolate 方法体现输入插值和上下文拼接，是任务间传递的载体。"
+      },
+      {
+        "path": "lib/crewai/src/crewai/agent/core.py",
+        "focus": [
+          "Agent.execute_task",
+          "Agent._execute_without_timeout",
+          "Agent._finalize_task_execution",
+          "Agent._prepare_task_execution"
+        ],
+        "reason": "Agent 侧真实执行。execute_task 准备 prompt、做知识检索、发事件，然后进入 _execute_without_timeout（或超时变体）驱动 AgentExecutor；_finalize_task_execution 把结果整理回 Task。是 Crew→Task→Agent 链路的关键一跳。"
+      },
+      {
+        "path": "lib/crewai/src/crewai/agents/agent_executor.py",
+        "focus": [
+          "CrewAgentExecutor._invoke_loop",
+          "CrewAgentExecutor._execute_single_native_tool_call",
+          "CrewAgentExecutor._handle_native_tool_calls"
+        ],
+        "reason": "真正的模型与工具循环实现。Agent 通过 executor 进入 ReAct/原生工具调用循环，这里决定 LLM 调用、工具解析与结果回填，是'输入如何走到输出'的算法核心。"
+      },
+      {
+        "path": "lib/crewai/src/crewai/agents/step_executor.py",
+        "focus": [
+          "StepExecutor.execute",
+          "StepExecutor._execute_step"
+        ],
+        "reason": "单步执行适配器，被 agent_executor 调用以完成一次 LLM 步骤与工具步骤，帮助区分'循环控制'与'单步执行'两层职责。"
+      },
+      {
+        "path": "lib/crewai/src/crewai/tools/tool_usage.py",
+        "focus": [
+          "ToolUsage.use",
+          "ToolUsage._use",
+          "ToolUsage._execute_tool_and_check_finality"
+        ],
+        "reason": "工具调用的具体适配器：解析工具名/参数、执行 BaseTool、处理错误与最终答案判定，是工具循环落地处。"
+      },
+      {
+        "path": "lib/crewai/src/crewai/process.py",
+        "focus": [
+          "Process"
+        ],
+        "reason": "极小枚举，定义 sequential/hierarchical，是 kickoff 分派依据，说明为何只展开一种 process。"
+      },
+      {
+        "path": "lib/crewai/src/crewai/crews/crew_output.py",
+        "focus": [
+          "CrewOutput"
+        ],
+        "reason": "输出数据结构，承载最终 raw、tasks_output、token 用量等，是链路终点。"
+      },
+      {
+        "path": "lib/crewai/src/crewai/tasks/task_output.py",
+        "focus": [
+          "TaskOutput"
+        ],
+        "reason": "单任务输出结构，是任务间 context 传递与最终汇总的基本单元。"
+      },
+      {
+        "path": "lib/crewai/src/crewai/agents/agent_builder/base_agent.py",
+        "focus": [
+          "BaseAgent"
+        ],
+        "reason": "Agent 与 Task 之间的抽象契约，说明 execute_task 的接口边界与状态归属，避免把 SDK 包装当实现。"
+      },
+      {
+        "path": "lib/crewai/src/crewai/llms/base_llm.py",
+        "focus": [
+          "BaseLLM.call",
+          "BaseLLM.acall"
+        ],
+        "reason": "模型传输适配器的抽象入口，agent_executor 通过它发起真实 LLM 请求，是'传输适配器'层。"
+      },
+      {
+        "path": "lib/crewai/src/crewai/llms/providers/openai/completion.py",
+        "focus": [
+          "OpenAICompletion.call"
+        ],
+        "reason": "具体 provider 实现，展示 BaseLLM 抽象如何落到真实 HTTP/SDK 调用，作为传输适配器的具体实例。"
+      },
+      {
+        "path": "lib/crewai/src/crewai/utilities/agent_utils.py",
+        "focus": [
+          "handle_knowledge_retrieval",
+          "prepare_tools",
+          "format_task_with_context"
+        ],
+        "reason": "Agent 执行前后的辅助实现，负责知识检索注入与工具准备，是 execute_task 内部实际调用的工具函数。"
+      },
+      {
+        "path": "lib/crewai/src/crewai/events/event_bus.py",
+        "focus": [
+          "CrewAIEventsBus.emit"
+        ],
+        "reason": "贯穿 kickoff/task/agent 的事件总线，解释执行过程中的可观测性设计取舍，非核心算法但影响架构。"
+      },
+      {
+        "path": "lib/crewai/src/crewai/execution.py",
+        "focus": [
+          "prepare_kickoff",
+          "prepare_task_execution",
+          "begin_execution"
+        ],
+        "reason": "kickoff 与 _execute_tasks 中实际调用的执行准备函数，负责输入插值、任务跳过判定与 tracing 起始，是主方法后半段依赖的实现。"
+      },
+      {
+        "path": "docs/edge/en/concepts/processes.mdx",
+        "focus": [
+          "sequential",
+          "hierarchical"
+        ],
+        "reason": "示例/文档，说明顺序与层级协作差异及为何用任务对象承载执行，作为测试/示例类覆盖。"
+      }
+    ]
+  },
+  "report": {
+    "overview": {
+      "plainLanguage": "把多步工作拆成有序任务，每个任务交给对应角色代理执行，再把已有结果按上下文规则传给下一个任务，最后汇总成一次输出。",
+      "problem": "多代理协作时，如果直接让代理互相调用，容易出现谁负责哪一步、上一步结果如何进入下一步、最终输出以哪个任务为准这些边界不清的问题。",
+      "scenarioInput": "一个 Crew 配置两个任务：research_task 由 researcher 执行，writing_task 由 writer 执行；process=Process.sequential，kickoff 输入 {\"topic\":\"AI Agents\"}，writing_task 显式 context=[research_task]。",
+      "scenarioOutput": "推演得到 CrewOutput：raw 是最后一个有效任务返回的文本；tasks_output 含 research_task 与 writing_task 两个 TaskOutput；后续任务构造上下文时可读取前序任务输出；token_usage 记录本次 Crew 汇总用量。"
+    },
+    "modules": [
+      {
+        "id": "entry",
+        "name": "Crew 启动与流程分流",
+        "role": "接收 kickoff 输入，建立运行作用域，按 Process 选择顺序或层级流程，并最终返回 CrewOutput。",
+        "input": "inputs、input_files、可选 checkpoint；以及 Crew 上配置的 tasks、agents、process。",
+        "output": "顺序流程交给 _run_sequential_process，最终输出 CrewOutput 或流式输出。",
+        "state": "Crew 的 id、process、tasks、usage_metrics；运行中进入事件与追踪作用域。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1045,
+            "endLine": 1073
+          },
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1940,
+            "endLine": 1961
+          }
+        ]
+      },
+      {
+        "id": "taskprep",
+        "name": "逐个任务准备执行参数",
+        "role": "在任务循环里解析当前任务该用哪个 agent、哪些 tools，并处理 replay 跳过与任务开始日志。",
+        "input": "当前 Task、任务下标、start_index、已有 task_outputs。",
+        "output": "TaskExecutionData（agent、tools、是否跳过）以及更新后的 task_outputs/last_sync_output。",
+        "state": "读取并可能更新 task_outputs 与 last_sync_output；不直接执行模型。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/crews/utils.py",
+            "startLine": 143,
+            "endLine": 177
+          }
+        ]
+      },
+      {
+        "id": "task",
+        "name": "Task 执行与输出封装",
+        "role": "承载任务描述、期望输出、上下文与最终 TaskOutput；调用 Agent 执行，并把返回值封装为 TaskOutput 写回自身。",
+        "input": "agent、context 字符串、tools；context 由 Crew._get_context 聚合。",
+        "output": "TaskOutput，包含 raw、pydantic/json_dict、agent 角色、messages 与 tool_failures。",
+        "state": "prompt_context、output、start_time/end_time、processed_by_agents、retry_count 等。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/task.py",
+            "startLine": 620,
+            "endLine": 628
+          },
+          {
+            "path": "lib/crewai/src/crewai/task.py",
+            "startLine": 844,
+            "endLine": 892
+          },
+          {
+            "path": "lib/crewai/src/crewai/task.py",
+            "startLine": 914,
+            "endLine": 925
+          }
+        ]
+      },
+      {
+        "id": "agent",
+        "name": "Agent 提示组装与执行器调用",
+        "role": "把 Task 的描述、期望输出、上下文和记忆检索组合成 prompt，然后交给 agent_executor.invoke 执行。",
+        "input": "Task、context、tools。",
+        "output": "执行器返回的 output 字符串或结构化结果，交由 Task 再封装。",
+        "state": "reset tool failures、保存 last messages、发出 Agent 执行事件。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/agent/core.py",
+            "startLine": 685,
+            "endLine": 711
+          },
+          {
+            "path": "lib/crewai/src/crewai/agent/core.py",
+            "startLine": 964,
+            "endLine": 1035
+          },
+          {
+            "path": "lib/crewai/src/crewai/agent/core.py",
+            "startLine": 1076,
+            "endLine": 1104
+          }
+        ]
+      },
+      {
+        "id": "executor",
+        "name": "执行器与工具调用处理",
+        "role": "执行器接收 input/tool_names/tools 等调用参数；其原生工具调用路径负责解析参数、查缓存、执行工具函数、处理 hook 与失败。",
+        "input": "Agent._execute_without_timeout 传入的 invoke 字典；原生工具调用为 tool_call 对象。",
+        "output": "AgentExecutor.invoke 返回结果字典，Agent 读取其中的 output；单个工具调用返回包含 result、from_cache、tool_failure 的字典。",
+        "state": "工具缓存命中状态、累计工具失败、工具使用计数、hook 阻断状态。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/agents/agent_executor.py",
+            "startLine": 2231,
+            "endLine": 2262
+          },
+          {
+            "path": "lib/crewai/src/crewai/agents/agent_executor.py",
+            "startLine": 2302,
+            "endLine": 2375
+          },
+          {
+            "path": "lib/crewai/src/crewai/agents/agent_executor.py",
+            "startLine": 2447,
+            "endLine": 2468
+          }
+        ]
+      },
+      {
+        "id": "output",
+        "name": "TaskOutput 与 CrewOutput 汇总",
+        "role": "把每个任务的输出保留为 TaskOutput，最终从有效任务输出中取最后一个作为 CrewOutput 的 raw/pydantic/json_dict。",
+        "input": "按执行顺序累积的 list[TaskOutput]。",
+        "output": "CrewOutput，包含 raw、pydantic、json_dict、tasks_output、token_usage。",
+        "state": "Crew.token_usage；final_task_output.raw 可能被输出 hook 修改。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/tasks/task_output.py",
+            "startLine": 30,
+            "endLine": 56
+          },
+          {
+            "path": "lib/crewai/src/crewai/crews/crew_output.py",
+            "startLine": 14,
+            "endLine": 33
+          },
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1940,
+            "endLine": 1961
+          }
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "from": "entry",
+        "to": "taskprep",
+        "label": "kickoff 准备后进入任务循环，逐任务准备 agent/tools"
+      },
+      {
+        "from": "taskprep",
+        "to": "task",
+        "label": "给出当前任务的执行 agent 与 tools"
+      },
+      {
+        "from": "task",
+        "to": "agent",
+        "label": "Task._execute_core 调用 agent.execute_task"
+      },
+      {
+        "from": "agent",
+        "to": "executor",
+        "label": "Agent._execute_without_timeout 调用 agent_executor.invoke"
+      },
+      {
+        "from": "task",
+        "to": "output",
+        "label": "Task 返回并写回 TaskOutput"
+      },
+      {
+        "from": "entry",
+        "to": "output",
+        "label": "_create_crew_output 汇总 task_outputs 为 CrewOutput"
+      }
+    ],
+    "flow": [
+      {
+        "title": "接收输入并建立一次 Crew 运行",
+        "phase": "初始化",
+        "condition": "必经；从 Crew.kickoff 进入",
+        "symbol": "Crew.kickoff",
+        "owner": "project",
+        "input": "inputs、input_files、可选 checkpoint。",
+        "action": "建立执行与追踪作用域，调用 prepare_kickoff 准备输入，再按 self.process 分支。",
+        "stateChange": "进入运行作用域；后续成功时写 usage_metrics。",
+        "output": "进入 process 分支。",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1045,
+            "endLine": 1064
+          }
+        ]
+      },
+      {
+        "title": "选择顺序流程",
+        "phase": "分支选择",
+        "condition": "self.process == Process.sequential",
+        "symbol": "Crew.kickoff / Crew._run_sequential_process",
+        "owner": "project",
+        "input": "已准备的 Crew 与 inputs。",
+        "action": "kickoff 命中顺序分支后调用 _run_sequential_process，后者把 self.tasks 交给 _execute_tasks。",
+        "stateChange": "无额外任务状态，仅进入任务循环。",
+        "output": "tasks 列表进入 _execute_tasks。",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1057,
+            "endLine": 1058
+          },
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1524,
+            "endLine": 1527
+          }
+        ]
+      },
+      {
+        "title": "为当前任务解析 agent 与 tools",
+        "phase": "准备",
+        "condition": "每轮任务循环；replay 且 task_index < start_index 时可能跳过",
+        "symbol": "Crew._execute_tasks / prepare_task_execution",
+        "owner": "project",
+        "input": "当前 Task、task_index、start_index、已有 task_outputs。",
+        "action": "若命中 replay 起点之前则跳过并可回收已有 task.output；否则调用 crew._get_agent_to_use，选择 task.tools 或 agent.tools，再经 _prepare_tools 处理。",
+        "stateChange": "task_outputs/last_sync_output 可能因 replay 被更新。",
+        "output": "TaskExecutionData(agent, tools, should_skip)。",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1601,
+            "endLine": 1606
+          },
+          {
+            "path": "lib/crewai/src/crewai/crews/utils.py",
+            "startLine": 143,
+            "endLine": 177
+          }
+        ]
+      },
+      {
+        "title": "计算当前任务上下文",
+        "phase": "查询",
+        "condition": "同步任务执行前；条件任务与异步任务有各自分支",
+        "symbol": "Crew._get_context",
+        "owner": "project",
+        "input": "当前 Task 与已累积 task_outputs。",
+        "action": "若 task.context 为空则返回空字符串；否则 task.context 为 NOT_SPECIFIED 时聚合当前 task_outputs，为显式列表时聚合指定任务。",
+        "stateChange": "无；只读 task_outputs 与 task.context。",
+        "output": "传给 Task.execute_sync 的 context 字符串。",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1887,
+            "endLine": 1895
+          }
+        ]
+      },
+      {
+        "title": "Task 进入本地执行核心",
+        "phase": "写入准备",
+        "condition": "非异步任务且未被条件跳过",
+        "symbol": "Task.execute_sync / Task._execute_core",
+        "owner": "project",
+        "input": "agent、context、tools。",
+        "action": "记录 start_time；_execute_core 设置当前 task id，写 prompt_context，准备 tools，发出 TaskStartedEvent，并调用 agent.execute_task。",
+        "stateChange": "Task.prompt_context 写入；processed_by_agents 加入 agent.role；开始时间写入。",
+        "output": "agent.execute_task 的返回结果。",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/task.py",
+            "startLine": 620,
+            "endLine": 628
+          },
+          {
+            "path": "lib/crewai/src/crewai/task.py",
+            "startLine": 861,
+            "endLine": 892
+          }
+        ]
+      },
+      {
+        "title": "Agent 组装 prompt 并调用执行器",
+        "phase": "调用",
+        "condition": "必经；Agent 有 agent_executor",
+        "symbol": "Agent.execute_task / Agent._execute_without_timeout",
+        "owner": "project",
+        "input": "Task、context、tools。",
+        "action": "_prepare_task_execution 先 task.prompt，再补 schema、把 context 格式化进 prompt、检索记忆；execute_task 再做知识检索和 finalize prompt，然后调用 agent_executor.invoke({\"input\": task_prompt, ...})。",
+        "stateChange": "Agent 重置工具失败、发出 AgentExecutionStartedEvent，后续保存 last messages。",
+        "output": "invoke 返回字典，Agent 读取 invoke_result[\"output\"]。",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/agent/core.py",
+            "startLine": 685,
+            "endLine": 711
+          },
+          {
+            "path": "lib/crewai/src/crewai/agent/core.py",
+            "startLine": 985,
+            "endLine": 1018
+          },
+          {
+            "path": "lib/crewai/src/crewai/agent/core.py",
+            "startLine": 1086,
+            "endLine": 1104
+          }
+        ]
+      },
+      {
+        "title": "把 agent 结果封装为 TaskOutput",
+        "phase": "写入",
+        "condition": "agent.execute_task 正常返回后",
+        "symbol": "Task._execute_core",
+        "owner": "project",
+        "input": "agent 返回的 str、BaseModel 或结构化结果。",
+        "action": "根据输出类型生成 raw/pydantic/json_dict，构造 TaskOutput；执行 guardrails、POST_STEP hook、task callback 与 output_file 保存，最后写 self.output 并发出 TaskCompletedEvent。",
+        "stateChange": "Task.output 写入；end_time 写入；callback 与 output_file 副作用发生。",
+        "output": "返回 TaskOutput 给 Crew 任务循环。",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/task.py",
+            "startLine": 914,
+            "endLine": 925
+          },
+          {
+            "path": "lib/crewai/src/crewai/task.py",
+            "startLine": 945,
+            "endLine": 991
+          }
+        ]
+      },
+      {
+        "title": "追加输出并作为下一任务上下文来源",
+        "phase": "写入/查询循环",
+        "condition": "同步任务返回后；下一轮任务计算 context 时读取已追加输出",
+        "symbol": "Crew._execute_tasks / Crew._get_context",
+        "owner": "project",
+        "input": "当前 task_output。",
+        "action": "同步分支把 task_output append 到 task_outputs，处理结果并记录执行日志；下一轮 _get_context 读取 task_outputs 或显式 task.context。",
+        "stateChange": "task_outputs 增长，前一任务输出成为后续任务可选上下文。",
+        "output": "下一任务的 context 字符串。",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1633,
+            "endLine": 1641
+          },
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1887,
+            "endLine": 1895
+          }
+        ]
+      },
+      {
+        "title": "汇总最终 CrewOutput",
+        "phase": "汇总",
+        "condition": "任务循环结束且至少有一个 raw 非空的 TaskOutput",
+        "symbol": "Crew._create_crew_output",
+        "owner": "project",
+        "input": "task_outputs 列表。",
+        "action": "过滤 raw 非空输出，取最后一个作为 final_task_output；构造 CrewOutput，执行 OUTPUT/EXECUTION_END hook，排空后台 memory 写入并发出完成事件。",
+        "stateChange": "Crew.token_usage 写入；final_task_output.raw 可能被输出 hook 改回 CrewOutput.raw。",
+        "output": "返回 CrewOutput。",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1940,
+            "endLine": 1993
+          }
+        ]
+      }
+    ],
+    "technologies": [
+      {
+        "name": "顺序任务循环与上下文聚合",
+        "problem": "让多个任务按配置顺序执行，并让后续任务按规则拿到前序输出。",
+        "mechanism": "Crew._execute_tasks 遍历 tasks；每个任务先经 prepare_task_execution 解析 agent/tools，再调用 _get_context 读取 task.context 或已有 task_outputs，同步执行后 append TaskOutput，最后交给 _create_crew_output。",
+        "pseudocode": "task_outputs = []\nfor task in tasks:\n    exec_data = prepare(task, task_outputs)\n    if exec_data.should_skip: continue\n    context = get_context(task, task_outputs)\n    output = task.execute_sync(exec_data.agent, context, exec_data.tools)\n    task_outputs.append(output)\nreturn create_crew_output(task_outputs)",
+        "dataStructures": "list[TaskOutput] 按执行顺序累积；Task.context 为 NOT_SPECIFIED 或显式 Task 列表，决定聚合范围。",
+        "projectCode": "Crew._execute_tasks、Crew._get_context、prepare_task_execution。",
+        "externalDependency": "无；这是本项目对任务与输出的编排。",
+        "tradeoff": "顺序执行简单可预测，但吞吐受单任务串行限制；上下文聚合便于传递结果，但默认聚合全部已有输出可能让 prompt 变长。",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1601,
+            "endLine": 1646
+          },
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1887,
+            "endLine": 1895
+          }
+        ]
+      },
+      {
+        "name": "Agent 提示组装与执行器边界",
+        "problem": "把任务描述、期望输出、上下文和记忆检索合成一次模型请求，同时把模型与工具循环隔离在 executor 内。",
+        "mechanism": "Task.prompt 生成基础任务文本；Agent._prepare_task_execution 追加 schema、格式化为带 context 的 prompt；Agent.execute_task 再做知识检索并调用 agent_executor.invoke；invoke 返回 output 后 Agent 再 finalize。",
+        "pseudocode": "base = task.prompt()\nprompt = build_task_prompt_with_schema(task, base)\nprompt = format_task_with_context(prompt, context)\nprompt = retrieve_memory_context(task, prompt)\nresult = agent_executor.invoke({\n  input: prompt, tool_names, tools, ask_for_human_input\n})\nreturn result[\"output\"]",
+        "dataStructures": "prompt 字符串；invoke 字典含 input、tool_names、tools_description、ask_for_human_input；返回字典读 output。",
+        "projectCode": "Agent._prepare_task_execution、Agent.execute_task、Agent._execute_without_timeout。",
+        "externalDependency": "具体模型提供方由 BaseLLM 子类负责；例如 OpenAICompletion.call 负责发 OpenAI 请求并做 provider 调用事件。",
+        "tradeoff": "Agent 层只负责 prompt 与边界，executor 可独立处理工具循环；代价是 invoke 内部方法体不在当前已读范围，追踪到 invoke 后出现证据缺口。",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/agent/core.py",
+            "startLine": 685,
+            "endLine": 711
+          },
+          {
+            "path": "lib/crewai/src/crewai/agent/core.py",
+            "startLine": 985,
+            "endLine": 1018
+          },
+          {
+            "path": "lib/crewai/src/crewai/llms/providers/openai/completion.py",
+            "startLine": 626,
+            "endLine": 693
+          }
+        ]
+      },
+      {
+        "name": "TaskOutput/CrewOutput 规范化",
+        "problem": "把不同类型任务结果统一成可继续传递、可最终汇总的结构。",
+        "mechanism": "Task._execute_core 根据 BaseModel 或字符串生成 raw、pydantic_output、json_output，构造 TaskOutput；Crew._create_crew_output 过滤 raw 非空输出，取最后一个有效 TaskOutput 构造 CrewOutput，并保存 tasks_output 与 token_usage。",
+        "pseudocode": "if result is BaseModel: raw = result.model_dump_json()\nelse: raw = result\nif guardrails: skip export\nelse: pydantic, json_dict = export_output(result)\ntask_output = TaskOutput(raw, pydantic, json_dict, agent)\nvalid = [t for t in task_outputs if t.raw]\nreturn CrewOutput(raw=valid[-1].raw, tasks_output=task_outputs)",
+        "dataStructures": "TaskOutput 含 raw/pydantic/json_dict/agent/output_format/messages/tool_failures；CrewOutput 含 raw/pydantic/json_dict/tasks_output/token_usage。",
+        "projectCode": "Task._execute_core 的输出构造、Crew._create_crew_output、TaskOutput/CrewOutput Pydantic 模型。",
+        "externalDependency": "Pydantic 提供模型字段校验与序列化。",
+        "tradeoff": "统一结构让上下文聚合和最终读取简单；代价是最终输出只取最后一个有效任务，若最后一个任务 raw 为空会被前一个有效输出替代。",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/task.py",
+            "startLine": 914,
+            "endLine": 925
+          },
+          {
+            "path": "lib/crewai/src/crewai/tasks/task_output.py",
+            "startLine": 30,
+            "endLine": 56
+          },
+          {
+            "path": "lib/crewai/src/crewai/crews/crew_output.py",
+            "startLine": 14,
+            "endLine": 33
+          }
+        ]
+      },
+      {
+        "name": "原生工具调用执行路径",
+        "problem": "模型返回工具调用时，需要解析参数、选择原始工具、查缓存、执行函数并把失败信息带回。",
+        "mechanism": "_execute_single_native_tool_call 解析 tool_call 得到 call_id/func_name/func_args；解析参数失败即进入失败处理；否则查找 original_tool 与 structured_tool，检查 usage limit 和缓存，执行工具函数，按需缓存，生成 ToolUsage 事件，最后把 result、from_cache、tool_failure 返回。",
+        "pseudocode": "info = extract_tool_call_info(tool_call)\nargs = parse_tool_call_args(...)\ntool = find_original_or_structured(...)\nemit ToolUsageStarted\nif cache hit: result = cached\nelse: result = tool_func(**args)\nif success: cache.add(...)\nemit ToolUsageFinished\nif failure: handle_tool_failure(...)\nreturn {result, from_cache, tool_failure}",
+        "dataStructures": "args_dict、original_tool、structured_tool、from_cache、ToolFailure；结果字典供上层组装 observation。",
+        "projectCode": "AgentExecutor._execute_single_native_tool_call、CacheHandler、ToolUsage 事件。",
+        "externalDependency": "实际工具函数由用户工具或 crewai-tools 提供；模型是否产生工具调用由 LLM provider 决定。",
+        "tradeoff": "集中处理缓存、hook、失败策略可复用；代价是原生与文本解析工具路径并存，路径选择依赖 executor 内部逻辑，当前 invoke 方法体未读导致不能完整确认。",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/agents/agent_executor.py",
+            "startLine": 2231,
+            "endLine": 2262
+          },
+          {
+            "path": "lib/crewai/src/crewai/agents/agent_executor.py",
+            "startLine": 2302,
+            "endLine": 2375
+          },
+          {
+            "path": "lib/crewai/src/crewai/agents/agent_executor.py",
+            "startLine": 2447,
+            "endLine": 2468
+          }
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "decision": "用 Task 对象承载执行单元、上下文依赖和输出，而不是只让 Agent 直接互相调用。",
+        "constraint": "顺序流程需要知道当前任务用哪个 agent、上下文从哪些任务来、输出如何保留给后续任务。",
+        "alternative": "让 Agent 直接执行字符串任务并返回文本，由调用方自行保存结果。",
+        "why": "本场景中 writing_task 需要引用 research_task 的输出；Task.context 与 TaskOutput 使 Crew 能在循环中按任务粒度聚合上下文并保留每个任务输出，最终还能生成 tasks_output 列表。",
+        "cost": "Task 与 Agent、Crew、guardrail、callback 耦合更多，Task 对象状态也更多。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/task.py",
+            "startLine": 177,
+            "endLine": 180
+          },
+          {
+            "path": "lib/crewai/src/crewai/task.py",
+            "startLine": 223,
+            "endLine": 225
+          },
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1633,
+            "endLine": 1641
+          }
+        ]
+      },
+      {
+        "decision": "上下文默认与显式 context 分开：NOT_SPECIFIED 时聚合已有任务输出，显式列表时只聚合指定任务。",
+        "constraint": "任务之间既可能自动串行传递全部前序结果，也可能只依赖某几个指定任务。",
+        "alternative": "始终只传上一个任务输出，或始终传全部历史输出。",
+        "why": "若 writing_task 显式 context=[research_task]，聚合范围可限定在研究任务，避免把无关中间结果塞进写作 prompt；未显式指定时则可由已有 task_outputs 提供顺序上下文。",
+        "cost": "默认聚合全部已有输出可能使 prompt 随任务数增长；显式 context 也要求任务引用正确。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1887,
+            "endLine": 1895
+          },
+          {
+            "path": "lib/crewai/src/crewai/task.py",
+            "startLine": 177,
+            "endLine": 180
+          }
+        ]
+      },
+      {
+        "decision": "用 Process 枚举限制流程类型，并在 kickoff 中显式分支。",
+        "constraint": "流程类型需要可配置且取值有限，顺序与层级流程的执行策略不同。",
+        "alternative": "用任意字符串配置流程，或只实现一种硬编码顺序流程。",
+        "why": "文档说明枚举用于类型安全并限制为 sequential/hierarchical；代码中 kickoff 对 sequential 调用 _run_sequential_process，对 hierarchical 调用 _run_hierarchical_process，否则抛 NotImplementedError。",
+        "cost": "新增流程类型必须改枚举与 kickoff 分支；层级流程还需 manager_llm 或 manager_agent。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "The `Process` class is implemented as an enumeration (`Enum`), ensuring type safety and restricting process values to the defined types (`sequential`, `hierarchical`).",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/process.py",
+            "startLine": 4,
+            "endLine": 11
+          },
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1057,
+            "endLine": 1064
+          },
+          {
+            "path": "docs/edge/en/concepts/processes.mdx",
+            "startLine": 59,
+            "endLine": 61
+          }
+        ]
+      },
+      {
+        "decision": "Task 层负责 TaskOutput、guardrail、callback 与文件输出；Agent 层负责 prompt 和 executor 调用。",
+        "constraint": "一次任务执行既要产生统一输出结构，又要让 agent 专注模型与工具交互。",
+        "alternative": "让 Agent.execute_task 直接返回最终 TaskOutput，把 guardrail 和文件保存也放进 Agent。",
+        "why": "Task._execute_core 在拿到 agent 结果后构造 TaskOutput、执行 guardrail 与 POST_STEP hook、写 self.output 并保存 output_file；Agent 只把 task_prompt 交给 executor 并返回 output。这样顺序循环追加的是任务级输出，而不是松散字符串。",
+        "cost": "同步与异步路径在 Task 与 Agent 中各有对应实现，代码重复度更高。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/task.py",
+            "startLine": 927,
+            "endLine": 991
+          },
+          {
+            "path": "lib/crewai/src/crewai/agent/core.py",
+            "startLine": 985,
+            "endLine": 1035
+          }
+        ]
+      }
+    ],
+    "codeWalkthroughs": [
+      {
+        "title": "kickoff 如何选择顺序流程",
+        "explanation": "kickoff 先建立执行 token 与 runtime scope，prepare_kickoff 处理输入；随后只按 self.process 分支：sequential 调 _run_sequential_process，hierarchical 调另一个方法，其他值直接报未实现。_run_sequential_process 只做一件事：把 self.tasks 交给 _execute_tasks。",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1052,
+            "endLine": 1064
+          },
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1524,
+            "endLine": 1527
+          }
+        ]
+      },
+      {
+        "title": "任务循环如何准备、取上下文、执行并追加输出",
+        "explanation": "每轮先 prepare_task_execution 得到 agent/tools 或跳过标记；同步任务在 1633 行用 _get_context 读取上下文，再 execute_sync 执行，返回的 TaskOutput 追加到 task_outputs，并处理结果和日志。_get_context 的关键是 task.context：显式列表走 aggregate_raw_outputs_from_tasks，NOT_SPECIFIED 走 aggregate_raw_outputs_from_task_outputs。",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1601,
+            "endLine": 1606
+          },
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1633,
+            "endLine": 1641
+          },
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1887,
+            "endLine": 1895
+          }
+        ]
+      },
+      {
+        "title": "Task 如何调用 Agent 并把结果变成 TaskOutput",
+        "explanation": "_execute_core 先把 context 写入 Task.prompt_context，然后调用 agent.execute_task；拿到结果后按 BaseModel/普通字符串生成 raw、pydantic、json_dict，构造 TaskOutput；随后写 self.output 与 end_time，执行 callback 和 output_file，最后返回 TaskOutput。",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/task.py",
+            "startLine": 861,
+            "endLine": 892
+          },
+          {
+            "path": "lib/crewai/src/crewai/task.py",
+            "startLine": 914,
+            "endLine": 925
+          },
+          {
+            "path": "lib/crewai/src/crewai/task.py",
+            "startLine": 957,
+            "endLine": 962
+          }
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "question": "显式给 writing_task 设置 context=[research_task] 与保持 NOT_SPECIFIED，会怎样改变上下文聚合范围？",
+        "change": "把 writing_task.context 从 NOT_SPECIFIED 改为 [research_task]。",
+        "expected": "_get_context 走 aggregate_raw_outputs_from_tasks(task.context)，只聚合 research_task 的输出；若不改，则走 aggregate_raw_outputs_from_task_outputs(task_outputs)，聚合当前已累积的任务输出。",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1887,
+            "endLine": 1895
+          },
+          {
+            "path": "lib/crewai/src/crewai/task.py",
+            "startLine": 177,
+            "endLine": 180
+          }
+        ]
+      },
+      {
+        "question": "顺序流程中第二个任务没有 agent 会怎样？",
+        "change": "构造 writing_task 时不设置 task.agent，且 Crew 没有可替代 agent。",
+        "expected": "prepare_task_execution 调 _get_agent_to_use 得到 None 后抛出 ValueError，提示该任务没有可用 agent；不会进入 Agent.execute_task。",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/crews/utils.py",
+            "startLine": 154,
+            "endLine": 160
+          }
+        ]
+      },
+      {
+        "question": "最终 CrewOutput 是否一定来自最后一个任务？",
+        "change": "让最后一个任务返回空 raw，而前一个任务 raw 非空。",
+        "expected": "_create_crew_output 先过滤 t.raw 非空，再取 valid_outputs[-1]，因此最终 raw 来自最后一个 raw 非空的任务，而不是简单取 task_outputs[-1]。",
+        "evidence": [
+          {
+            "path": "lib/crewai/src/crewai/crew.py",
+            "startLine": 1944,
+            "endLine": 1947
+          }
+        ]
+      }
+    ],
+    "takeaways": [
+      "顺序流程的主线是 Crew.kickoff 选分支、_execute_tasks 逐任务准备与执行、Task 封装 TaskOutput、最后 _create_crew_output 汇总。",
+      "前一任务结果进入后一任务依赖 Task.context 与 Crew._get_context；显式 context 与 NOT_SPECIFIED 的聚合范围不同。",
+      "Task 层承担输出、guardrail、callback 与文件保存，Agent 层承担 prompt 与 executor 调用，边界使任务输出可回写到 Task.output。",
+      "Process 只是有限枚举，kickoff 通过显式分支进入不同流程；新增流程必须改枚举与分支。",
+      "工具调用路径有缓存、hook、usage limit 与失败处理，但 invoke 内部如何选择该路径不在当前已读范围内。"
+    ],
+    "gaps": [
+      "AgentExecutor.invoke 方法体未包含在当前已读证据中，无法确认它如何迭代模型调用、如何解析最终答案以及如何选择原生工具调用路径。",
+      "prepare_kickoff 完整方法体未读，无法确认输入插值、agent setup、planning 与事件重置的全部细节。",
+      "aggregate_raw_outputs_from_task_outputs 与 aggregate_raw_outputs_from_tasks 的实现未读，无法确认上下文字符串的拼接、截断或格式。",
+      "Crew._run_hierarchical_process 方法体未读，无法比较层级流程中 manager 如何实际分派任务。",
+      "Task.context 使用 NOT_SPECIFIED 时，`if not task.context` 的真值语义依赖 constants 中的 _NotSpecified 实现，当前未读，无法从代码完全确认默认分支一定进入聚合。"
+    ]
+  }
+}

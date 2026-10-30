@@ -1,0 +1,889 @@
+{
+  "version": 3,
+  "repo": "langchain-ai/deepagents",
+  "ref": "main",
+  "sha": "64de801918612668a591c486c65407baf0f96f02",
+  "analysis": {
+    "version": 3,
+    "kind": "architecture",
+    "requestedModel": "deepseek-flash",
+    "actualModel": "deepseek-flash",
+    "filesRead": 24,
+    "charactersRead": 349930,
+    "modules": 7,
+    "flowSteps": 8,
+    "mechanisms": 4,
+    "decisions": 5,
+    "readingStrategy": "model-and-profile",
+    "structuralChecks": "passed",
+    "usage": {
+      "prompt_tokens": 137101,
+      "completion_tokens": 19039
+    },
+    "notes": []
+  },
+  "plan": {
+    "scenario": "让 Agent 读取材料、把子任务委派给子 Agent，再把结果写回文件：从 create_deep_agent 装配中间件栈与后端，经 LangChain create_agent 生成 LangGraph 图；模型发起 read_file/task/write_file 工具调用，FilesystemMiddleware 在 wrap_tool_call 中做权限检查、大结果驱逐与二进制卸载，SubAgentMiddleware 的 task 工具用独立上下文编译并运行子 Agent，最终文件写入落到 StateBackend/CompositeBackend 的图状态或路由后端。",
+    "files": [
+      {
+        "path": "libs/deepagents/deepagents/graph.py",
+        "focus": [
+          "create_deep_agent",
+          "_apply_custom_middleware"
+        ],
+        "reason": "公开入口与装配点：解析模型/后端/子 Agent，组装 FilesystemMiddleware、SubAgentMiddleware、SummarizationMiddleware 等中间件栈，最后调用 LangChain create_agent 生成 CompiledStateGraph；说明 DeepAgents 只做 harness 装配，执行循环与持久化交给 LangChain/LangGraph。"
+      },
+      {
+        "path": "libs/deepagents/deepagents/middleware/filesystem.py",
+        "focus": [
+          "FilesystemMiddleware.wrap_tool_call",
+          "FilesystemMiddleware.awrap_tool_call",
+          "FilesystemMiddleware._create_read_file_tool",
+          "FilesystemMiddleware._create_write_file_tool",
+          "FilesystemMiddleware._intercept_large_tool_result",
+          "FilesystemMiddleware._create_tools"
+        ],
+        "reason": "文件工具从模型请求到后端状态更新的核心路径：工具定义、权限过滤、read_file 结果处理、超大工具结果驱逐/卸载到后端，以及 wrap_tool_call 中并行文件变更保护与 blob 卸载。"
+      },
+      {
+        "path": "libs/deepagents/deepagents/middleware/subagents.py",
+        "focus": [
+          "SubAgentMiddleware",
+          "_create_task_tool"
+        ],
+        "reason": "子 Agent 委派实现：task 工具如何用独立上下文编译/调用子 Agent，并把结果作为 ToolMessage 返回主 Agent；解释为什么子 Agent 有独立上下文。"
+      },
+      {
+        "path": "libs/deepagents/deepagents/backends/state.py",
+        "focus": [
+          "StateBackend"
+        ],
+        "reason": "默认存储适配器：文件内容存在 LangGraph 图状态 files 字段中，说明文件写入如何变成状态更新、线程作用域持久化边界。"
+      },
+      {
+        "path": "libs/deepagents/deepagents/backends/composite.py",
+        "focus": [
+          "CompositeBackend",
+          "CompositeBackend._get_backend_and_key",
+          "CompositeBackend.read",
+          "CompositeBackend.write",
+          "CompositeBackend.ls",
+          "CompositeBackend.grep"
+        ],
+        "reason": "路径前缀路由适配器：按路径把读写/搜索分发到不同后端（如 /memories/ 持久化、默认 state 临时文件），是文件工具到具体存储的传输层。"
+      },
+      {
+        "path": "libs/deepagents/deepagents/middleware/summarization.py",
+        "focus": [
+          "SummarizationMiddleware"
+        ],
+        "reason": "上下文管理：长对话压缩/摘要，解释为何大结果要移出上下文以及压缩与文件卸载的配合。"
+      },
+      {
+        "path": "libs/deepagents/deepagents/middleware/_blob_offload.py",
+        "focus": [
+          "_offload_tool_result",
+          "_aoffload_tool_result"
+        ],
+        "reason": "二进制/大结果卸载到后端的实际实现，被 filesystem 的 wrap_tool_call 调用，说明大结果移出上下文的机制。"
+      },
+      {
+        "path": "libs/deepagents/deepagents/backends/protocol.py",
+        "focus": [
+          "BackendProtocol",
+          "SandboxBackendProtocol"
+        ],
+        "reason": "类型/协议边界文件（仅作接口参考，不计为核心实现）：界定 read/write/ls/grep/execute 的契约，帮助区分适配器与实现。"
+      },
+      {
+        "path": "libs/deepagents/deepagents/middleware/_state.py",
+        "focus": [
+          "FilesystemState"
+        ],
+        "reason": "中间件私有状态字段定义，说明文件数据与 blob 载荷如何挂在图状态上。"
+      },
+      {
+        "path": "libs/deepagents/tests/unit_tests/test_file_system_tools.py",
+        "focus": [
+          "test_read_file",
+          "test_write_file"
+        ],
+        "reason": "文件工具相关示例/测试：验证 read_file/write_file 从工具调用到后端状态更新的行为。"
+      },
+      {
+        "path": "libs/deepagents/tests/unit_tests/test_subagents.py",
+        "focus": [
+          "test_task_tool",
+          "test_subagent"
+        ],
+        "reason": "子 Agent 委派示例/测试：验证 task 工具创建独立上下文子 Agent 并回传结果。"
+      },
+      {
+        "path": "libs/deepagents/tests/unit_tests/test_graph.py",
+        "focus": [
+          "test_create_deep_agent"
+        ],
+        "reason": "create_deep_agent 装配测试：验证默认中间件栈、工具面与图构建，是入口行为的真实示例。"
+      },
+      {
+        "path": "libs/deepagents/tests/unit_tests/backends/test_state_backend.py",
+        "focus": [
+          "test_write_read",
+          "test_ls"
+        ],
+        "reason": "StateBackend 存储适配器测试：验证文件写入落到图状态并可读回。"
+      },
+      {
+        "path": "libs/deepagents/tests/unit_tests/backends/test_composite_backend.py",
+        "focus": [
+          "test_routing",
+          "test_read_write"
+        ],
+        "reason": "CompositeBackend 路由测试：验证按路径前缀分发到不同后端。"
+      },
+      {
+        "path": "libs/ARCHITECTURE.md",
+        "focus": [
+          "The three layers",
+          "Construction and execution",
+          "State and persistence"
+        ],
+        "reason": "官方架构说明，明确 DeepAgents/LangChain/LangGraph 三层职责边界，用于回答哪些能力交给下层。"
+      }
+    ]
+  },
+  "report": {
+    "overview": {
+      "plainLanguage": "它把长任务常用的读写工作区、子任务委派和上下文压缩工具预装成一个可直接运行的代理。",
+      "problem": "长任务容易把大量文件内容和子步骤塞进同一个上下文，并且文件读写需要明确的存储位置和权限边界。",
+      "scenarioInput": "用户给出一个初始状态：messages 中要求“读取 /materials/a.txt，委派 general-purpose 核对要点，再把摘要写到 /summary.md”，files 中预置 /materials/a.txt 的 utf-8 文本。",
+      "scenarioOutput": "推演结果：messages 中出现 read_file、task、write_file 的 ToolMessage；若一切成功，result['files']['/summary.md']['content'] 是写入的摘要文本。这里不预测模型一定选择这些工具或一定按此顺序。"
+    },
+    "modules": [
+      {
+        "id": "entry",
+        "name": "装配入口",
+        "role": "解析模型、profile、backend 和中间件，把默认栈与调用方配置合并后交给 LangChain 生成图。",
+        "input": "create_deep_agent 的模型、工具、subagents、backend、中间件等参数。",
+        "output": "CompiledStateGraph 和一个已装配的中间件栈。",
+        "state": "默认 StateBackend、中间件列表、系统提示、子 Agent 规格。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/graph.py",
+            "startLine": 289,
+            "endLine": 309
+          },
+          {
+            "path": "libs/deepagents/deepagents/graph.py",
+            "startLine": 1008,
+            "endLine": 1020
+          }
+        ]
+      },
+      {
+        "id": "filesystem",
+        "name": "文件工具中间件",
+        "role": "生成 ls/read_file/write_file 等工具，在工具边界做路径与权限检查，并在工具结果返回后做二进制卸载或大结果驱逐。",
+        "input": "模型发起的 ToolCallRequest，以及工具内部拿到的 runtime.state。",
+        "output": "ToolMessage 或 Command，回写到 LangGraph 消息状态。",
+        "state": "自身权限规则、启用的工具、token 驱逐阈值；不拥有 files 通道本体。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/middleware/filesystem.py",
+            "startLine": 2029,
+            "endLine": 2044
+          },
+          {
+            "path": "libs/deepagents/deepagents/middleware/filesystem.py",
+            "startLine": 3850,
+            "endLine": 3879
+          }
+        ]
+      },
+      {
+        "id": "subagents",
+        "name": "子 Agent 中间件",
+        "role": "提供 task 工具，选择并编译子图，为子 Agent 准备隔离或 fork 的输入状态，再把子图结果折叠成父级 ToolMessage。",
+        "input": "description、subagent_type 和 ToolRuntime。",
+        "output": "Command，更新父级 messages 及可合并状态。",
+        "state": "subagent_graphs 映射、private_state_keys、排除状态键集合。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/middleware/subagents.py",
+            "startLine": 974,
+            "endLine": 1022
+          },
+          {
+            "path": "libs/deepagents/deepagents/middleware/subagents.py",
+            "startLine": 838,
+            "endLine": 866
+          }
+        ]
+      },
+      {
+        "id": "state",
+        "name": "图状态后端",
+        "role": "默认后端，把文件存进 LangGraph 的 files 通道，通过 CONFIG_KEY_READ 和 CONFIG_KEY_SEND 读写。",
+        "input": "路径、内容、offset/limit 等后端操作参数。",
+        "output": "ReadResult、WriteResult、EditResult 等结构化结果。",
+        "state": "files: path -> FileData，FileData 含 content、encoding 和时间戳。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/backends/state.py",
+            "startLine": 38,
+            "endLine": 48
+          },
+          {
+            "path": "libs/deepagents/deepagents/backends/state.py",
+            "startLine": 57,
+            "endLine": 119
+          }
+        ]
+      },
+      {
+        "id": "composite",
+        "name": "复合路由后端",
+        "role": "仅在调用方显式配置 routes 时使用，按最长前缀把路径委派给不同后端，并把结果路径恢复成调用方看到的完整路径。",
+        "input": "完整虚拟路径和文件操作。",
+        "output": "路由后端的操作结果，路径前缀被还原。",
+        "state": "default 后端、routes 映射、按长度倒序的 sorted_routes。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/backends/composite.py",
+            "startLine": 228,
+            "endLine": 283
+          },
+          {
+            "path": "libs/deepagents/deepagents/backends/composite.py",
+            "startLine": 195,
+            "endLine": 225
+          }
+        ]
+      },
+      {
+        "id": "summarization",
+        "name": "摘要中间件",
+        "role": "在模型调用前按 token 预算截断旧工具参数、摘要旧消息并卸载历史，降低长对话对上下文的压力。",
+        "input": "ModelRequest，包含 messages、system_message、tools 和 state。",
+        "output": "ModelResponse，或带 Command 状态更新的 ExtendedModelResponse。",
+        "state": "摘要事件、会话 id、历史文件路径。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/middleware/summarization.py",
+            "startLine": 288,
+            "endLine": 325
+          },
+          {
+            "path": "libs/deepagents/deepagents/middleware/summarization.py",
+            "startLine": 1590,
+            "endLine": 1727
+          }
+        ]
+      },
+      {
+        "id": "runtime",
+        "name": "外部运行时",
+        "role": "LangChain 负责模型调用、工具执行和 agent 循环；LangGraph 负责图状态、checkpoint、streaming 和 interrupt。DeepAgents 不重写运行时。",
+        "input": "create_agent 编译后的图、消息、工具和中间件。",
+        "output": "逐步执行结果和最终状态。",
+        "state": "消息历史、checkpoint、中断状态、files 通道。",
+        "kind": "dependency",
+        "evidence": [
+          {
+            "path": "libs/ARCHITECTURE.md",
+            "startLine": 16,
+            "endLine": 26
+          }
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "from": "entry",
+        "to": "filesystem",
+        "label": "装配 FilesystemMiddleware，并共享同一个 backend"
+      },
+      {
+        "from": "entry",
+        "to": "subagents",
+        "label": "存在内联子 Agent 时装配 SubAgentMiddleware"
+      },
+      {
+        "from": "entry",
+        "to": "summarization",
+        "label": "装配摘要中间件"
+      },
+      {
+        "from": "entry",
+        "to": "runtime",
+        "label": "返回 create_agent 编译后的图，由运行时驱动"
+      },
+      {
+        "from": "filesystem",
+        "to": "state",
+        "label": "默认 backend 读写 files 通道"
+      },
+      {
+        "from": "filesystem",
+        "to": "composite",
+        "label": "显式传入 CompositeBackend 时按路径前缀路由"
+      },
+      {
+        "from": "composite",
+        "to": "state",
+        "label": "未匹配路由落到 default，常为 StateBackend"
+      },
+      {
+        "from": "subagents",
+        "to": "filesystem",
+        "label": "子 Agent 自己的 FilesystemMiddleware 复用同一 backend"
+      },
+      {
+        "from": "subagents",
+        "to": "runtime",
+        "label": "子图由 create_agent 编译并由 invoke 执行"
+      }
+    ],
+    "flow": [
+      {
+        "title": "装配默认后端、中间件和可运行图",
+        "phase": "装配",
+        "condition": "每次调用 create_deep_agent 的必经初始化；默认 backend 为 StateBackend，除非显式传入。",
+        "symbol": "create_deep_agent",
+        "owner": "project",
+        "input": "模型、工具、subagents、backend、middleware 等参数。",
+        "action": "解析模型和 profile，创建默认 StateBackend；构建 FilesystemMiddleware、SubAgentMiddleware、摘要等栈；调用 LangChain create_agent 编译图。",
+        "stateChange": "生成中间件列表、默认后端和系统提示；不执行文件读写。",
+        "output": "CompiledStateGraph，后续由 LangGraph 驱动。",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/graph.py",
+            "startLine": 671,
+            "endLine": 671
+          },
+          {
+            "path": "libs/deepagents/deepagents/graph.py",
+            "startLine": 907,
+            "endLine": 927
+          },
+          {
+            "path": "libs/deepagents/deepagents/graph.py",
+            "startLine": 1008,
+            "endLine": 1020
+          }
+        ]
+      },
+      {
+        "title": "模型发起 read_file，先进入工具调用包装器",
+        "phase": "工具前置",
+        "condition": "模型选择 read_file；每次工具调用都会经过 wrap_tool_call。",
+        "symbol": "FilesystemMiddleware.wrap_tool_call",
+        "owner": "project",
+        "input": "ToolCallRequest，args 含 file_path。",
+        "action": "先检查并行文件变更冲突；在 _tool_blob_store 上下文中调用 handler，让真正的 read_file 工具执行。",
+        "stateChange": "无，尚未读取文件；只建立本次工具执行的 blob 存储上下文。",
+        "output": "handler 返回的 ToolMessage 或 Command。",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/middleware/filesystem.py",
+            "startLine": 3850,
+            "endLine": 3879
+          }
+        ]
+      },
+      {
+        "title": "read_file 工具校验路径与权限并调用 backend.read",
+        "phase": "查询",
+        "condition": "read_file 工具被调用；默认 backend 是 StateBackend，显式配置 CompositeBackend 时才先路由。",
+        "symbol": "FilesystemMiddleware._create_read_file_tool / StateBackend.read",
+        "owner": "project",
+        "input": "file_path、offset、limit 和 ToolRuntime。",
+        "action": "validate_path 规范化路径；_permission_error 检查读权限；调用 backend.read；StateBackend.read 从 files 通道取文件并按行切片。",
+        "stateChange": "读取无写入；StateBackend._read_files 使用 fresh=True，可看到同一步内尚未提交的写。",
+        "output": "ReadResult，包含 file_data、行窗口或错误。",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/middleware/filesystem.py",
+            "startLine": 2271,
+            "endLine": 2296
+          },
+          {
+            "path": "libs/deepagents/deepagents/backends/state.py",
+            "startLine": 175,
+            "endLine": 204
+          }
+        ]
+      },
+      {
+        "title": "工具结果返回后做二进制卸载或大结果驱逐",
+        "phase": "结果后处理",
+        "condition": "仅当 _offload_binary_content 且工具为 read_file，或 tool_token_limit_before_evict 非空且工具不在 TOOLS_EXCLUDED_FROM_EVICTION 时触发对应分支。",
+        "symbol": "FilesystemMiddleware.wrap_tool_call / FilesystemMiddleware._intercept_large_tool_result",
+        "owner": "project",
+        "input": "工具返回的 ToolMessage 或 Command。",
+        "action": "read_file 的二进制结果可被 _offload_tool_result 替换为 blob 引用；大结果交给 _intercept_large_tool_result，再委托 _process_large_message 处理并返回替换后的消息。",
+        "stateChange": "可能把大内容或二进制内容移出消息正文，留下引用或截断后的内容。",
+        "output": "处理后的 ToolMessage/Command，进入父消息状态。",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/middleware/filesystem.py",
+            "startLine": 3873,
+            "endLine": 3879
+          },
+          {
+            "path": "libs/deepagents/deepagents/middleware/filesystem.py",
+            "startLine": 3759,
+            "endLine": 3781
+          }
+        ]
+      },
+      {
+        "title": "模型发起 task，选择子图并准备子 Agent 输入",
+        "phase": "委派准备",
+        "condition": "模型选择 task，且 SubAgentMiddleware 存在；默认 general-purpose 通常提供，但 profile 可禁用。",
+        "symbol": "SubAgentMiddleware._build_task_tool",
+        "owner": "project",
+        "input": "description、subagent_type 和 ToolRuntime。",
+        "action": "校验 subagent_type 存在；_validate_and_prepare_state 选取 runnable；非 fork 子 Agent 只收到 HumanMessage(description)，并过滤 _EXCLUDED_STATE_KEYS 和 private_state_keys。",
+        "stateChange": "无父状态写入；构造局部的 subagent_state。",
+        "output": "子 Agent runnable 和隔离后的子状态。",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/middleware/subagents.py",
+            "startLine": 804,
+            "endLine": 836
+          },
+          {
+            "path": "libs/deepagents/deepagents/middleware/subagents.py",
+            "startLine": 838,
+            "endLine": 866
+          }
+        ]
+      },
+      {
+        "title": "子图执行完成，结果折叠为父级 ToolMessage",
+        "phase": "委派返回",
+        "condition": "子图 invoke 成功返回；若子图缺少 messages 则抛错。",
+        "symbol": "SubAgentMiddleware._build_task_tool",
+        "owner": "project",
+        "input": "子图返回的 result、tool_call_id 和子状态 inputs。",
+        "action": "优先使用 structured_response 并 JSON 序列化；否则倒序找最后一条非空 AIMessage 文本；过滤排除键和未变化键，构造 Command(messages=[ToolMessage])。",
+        "stateChange": "父级 messages 增加一条 ToolMessage；非排除且有变化的子状态字段合并回父状态。",
+        "output": "Command，驱动父图继续。",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/middleware/subagents.py",
+            "startLine": 747,
+            "endLine": 787
+          },
+          {
+            "path": "libs/deepagents/deepagents/middleware/subagents.py",
+            "startLine": 861,
+            "endLine": 866
+          }
+        ]
+      },
+      {
+        "title": "模型发起 write_file，工具校验后调用 backend.write",
+        "phase": "写入",
+        "condition": "模型选择 write_file；权限规则在工具层生效。",
+        "symbol": "FilesystemMiddleware._create_write_file_tool / StateBackend.write",
+        "owner": "project",
+        "input": "file_path、content 和 ToolRuntime。",
+        "action": "validate_path 后检查写权限；调用 backend.write；StateBackend.write 读取现有 files，构造或更新 FileData，再排入 files 更新。",
+        "stateChange": "StateBackend.write 内部准备部分 files 更新；此时尚未在节点边界提交。",
+        "output": "WriteResult，工具再包装为 ToolMessage 'Updated file ...'。",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/middleware/filesystem.py",
+            "startLine": 2338,
+            "endLine": 2362
+          },
+          {
+            "path": "libs/deepagents/deepagents/backends/state.py",
+            "startLine": 206,
+            "endLine": 221
+          }
+        ]
+      },
+      {
+        "title": "files 通道收到部分更新",
+        "phase": "状态提交",
+        "condition": "默认 StateBackend 路径；若使用 CompositeBackend，则由路由后端决定最终落到哪个底层 backend。",
+        "symbol": "StateBackend.write / StateBackend._send_files_update",
+        "owner": "project",
+        "input": "path -> FileData 的部分更新字典。",
+        "action": "_send_files_update 通过 CONFIG_KEY_SEND 发送 [('files', update)]；files 通道用 dict-merge reducer 合并部分键。",
+        "stateChange": "父状态的 files 通道增加或更新 /summary.md；同一步内 fresh=True 读可看到，节点边界提交。",
+        "output": "后续模型轮次可读取到新文件。",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/backends/state.py",
+            "startLine": 99,
+            "endLine": 119
+          },
+          {
+            "path": "libs/deepagents/deepagents/backends/state.py",
+            "startLine": 206,
+            "endLine": 221
+          }
+        ]
+      }
+    ],
+    "technologies": [
+      {
+        "name": "工具调用包装与结果驱逐",
+        "problem": "工具结果可能很大或含二进制，直接进入消息状态会挤占上下文。",
+        "mechanism": "wrap_tool_call 先检查并行文件变更，再在 blob 上下文中执行 handler；返回后按开关把二进制 read_file 结果替换为内容寻址 blob 引用，或调用 _intercept_large_tool_result 委托 _process_large_message 生成替换/截断消息。",
+        "pseudocode": "def wrap_tool_call(request, handler):\n    if parallel_file_mutation_conflict(request):\n        return error_message\n    with tool_blob_store(backend):\n        result = handler(request)\n    if offload_binary and request.name == 'read_file':\n        result = offload_tool_result(result, backend)\n    if token_limit is None or request.name in EXCLUDED:\n        return result\n    return intercept_large_tool_result(result)\n",
+        "dataStructures": "ToolMessage/Command；blob 路径 {prefix}/{sha256}；内容块上的 deepagents_blob 引用；TOOLS_EXCLUDED_FROM_EVICTION 排除集合。",
+        "projectCode": "FilesystemMiddleware.wrap_tool_call、_intercept_large_tool_result、_offload_tool_result 和 _blob_offload 的 _offload_messages/_restore_payloads。",
+        "externalDependency": "LangChain 的 ToolNode 调用 handler；LangGraph 负责把返回的 ToolMessage/Command 写入状态并提交 checkpoint。",
+        "tradeoff": "统一在工具边界处理，能覆盖所有工具结果；但需要精确维护排除列表，二进制卸载失败时仍保留内联内容。",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/middleware/filesystem.py",
+            "startLine": 3850,
+            "endLine": 3879
+          },
+          {
+            "path": "libs/deepagents/deepagents/middleware/filesystem.py",
+            "startLine": 3759,
+            "endLine": 3781
+          },
+          {
+            "path": "libs/deepagents/deepagents/middleware/_blob_offload.py",
+            "startLine": 105,
+            "endLine": 118
+          }
+        ]
+      },
+      {
+        "name": "图状态通道后端",
+        "problem": "默认文件存储既要无外部依赖，又要和一次会话的 checkpoint 生命周期一致。",
+        "mechanism": "StateBackend 不保存内存副本，而是每次通过 get_config 拿 CONFIG_KEY_READ，fresh=True 读取 files 通道；写时通过 CONFIG_KEY_SEND 发送部分更新，由 files 通道的 dict-merge reducer 合并。",
+        "pseudocode": "def read(path, offset, limit):\n    files = config.read('files', fresh=True) or {}\n    fd = files.get(path)\n    if fd is None: return ReadResult(error='not found')\n    return slice_read_response(fd, offset, limit)\n\ndef write(path, content):\n    files = config.read('files', fresh=True) or {}\n    fd = update_or_create(files.get(path), content)\n    config.send([('files', {path: fd})])\n    return WriteResult(path=path)\n",
+        "dataStructures": "files: dict[path, FileData]；FileData.content 是 utf-8 文本或 base64；encoding 区分文本与二进制；写更新是部分字典。",
+        "projectCode": "StateBackend 的 _read_files、_send_files_update、read、write、edit、delete。",
+        "externalDependency": "LangGraph 提供 CONFIG_KEY_READ/CONFIG_KEY_SEND、files 通道 reducer 和 checkpoint；脱离图上下文时 _get_config 直接报错。",
+        "tradeoff": "无需外部 store 且与线程 checkpoint 一致；但文件只在该会话线程内持久，直接调用 backend 会失败，跨线程需要显式换成 Store/Filesystem 或 Composite 路由。",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/backends/state.py",
+            "startLine": 57,
+            "endLine": 119
+          },
+          {
+            "path": "libs/deepagents/deepagents/backends/state.py",
+            "startLine": 206,
+            "endLine": 221
+          }
+        ]
+      },
+      {
+        "name": "子 Agent 隔离与结果折叠",
+        "problem": "子任务的多步工具调用和中间结果不应全部塞回父 Agent 的上下文。",
+        "mechanism": "task 工具按 subagent_type 选 runnable；非 fork 子状态只放 HumanMessage(description)，并过滤排除键；子图 invoke 后取 structured_response 或最后一条非空 AIMessage，构造一条 ToolMessage，同时只合并非排除且有变化的子状态。",
+        "pseudocode": "def task(description, subagent_type, runtime):\n    runnable = graph_for(subagent_type)\n    state = strip_excluded(parent_state)\n    state['messages'] = [HumanMessage(description)]\n    result = runnable.invoke(state)\n    content = structured(result) or last_nonempty_ai_text(result)\n    update = changed_non_excluded(result, state)\n    return Command(update={**update, 'messages': [ToolMessage(content)]})\n",
+        "dataStructures": "subagent_graphs: name -> Runnable；_EXCLUDED_STATE_KEYS；private_state_keys；Command.update 中的 messages 列表。",
+        "projectCode": "_build_task_tool、_validate_and_prepare_state、_return_command_with_state_update。",
+        "externalDependency": "LangChain create_agent 编译声明式子图；LangGraph 执行子图 invoke 并把 Command 应用到父图。",
+        "tradeoff": "父上下文干净、返回结果短；代价是子 Agent 默认看不到父对话，任务描述必须完整，fork 模式则要承担缓存和实验性语义。",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/middleware/subagents.py",
+            "startLine": 813,
+            "endLine": 836
+          },
+          {
+            "path": "libs/deepagents/deepagents/middleware/subagents.py",
+            "startLine": 757,
+            "endLine": 786
+          },
+          {
+            "path": "libs/deepagents/deepagents/middleware/subagents.py",
+            "startLine": 838,
+            "endLine": 866
+          }
+        ]
+      },
+      {
+        "name": "路径前缀路由后端",
+        "problem": "同一虚拟文件树需要把不同前缀映射到不同存储，同时保持调用方看到的路径一致。",
+        "mechanism": "CompositeBackend 构造时把 routes 按前缀长度倒序；_route_for_path 逐个比较，命中则剥离前缀得到后端内部路径；写/编辑结果再把 path 恢复成原始完整路径。",
+        "pseudocode": "def route(path):\n    for prefix, backend in sorted_routes_longest_first:\n        if path == prefix_without_slash:\n            return backend, '/', prefix\n        if path.startswith(prefix_with_slash):\n            return backend, '/' + path[len(prefix_with_slash):], prefix\n    return default, path, None\n\ndef write(path, content):\n    backend, inner = route(path)\n    res = backend.write(inner, content)\n    if res.path: res.path = path\n    return res\n",
+        "dataStructures": "routes: prefix -> BackendProtocol；sorted_routes 按 len(prefix) 降序；路由结果 (backend, backend_path, route_prefix)。",
+        "projectCode": "_route_for_path、CompositeBackend.write/edit/read/ls/grep/glob。",
+        "externalDependency": "底层 backend 各自实现存储；Composite 只负责路由和结果路径重映射。",
+        "tradeoff": "能按路径拆分持久化策略；但根路径搜索需要合并多个后端结果并重映射，路由前缀边界和错误传播要特别处理。",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/backends/composite.py",
+            "startLine": 195,
+            "endLine": 225
+          },
+          {
+            "path": "libs/deepagents/deepagents/backends/composite.py",
+            "startLine": 280,
+            "endLine": 283
+          },
+          {
+            "path": "libs/deepagents/deepagents/backends/composite.py",
+            "startLine": 708,
+            "endLine": 726
+          }
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "decision": "默认 backend 使用 StateBackend，而不是默认 CompositeBackend 或 StoreBackend。",
+        "constraint": "调用方通常希望开箱即用，且文件应与当前会话的图状态同生命周期。",
+        "alternative": "默认装配 CompositeBackend，并把某些路径路由到持久 Store。",
+        "why": "在本文场景中，/materials/a.txt 和 /summary.md 默认直接落在 files 通道；跨线程持久必须显式传 backend，避免隐式外部依赖。",
+        "cost": "默认文件不跨线程持久；直接调用 StateBackend 时若没有 LangGraph 上下文会抛 RuntimeError。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "The default state backend is thread-scoped; store-backed or filesystem-backed routes can make files durable across threads or map them to disk or sandbox storage.",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/graph.py",
+            "startLine": 671,
+            "endLine": 671
+          },
+          {
+            "path": "libs/ARCHITECTURE.md",
+            "startLine": 95,
+            "endLine": 98
+          }
+        ]
+      },
+      {
+        "decision": "声明式子 Agent 默认使用隔离上下文，而不是默认继承父对话。",
+        "constraint": "子任务通常只需任务描述和必要状态，父对话全文会放大上下文并引入无关中间步骤。",
+        "alternative": "所有子 Agent 默认 fork 父对话并共享完整历史。",
+        "why": "示例中父 Agent 先读材料，再把核对子任务交给 general-purpose；默认 task 只给子 Agent 一条 HumanMessage(description)，因此子 Agent 不会自动带上父上下文中的全部 read_file 结果和中间推理，返回值也只折叠为一条 ToolMessage。",
+        "cost": "任务描述必须写全；需要父对话时要用 fork 模式，而 fork 是实验性功能且要考虑缓存复用。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "Each invocation is stateless by default: the agent sees only the prompt you give it and returns a single final report.",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/middleware/subagents.py",
+            "startLine": 493,
+            "endLine": 504
+          },
+          {
+            "path": "libs/deepagents/deepagents/middleware/subagents.py",
+            "startLine": 833,
+            "endLine": 835
+          }
+        ]
+      },
+      {
+        "decision": "大工具结果的驱逐放在 wrap_tool_call，而不是放在每个 backend 的 read/write 实现里。",
+        "constraint": "backend 只应负责存取数据，不应知道模型 token 预算、消息结构和排除工具列表。",
+        "alternative": "在 StateBackend.read 或每个文件工具内部直接截断结果。",
+        "why": "这样 read_file、task 等其他工具返回后都能在同一个中间件边界被统一处理；示例中的大 read_file 结果可以在进入父消息状态前被替换或截断，而 StateBackend 仍只返回原始 ReadResult。",
+        "cost": "需要依赖中间件包装顺序和 TOOLS_EXCLUDED_FROM_EVICTION 排除列表；具体替换逻辑分散在 _process_large_message 中。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/middleware/filesystem.py",
+            "startLine": 3876,
+            "endLine": 3879
+          },
+          {
+            "path": "libs/deepagents/deepagents/middleware/filesystem.py",
+            "startLine": 3759,
+            "endLine": 3781
+          }
+        ]
+      },
+      {
+        "decision": "文件权限在 FilesystemMiddleware 的工具层执行，而不是在 BackendProtocol 的读写方法里执行。",
+        "constraint": "权限规则需要看到工具名和参数，并且内置文件工具是主要访问面；直接 backend 调用可能来自测试或自定义代码。",
+        "alternative": "把权限检查下沉到 StateBackend.read/write 等每个 backend 方法。",
+        "why": "示例中的 read_file/write_file 会先经过工具层权限检查，未命中 deny 才调用 backend；因此同一套权限规则能覆盖内置文件工具。",
+        "cost": "直接使用 backend 的代码不会自动获得 permissions 保护，文档也明确说 direct backend usage 不包含权限。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "`FilesystemMiddleware` applies these permissions at the tool\nlevel for its built-in filesystem tools, not at the backend\nlevel. Direct backend usage does not currently incorporate\n`permissions`.",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/graph.py",
+            "startLine": 515,
+            "endLine": 518
+          }
+        ]
+      },
+      {
+        "decision": "CompositeBackend 按最长前缀匹配路由，并在写回结果时恢复原始完整路径。",
+        "constraint": "同一虚拟树允许多个路由，较短前缀不能吞掉更具体的前缀；调用方仍应看到 /memories/a.md 而不是后端内部路径。",
+        "alternative": "按配置顺序匹配第一个前缀，或让后端返回内部路径由上层拼接。",
+        "why": "例如同时配置 /memories/ 和 /memories/archive/ 时，最长前缀优先能稳定选中更具体的后端；write/edit 后把 res.path 改回原路径，调用方和消息中的路径保持一致。",
+        "cost": "根路径 ls/grep/glob 需要跨多个后端合并并重映射结果，错误传播和截断标志也要特殊处理。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/backends/composite.py",
+            "startLine": 280,
+            "endLine": 283
+          },
+          {
+            "path": "libs/deepagents/deepagents/backends/composite.py",
+            "startLine": 195,
+            "endLine": 225
+          },
+          {
+            "path": "libs/deepagents/deepagents/backends/composite.py",
+            "startLine": 708,
+            "endLine": 726
+          }
+        ]
+      }
+    ],
+    "codeWalkthroughs": [
+      {
+        "title": "create_deep_agent 如何装配默认 backend、文件中间件和子 Agent 中间件",
+        "explanation": "这几段决定了场景中的默认路径：backend 未传时创建 StateBackend，所以文件进入图状态；主栈先放 FilesystemMiddleware；只有 inline_subagents 非空时才创建 SubAgentMiddleware 并加入 task 工具；最后调用 LangChain create_agent 并把默认状态模式设为 DeepAgentState。默认 general-purpose 子 Agent 通常会插入 inline_subagents，但 profile 可以禁用。",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/graph.py",
+            "startLine": 671,
+            "endLine": 671
+          },
+          {
+            "path": "libs/deepagents/deepagents/graph.py",
+            "startLine": 907,
+            "endLine": 927
+          },
+          {
+            "path": "libs/deepagents/deepagents/graph.py",
+            "startLine": 1008,
+            "endLine": 1020
+          }
+        ]
+      },
+      {
+        "title": "task 工具如何把父任务隔离子 Agent，再把结果折叠回来",
+        "explanation": "非 fork 分支只把父状态中未被排除的键复制到 subagent_state，然后强制 messages 为一条 HumanMessage(description)。子图返回后，_return_command_with_state_update 先检查 messages 键，再过滤排除键、private 键和未变化键；结果内容优先取 structured_response，否则取最后一条非空 AIMessage 文本，最后作为一条 ToolMessage 放进 Command。这样父 Agent 只看到子 Agent 的最终报告，而不是子 Agent 的全部工具轨迹。",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/middleware/subagents.py",
+            "startLine": 813,
+            "endLine": 835
+          },
+          {
+            "path": "libs/deepagents/deepagents/middleware/subagents.py",
+            "startLine": 757,
+            "endLine": 759
+          },
+          {
+            "path": "libs/deepagents/deepagents/middleware/subagents.py",
+            "startLine": 761,
+            "endLine": 786
+          }
+        ]
+      },
+      {
+        "title": "write_file 如何从工具参数落到 files 通道",
+        "explanation": "write_file 工具先规范化路径并检查写权限，然后调用 backend.write，成功时返回 Updated file 的 ToolMessage。StateBackend.write 从 files 通道读取现有内容，存在则 update_file_data，不存在则 create_file_data，强制 encoding 为 utf-8，然后通过 _send_files_update 发送部分 files 更新。因此场景最后一步不是直接改某个内存字典，而是向 LangGraph 的 files 通道提交一个带 reducer 的部分更新。",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/middleware/filesystem.py",
+            "startLine": 2338,
+            "endLine": 2362
+          },
+          {
+            "path": "libs/deepagents/deepagents/backends/state.py",
+            "startLine": 206,
+            "endLine": 221
+          }
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "question": "默认 StateBackend 与显式 CompositeBackend 在写 /summary.md 或 /memories/a.md 时的路径和状态位置有何不同？",
+        "change": "保持其他配置不变，分别使用默认 backend 和 CompositeBackend(default=StateBackend(), routes={'/memories/': StoreBackend(...)})，写一个 /memories/ 下的文件。",
+        "expected": "默认 StateBackend 应把文件放进当前图的 files 通道；Composite 应通过 _route_for_path 剥离 /memories/ 后委托路由后端，并在 WriteResult.path 中恢复原始 /memories/... 路径。",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/graph.py",
+            "startLine": 671,
+            "endLine": 671
+          },
+          {
+            "path": "libs/deepagents/deepagents/backends/composite.py",
+            "startLine": 195,
+            "endLine": 225
+          },
+          {
+            "path": "libs/deepagents/deepagents/backends/composite.py",
+            "startLine": 708,
+            "endLine": 726
+          }
+        ]
+      },
+      {
+        "question": "当 read_file 返回超过 token 限制的大文本时，wrap_tool_call 是否会把结果交给驱逐路径？",
+        "change": "把 tool_token_limit_before_evict 设得很小，让 read_file 读一个大文本文件；另一次让工具名落在 TOOLS_EXCLUDED_FROM_EVICTION 中作为对照。",
+        "expected": "非排除工具应进入 _intercept_large_tool_result 并返回 processed_message；排除工具应直接返回原始 tool_result，不进入驱逐分支。这里不推断 _process_large_message 内部具体截断文本。",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/middleware/filesystem.py",
+            "startLine": 3876,
+            "endLine": 3879
+          },
+          {
+            "path": "libs/deepagents/deepagents/middleware/filesystem.py",
+            "startLine": 3759,
+            "endLine": 3781
+          }
+        ]
+      },
+      {
+        "question": "task 子 Agent 是否只收到任务描述，且父级 private 状态不会泄漏？",
+        "change": "在父状态中放一个普通可合并字段和一个被标记为 PrivateStateAttr 的字段，调用 task 后检查子 Agent 的输入状态和父级最终状态。",
+        "expected": "非 fork 子 Agent 的 messages 应只有一条 HumanMessage(description)；private_state_keys 中的字段不应出现在子状态；父级只收到 ToolMessage 以及非排除且有变化的子状态字段。",
+        "evidence": [
+          {
+            "path": "libs/deepagents/deepagents/middleware/subagents.py",
+            "startLine": 833,
+            "endLine": 835
+          },
+          {
+            "path": "libs/deepagents/deepagents/middleware/subagents.py",
+            "startLine": 757,
+            "endLine": 759
+          },
+          {
+            "path": "libs/deepagents/deepagents/middleware/subagents.py",
+            "startLine": 785,
+            "endLine": 786
+          }
+        ]
+      }
+    ],
+    "takeaways": [
+      "中间件是工具调用边界：权限、二进制卸载和大结果驱逐都在工具结果进入消息状态前发生。",
+      "backend 是存储边界：默认 StateBackend 把文件写进 LangGraph 的 files 通道，CompositeBackend 只有在显式配置路由时才介入。",
+      "子 Agent 是上下文边界：默认隔离输入、只返回最终报告，父级通过 Command 合并结果而不是共享全部子图轨迹。",
+      "同一个场景里三条路径要分开看：读文件走 read_file 工具和 backend.read；委派走 task 工具和子图 invoke；写回走 write_file 工具和 files 通道更新。",
+      "默认配置和可选配置不能混画：默认不是 Composite 路由，默认子 Agent 不是 fork，大结果驱逐也受 token 阈值和排除列表控制。"
+    ],
+    "gaps": [
+      "FilesystemMiddleware._process_large_message 和 _apply_eviction_and_truncate 的方法体未出现在已读片段中，无法确认驱逐阈值、替换消息和截断文本的精确算法。",
+      "FilesystemMiddleware.__init__ 的方法体未出现在已读片段中，无法确认 _tool_token_limit_before_evict 和 _offload_binary_content 的默认值。",
+      "用户 focus 中写的 _create_filesystem_tools 在已读源码里对应的是 FilesystemMiddleware._create_tools，未发现同名 _create_filesystem_tools 符号。",
+      "summarization.py 的 _create_summary 方法体未包含在已读片段中，无法确认摘要 prompt、摘要调用和 token 计数器的完整细节。",
+      "LangChain create_agent 内部如何安排模型节点与工具节点不在本仓库已读代码中，只能确认 DeepAgents 把中间件和状态模式传给 create_agent。"
+    ]
+  }
+}

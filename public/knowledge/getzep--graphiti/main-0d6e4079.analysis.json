@@ -1,0 +1,862 @@
+{
+  "version": 3,
+  "repo": "getzep/graphiti",
+  "ref": "main",
+  "sha": "72b5c59c06607e09ea855be61b6ff5a3446fc951",
+  "analysis": {
+    "version": 3,
+    "kind": "architecture",
+    "requestedModel": "deepseek-flash",
+    "actualModel": "deepseek-flash",
+    "filesRead": 16,
+    "charactersRead": 349756,
+    "modules": 6,
+    "flowSteps": 8,
+    "mechanisms": 4,
+    "decisions": 4,
+    "readingStrategy": "model-and-profile",
+    "structuralChecks": "passed",
+    "usage": {
+      "prompt_tokens": 124449,
+      "completion_tokens": 15345
+    },
+    "notes": [
+      "decisions[0] 无法逐字核对作者说明，已标为工程推断"
+    ]
+  },
+  "plan": {
+    "scenario": "写入两段时间不同且事实冲突的对话，再查询人物/关系：追踪 add_episode 的抽取→实体解析→边抽取与时间失效→持久化，以及 search 的向量/关键词/图遍历融合。",
+    "files": [
+      {
+        "path": "graphiti_core/graphiti.py",
+        "focus": [
+          "Graphiti.add_episode",
+          "Graphiti.search",
+          "Graphiti._extract_and_resolve_edges",
+          "Graphiti._process_episode_data",
+          "Graphiti._resolve_request_scope"
+        ],
+        "reason": "公开入口与主流程：add_episode 编排检索历史 episode、抽取节点、解析实体、抽取/失效边、抽取属性、持久化；search 选择 EDGE_HYBRID_SEARCH_RRF 或节点距离配置并调用 search()。后半段方法 _extract_and_resolve_edges/_process_episode_data 是实际被调用的实现。"
+      },
+      {
+        "path": "graphiti_core/nodes.py",
+        "focus": [
+          "EpisodicNode",
+          "EntityNode",
+          "EpisodicNode.save",
+          "EntityNode.save",
+          "EntityNode.generate_name_embedding"
+        ],
+        "reason": "核心数据结构：EpisodicNode 保存原始 episode 与 valid_at，EntityNode 保存实体及名称 embedding；save 方法展示节点如何写入图存储。"
+      },
+      {
+        "path": "graphiti_core/edges.py",
+        "focus": [
+          "EntityEdge",
+          "EntityEdge.save",
+          "EntityEdge.generate_embedding",
+          "EpisodicEdge.save"
+        ],
+        "reason": "核心数据结构：EntityEdge 携带 fact、fact_embedding、valid_at/invalid_at 与 created_at，是时间有效性与事实冲突的载体；EpisodicEdge 表示 episode 对实体的 MENTIONS 关系。"
+      },
+      {
+        "path": "graphiti_core/utils/maintenance/node_operations.py",
+        "focus": [
+          "extract_nodes",
+          "resolve_extracted_nodes",
+          "extract_attributes_from_nodes"
+        ],
+        "reason": "实体抽取与解析实现：LLM 抽取候选实体，再与已有实体去重/合并（resolve_extracted_nodes），并抽取节点属性与摘要。"
+      },
+      {
+        "path": "graphiti_core/utils/maintenance/edge_operations.py",
+        "focus": [
+          "extract_edges",
+          "resolve_extracted_edges",
+          "resolve_extracted_edge"
+        ],
+        "reason": "边抽取与解析实现：从 episode 抽取事实边，与已有边去重，并决定新事实是否使旧边失效（invalidated_edges）。"
+      },
+      {
+        "path": "graphiti_core/utils/maintenance/temporal_edge_utils.py",
+        "focus": [
+          "extract_edge_times",
+          "get_edge_temporal_data"
+        ],
+        "reason": "时间有效性核心算法：从事实文本推断 valid_at/invalid_at，用于冲突事实的时间区间划分。"
+      },
+      {
+        "path": "graphiti_core/search/search.py",
+        "focus": [
+          "search",
+          "_search",
+          "edge_search",
+          "node_search"
+        ],
+        "reason": "检索编排：按 SearchConfig 组合边/节点/episode 搜索，执行 RRF 融合与 cross-encoder 重排，是输入查询到输出边的实际实现。"
+      },
+      {
+        "path": "graphiti_core/search/search_utils.py",
+        "focus": [
+          "edge_fulltext_search",
+          "edge_semantic_search",
+          "node_semantic_search",
+          "episode_mention_search",
+          "get_mentioned_nodes"
+        ],
+        "reason": "具体存储/传输适配器：构造 Cypher 全文与向量查询，调用 driver 执行，返回 EntityEdge/EntityNode 记录；展示数据库提供的全文索引与向量索引能力。"
+      },
+      {
+        "path": "graphiti_core/search/search_config.py",
+        "focus": [
+          "SearchConfig",
+          "EDGE_HYBRID_SEARCH_RRF",
+          "EDGE_HYBRID_SEARCH_NODE_DISTANCE"
+        ],
+        "reason": "检索融合配置：定义各搜索方法（fulltext/cosine/bfs）与 RRF 参数，解释为何组合图谱、向量和关键词。"
+      },
+      {
+        "path": "graphiti_core/driver/driver.py",
+        "focus": [
+          "GraphDriver",
+          "GraphDriver.execute_query",
+          "GraphProvider"
+        ],
+        "reason": "存储适配器抽象：execute_query 是实际传输入口，GraphProvider 区分 Neo4j/FalkorDB/Kuzu/Neptune 实现。"
+      },
+      {
+        "path": "graphiti_core/driver/neo4j/operations/search_ops.py",
+        "focus": [
+          "Neo4jSearchOperations"
+        ],
+        "reason": "具体数据库适配器示例：Neo4j 的全文/向量搜索查询实现，说明哪一步由数据库提供。"
+      },
+      {
+        "path": "graphiti_core/models/edges/edge_db_queries.py",
+        "focus": [
+          "get_entity_edge_save_query",
+          "get_entity_edge_return_query"
+        ],
+        "reason": "边持久化查询模板：展示 EntityEdge 字段（含 valid_at/invalid_at、fact_embedding）如何映射到图数据库属性。"
+      },
+      {
+        "path": "graphiti_core/models/nodes/node_db_queries.py",
+        "focus": [
+          "get_entity_node_save_query",
+          "get_episode_node_save_query"
+        ],
+        "reason": "节点持久化查询模板：展示 EpisodicNode/EntityNode 字段如何写入图数据库。"
+      },
+      {
+        "path": "graphiti_core/prompts/extract_edges.py",
+        "focus": [
+          "edge",
+          "edge_attributes"
+        ],
+        "reason": "边抽取提示词：定义 LLM 如何从对话中抽取事实与时间信息，是冲突事实识别的算法输入。"
+      },
+      {
+        "path": "graphiti_core/prompts/dedupe_edges.py",
+        "focus": [
+          "edge"
+        ],
+        "reason": "边去重提示词：定义新事实与旧边比较、判定重复或矛盾的决策逻辑。"
+      },
+      {
+        "path": "tests/utils/maintenance/test_edge_dedup_scenarios.py",
+        "focus": [
+          "test_edge_dedup_scenarios"
+        ],
+        "reason": "相关测试：覆盖边去重与冲突场景，验证新事实如何合并或使旧关系失效。"
+      },
+      {
+        "path": "tests/utils/maintenance/test_temporal_edge_utils.py",
+        "focus": [
+          "test_extract_edge_times"
+        ],
+        "reason": "相关测试：验证从事实文本推断时间区间，是时间有效性算法的直接示例。"
+      },
+      {
+        "path": "examples/quickstart/quickstart_neo4j.py",
+        "focus": [
+          "main"
+        ],
+        "reason": "公开入口示例：展示 Graphiti 初始化、add_episode 写入与 search 查询的真实调用方式。"
+      }
+    ]
+  },
+  "report": {
+    "overview": {
+      "plainLanguage": "它把每次对话先存成可追溯的 episode，再抽取人物和关系，并用有效时间区间让旧事实被标记为过期而不是直接删除，查询时同时看向量、关键词和图关系。",
+      "problem": "传统 RAG 把文档切块后做静态相似度检索，难以表达‘谁和谁有什么关系’、‘这条事实何时为真’以及‘新信息何时推翻旧信息’。冲突事实如果只追加或直接覆盖，都会丢失历史或混淆当前状态。",
+      "scenarioInput": "推演输入：Episode A（reference_time=2024-01-10）内容为‘Alice: I work at Acme.’；Episode B（reference_time=2025-03-02）内容为‘Alice: I left Acme and now work at Globex.’。随后查询‘Where does Alice work now?’。",
+      "scenarioOutput": "推演输出：图中保留 Episode A 和 Episode B，Alice、Acme、Globex 为实体；若抽取模型给出对应时间，Acme 关系带 valid_at≈2024-01-10、invalid_at≈2025-03-02、expired_at=写入时刻，Globex 关系带 valid_at≈2025-03-02；检索返回相关 EntityEdge 列表，具体排序仍取决于模型抽取、嵌入和检索配置。"
+    },
+    "modules": [
+      {
+        "id": "entry",
+        "name": "Graphiti 门面入口",
+        "role": "对外暴露初始化、写入 episode 和查询边的主 API，负责把驱动、LLM、embedder、cross-encoder 组装成请求上下文，再调用内部维护与检索流程。",
+        "input": "构造参数或已有 GraphDriver；add_episode 的文本、reference_time、group_id；search 的 query 与配置。",
+        "output": "AddEpisodeResults 或 EntityEdge 列表，以及内部传给抽取/检索模块的 GraphitiClients。",
+        "state": "持有 driver、llm_client、embedder、cross_encoder、clients；add_episode 内产生请求级 driver 和 episode 状态。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "graphiti_core/graphiti.py",
+            "startLine": 209,
+            "endLine": 225
+          },
+          {
+            "path": "graphiti_core/graphiti.py",
+            "startLine": 1334,
+            "endLine": 1352
+          },
+          {
+            "path": "graphiti_core/graphiti.py",
+            "startLine": 1912,
+            "endLine": 1921
+          }
+        ]
+      },
+      {
+        "id": "model",
+        "name": "Episode、Entity、Edge 数据模型",
+        "role": "用 Pydantic 模型定义图中节点和边的字段边界，尤其是 EntityEdge 的 fact、episodes 溯源以及 valid_at/invalid_at/expired_at 时间字段。",
+        "input": "抽取与解析得到的字段值、数据库记录。",
+        "output": "可保存或可返回的 EpisodicNode、EntityNode、EntityEdge。",
+        "state": "EntityEdge 拥有时间有效性和来源 episode 列表；EntityNode 拥有名称、摘要、属性与嵌入。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "graphiti_core/nodes.py",
+            "startLine": 93,
+            "endLine": 100
+          },
+          {
+            "path": "graphiti_core/edges.py",
+            "startLine": 263,
+            "endLine": 287
+          }
+        ]
+      },
+      {
+        "id": "extraction",
+        "name": "实体抽取与实体解析",
+        "role": "调用 LLM 从 episode 中抽取实体，再用精确名称、语义候选和 LLM 解决重复实体，输出统一 uuid 映射，避免同一个人被反复建成新节点。",
+        "input": "EpisodicNode、上一批 episode、实体类型定义。",
+        "output": "resolved EntityNode 列表、uuid_map、duplicate_pairs。",
+        "state": "候选节点列表、决议状态 DedupResolutionState 和 uuid_map 都在内存中变化。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "graphiti_core/utils/maintenance/node_operations.py",
+            "startLine": 73,
+            "endLine": 96
+          },
+          {
+            "path": "graphiti_core/utils/maintenance/node_operations.py",
+            "startLine": 816,
+            "endLine": 825
+          }
+        ]
+      },
+      {
+        "id": "temporal",
+        "name": "边抽取、去重与时间失效",
+        "role": "从已解析实体之间抽取事实边，对同端点关系做重复检测，并用 valid_at/invalid_at 比较决定旧边是否被新事实取代。",
+        "input": "EntityEdge 候选、已存在边、episode reference_time。",
+        "output": "resolved_edges、invalidated_edges、new_edges。",
+        "state": "新边获得 valid_at/invalid_at/reference_time；旧边被写入 invalid_at/expired_at。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "graphiti_core/utils/maintenance/edge_operations.py",
+            "startLine": 424,
+            "endLine": 451
+          },
+          {
+            "path": "graphiti_core/utils/maintenance/edge_operations.py",
+            "startLine": 715,
+            "endLine": 745
+          }
+        ]
+      },
+      {
+        "id": "search",
+        "name": "混合检索与重排",
+        "role": "按 SearchConfig 并行执行关键词、向量、图遍历等候选召回，再按 RRF、MMR、cross-encoder 或 node_distance 重排。",
+        "input": "query、group_ids、SearchConfig、SearchFilters、可选 center_node_uuid。",
+        "output": "SearchResults，其中 Graphiti.search 只取 edges。",
+        "state": "查询向量、候选边/节点/社区列表和重排分数在调用内产生。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "graphiti_core/search/search.py",
+            "startLine": 98,
+            "endLine": 108
+          },
+          {
+            "path": "graphiti_core/search/search.py",
+            "startLine": 259,
+            "endLine": 273
+          }
+        ]
+      },
+      {
+        "id": "driver",
+        "name": "图数据库驱动与查询模板",
+        "role": "把模型层操作翻译为各后端可执行的 Cypher/查询模板，负责 MERGE 保存、全文索引和向量余弦查询；本项目保留统一 GraphDriver 抽象，具体数据库负责执行。",
+        "input": "节点/边保存参数、全文 query、向量、过滤条件。",
+        "output": "数据库记录，再由 record parser 转回模型对象。",
+        "state": "数据库中的节点、关系、全文索引和向量属性。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "graphiti_core/driver/driver.py",
+            "startLine": 90,
+            "endLine": 103
+          },
+          {
+            "path": "graphiti_core/driver/neo4j/operations/search_ops.py",
+            "startLine": 232,
+            "endLine": 240
+          }
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "from": "entry",
+        "to": "extraction",
+        "label": "add_episode 把 episode 与 previous_episodes 交给实体抽取和解析"
+      },
+      {
+        "from": "entry",
+        "to": "temporal",
+        "label": "解析后的实体与 uuid_map 交给边抽取和失效判断"
+      },
+      {
+        "from": "entry",
+        "to": "search",
+        "label": "search 构造 SearchConfig 并调用检索编排"
+      },
+      {
+        "from": "extraction",
+        "to": "model",
+        "label": "生成并解析 EntityNode"
+      },
+      {
+        "from": "temporal",
+        "to": "model",
+        "label": "生成并修改 EntityEdge 的时间字段"
+      },
+      {
+        "from": "temporal",
+        "to": "search",
+        "label": "边去重时用混合检索查找同端点候选边"
+      },
+      {
+        "from": "search",
+        "to": "driver",
+        "label": "召回和重排通过驱动执行全文/向量/图查询"
+      },
+      {
+        "from": "model",
+        "to": "driver",
+        "label": "save/get 方法把模型字段交给查询模板持久化或取回"
+      }
+    ],
+    "flow": [
+      {
+        "title": "装配实例与默认客户端",
+        "phase": "装配",
+        "condition": "首次创建 Graphiti 实例；未传 graph_driver/llm_client/embedder 时走默认实现",
+        "symbol": "Graphiti.__init__",
+        "owner": "project",
+        "input": "uri、user、password 或自定义 graph_driver、LLM、embedder、cross_encoder",
+        "action": "选择 Neo4jDriver 或外部注入驱动，选择默认 OpenAIClient/OpenAIEmbedder/OpenAIRerankerClient，并组装 GraphitiClients 与 nodes/edges 命名空间",
+        "stateChange": "创建实例级 driver、llm_client、embedder、cross_encoder、clients",
+        "output": "可供 add_episode/search 使用的 Graphiti 实例",
+        "evidence": [
+          {
+            "path": "graphiti_core/graphiti.py",
+            "startLine": 321,
+            "endLine": 386
+          }
+        ]
+      },
+      {
+        "title": "解析请求范围并准备 episode 上下文",
+        "phase": "写入",
+        "condition": "必经；previous_episode_uuids 为空时按 reference_time 检索近期 episode，非空时按 UUID 取回",
+        "symbol": "Graphiti.add_episode",
+        "owner": "project",
+        "input": "name、episode_body、reference_time、group_id、source、uuid",
+        "action": "先解析请求级 group_id/driver/clients，再检索 previous_episodes；若未给 uuid 则用当前时间和 reference_time 新建 EpisodicNode",
+        "stateChange": "内存中建立 episode；previous_episodes 来自数据库查询；尚未写入新 episode",
+        "output": "带 valid_at 的 EpisodicNode 与 previous_episodes",
+        "evidence": [
+          {
+            "path": "graphiti_core/graphiti.py",
+            "startLine": 1421,
+            "endLine": 1445
+          },
+          {
+            "path": "graphiti_core/graphiti.py",
+            "startLine": 1448,
+            "endLine": 1460
+          }
+        ]
+      },
+      {
+        "title": "从 episode 抽取实体候选",
+        "phase": "写入",
+        "condition": "必经；过滤后没有可用实体类型时提前返回空列表",
+        "symbol": "extract_nodes",
+        "owner": "project",
+        "input": "episode、previous_episodes、entity_types、custom_extraction_instructions",
+        "action": "拼装 episode 内容、时间戳、上一批消息和实体类型上下文，调用抽取 LLM，过滤空名称，再转换为 EntityNode 并合并同一消息内的精确重名候选",
+        "stateChange": "产生内存中的 extracted_nodes 与 node_episode_index_map",
+        "output": "未解析的 EntityNode 列表和 episode 归属映射",
+        "evidence": [
+          {
+            "path": "graphiti_core/utils/maintenance/node_operations.py",
+            "startLine": 123,
+            "endLine": 145
+          },
+          {
+            "path": "graphiti_core/utils/maintenance/node_operations.py",
+            "startLine": 154,
+            "endLine": 162
+          }
+        ]
+      },
+      {
+        "title": "实体解析与 uuid 统一",
+        "phase": "写入",
+        "condition": "必经；每个候选先查 identity、精确名称和语义候选，仍无法决定才进入 LLM 去重",
+        "symbol": "resolve_extracted_nodes",
+        "owner": "project",
+        "input": "extracted_nodes、episode、previous_episodes、entity_types",
+        "action": "按候选节点建立索引，先尝试身份属性和相似度决议，未解决项合并后交给 LLM 返回 candidate_id 决议；最终把未决议节点保留为新节点并填充 uuid_map",
+        "stateChange": "resolved_nodes 与 uuid_map 在 DedupResolutionState 中形成；重复实体指向已有 uuid",
+        "output": "resolved 节点列表、uuid_map、duplicate_pairs",
+        "evidence": [
+          {
+            "path": "graphiti_core/utils/maintenance/node_operations.py",
+            "startLine": 827,
+            "endLine": 891
+          }
+        ]
+      },
+      {
+        "title": "抽取边并解析端点与时间",
+        "phase": "写入",
+        "condition": "必经；端点名称不在已解析实体表中时会 materialize 悬空端点节点，并在最终未引用时剪除",
+        "symbol": "Graphiti._extract_and_resolve_edges / extract_edges",
+        "owner": "project",
+        "input": "episode、extracted_nodes、previous_episodes、edge_type_map、已解析 nodes 与 uuid_map",
+        "action": "extract_edges 用 LLM 生成事实三元组，校验源/目标实体名称，解析 valid_at/invalid_at，调用 normalize_future_temporal_bounds 修正未来时态，再创建 EntityEdge；_extract_and_resolve_edges 随后用 uuid_map 重映射端点",
+        "stateChange": "产生带 fact、episodes、reference_time、valid_at、invalid_at 的内存边",
+        "output": "待去重和失效判断的 EntityEdge 列表",
+        "evidence": [
+          {
+            "path": "graphiti_core/graphiti.py",
+            "startLine": 945,
+            "endLine": 982
+          },
+          {
+            "path": "graphiti_core/utils/maintenance/edge_operations.py",
+            "startLine": 235,
+            "endLine": 245
+          },
+          {
+            "path": "graphiti_core/utils/maintenance/edge_operations.py",
+            "startLine": 355,
+            "endLine": 374
+          }
+        ]
+      },
+      {
+        "title": "边去重、矛盾候选和旧边失效",
+        "phase": "写入",
+        "condition": "必经；没有 related/existing 候选时跳过 LLM 去重但仍抽取时间戳；完全相同 fact 可走快速复用路径",
+        "symbol": "resolve_extracted_edges / _dedupe_extracted_edge / _apply_temporal_invalidation",
+        "owner": "project",
+        "input": "抽取边、episode、实体表、edge_types、edge_type_map",
+        "action": "先为 fact 生成嵌入，用同端点过滤检索重复候选，用更宽检索收集可能矛盾的候选；LLM 返回 duplicate_facts 与 contradicted_facts 后复用重复边或保留新边，再比较日期决定是否把候选旧边的 invalid_at 设为新边 valid_at",
+        "stateChange": "resolved_edges 保留；invalidated_edges 被写入 invalid_at/expired_at；new_edges 仅包含 uuid 未复用的新边",
+        "output": "resolved_edges、invalidated_edges、new_edges",
+        "evidence": [
+          {
+            "path": "graphiti_core/utils/maintenance/edge_operations.py",
+            "startLine": 520,
+            "endLine": 539
+          },
+          {
+            "path": "graphiti_core/utils/maintenance/edge_operations.py",
+            "startLine": 558,
+            "endLine": 585
+          },
+          {
+            "path": "graphiti_core/utils/maintenance/edge_operations.py",
+            "startLine": 946,
+            "endLine": 955
+          },
+          {
+            "path": "graphiti_core/utils/maintenance/edge_operations.py",
+            "startLine": 715,
+            "endLine": 783
+          }
+        ]
+      },
+      {
+        "title": "持久化 episode、实体、MENTIONS 和关系边",
+        "phase": "写入",
+        "condition": "必经；store_raw_episode_content=False 时清空 episode.content；update_communities=True 时另有社区更新分支",
+        "symbol": "Graphiti._process_episode_data",
+        "owner": "project",
+        "input": "episode、hydrated_nodes、entity_edges、now、group_id",
+        "action": "为实体和 episode 构建 MENTIONS 边，把 entity_edges 的 uuid 写回 episode.entity_edges，再调用 add_nodes_and_edges_bulk 保存；节点和边保存查询使用 MERGE 按 uuid 写入属性",
+        "stateChange": "数据库新增/更新 Episodic、Entity、RELATES_TO、MENTIONS 记录，并写入时间字段",
+        "output": "AddEpisodeResults 所需的 episodic_edges、episode、nodes、edges",
+        "evidence": [
+          {
+            "path": "graphiti_core/graphiti.py",
+            "startLine": 1031,
+            "endLine": 1044
+          },
+          {
+            "path": "graphiti_core/edges.py",
+            "startLine": 340,
+            "endLine": 380
+          },
+          {
+            "path": "graphiti_core/nodes.py",
+            "startLine": 546,
+            "endLine": 582
+          }
+        ]
+      },
+      {
+        "title": "查询时的混合召回与融合",
+        "phase": "查询",
+        "condition": "查询必经；center_node_uuid 为空时选 EDGE_HYBRID_SEARCH_RRF，非空时选 EDGE_HYBRID_SEARCH_NODE_DISTANCE",
+        "symbol": "Graphiti.search / search / edge_search",
+        "owner": "project",
+        "input": "query、group_ids、num_results、search_filter、center_node_uuid",
+        "action": "根据 SearchConfig 判断是否需要嵌入 query；并行跑 edge/node/episode/community 各 scope；edge_search 按配置构造 BM25、余弦相似度和 BFS 任务，合并候选后按 reranker 选择 RRF、MMR、cross-encoder 或 node_distance，并截取前 limit 条",
+        "stateChange": "产生查询向量、候选边映射和重排分数；不改图数据",
+        "output": "EntityEdge 列表",
+        "evidence": [
+          {
+            "path": "graphiti_core/graphiti.py",
+            "startLine": 1955,
+            "endLine": 1970
+          },
+          {
+            "path": "graphiti_core/search/search.py",
+            "startLine": 118,
+            "endLine": 153
+          },
+          {
+            "path": "graphiti_core/search/search.py",
+            "startLine": 291,
+            "endLine": 383
+          }
+        ]
+      }
+    ],
+    "technologies": [
+      {
+        "name": "时间有效窗口与矛盾失效",
+        "problem": "同一人物/关系在新对话中发生冲突时，既要保留旧事实历史，又要表达旧事实何时被取代。",
+        "mechanism": "抽取边时写入 valid_at/invalid_at/reference_time；去重后把可能矛盾候选按日期排序；若候选有效时间早于新边，则把候选.invalid_at 设为新边.valid_at，并写 expired_at=当前写入时间；若新边自身已有 invalid_at，则新边也被标记 expired_at。",
+        "pseudocode": "new_edge = extract_edge(episode)\nif new_edge.invalid_at and not new_edge.expired_at:\n    new_edge.expired_at = now\nfor candidate in sorted(candidates, by=valid_at):\n    if candidate.valid_at > new_edge.valid_at:\n        new_edge.invalid_at = candidate.valid_at\n        new_edge.expired_at = now\n        break\nfor candidate in candidates:\n    if candidate.valid_at < new_edge.valid_at:\n        candidate.invalid_at = new_edge.valid_at\n        candidate.expired_at = now",
+        "dataStructures": "EntityEdge.valid_at / invalid_at / expired_at / reference_time；候选边列表；episodes 来源列表。关键不变量是 invalid_at 只表示事实停止为真的时间，软截止日期不直接当作 invalid_at。",
+        "projectCode": "Graphiti 自己实现字段模型、未来时态归一化和日期比较失效逻辑；抽取提示词要求模型保留事实细节并给出时间。",
+        "externalDependency": "LLM 负责从文本提出事实和时间候选；图数据库只存储和返回这些字段，不替项目做语义矛盾判断。",
+        "tradeoff": "收益是可追溯历史且不必删除旧边；代价是日期抽取质量直接影响失效方向，过期边仍留在库中，查询方必须区分有效与历史事实。",
+        "evidence": [
+          {
+            "path": "graphiti_core/edges.py",
+            "startLine": 263,
+            "endLine": 287
+          },
+          {
+            "path": "graphiti_core/utils/maintenance/edge_operations.py",
+            "startLine": 715,
+            "endLine": 783
+          },
+          {
+            "path": "graphiti_core/utils/maintenance/temporal_edge_utils.py",
+            "startLine": 39,
+            "endLine": 71
+          }
+        ]
+      },
+      {
+        "name": "实体候选级联去重",
+        "problem": "同一实体在多次 episode 中可能名称相同、大小写不同或语义相近，直接按名称新增会分裂图。",
+        "mechanism": "为每个抽取实体收集身份属性候选、精确名称候选和向量相似候选；先尝试确定性身份/相似度决议，仍未解决的实体合并候选后交给 LLM 选择 duplicate_candidate_id，最后生成 uuid_map 把抽取端点映射到已解析实体。",
+        "pseudocode": "for node in extracted_nodes:\n    candidates = identity_lookup(node)\n    candidates += exact_name_lookup(node)\n    candidates += semantic_search(node, limit=15, min_score=0.6)\n    if deterministic_identity(candidates): resolve(node)\n    elif deterministic_similarity(candidates): resolve(node)\n    else: unresolved.append(node)\nif unresolved:\n    llm_resolutions = llm_dedupe(unresolved, candidates)\n    apply candidate_id -> uuid_map",
+        "dataStructures": "candidate_nodes_by_extracted、DedupCandidateIndexes、DedupResolutionState、uuid_map。不变量是最终每个抽取实体都有一个 resolved uuid，重复项共享已有节点 uuid。",
+        "projectCode": "候选收集、确定性决议、LLM 响应校验和 uuid_map 更新都由本项目实现。",
+        "externalDependency": "精确名称查询和向量相似搜索由图数据库执行；LLM 只在未解决时做选择题。",
+        "tradeoff": "收益是减少 LLM 调用并保留精确匹配；代价是候选召回和阈值决定上限，候选召不回时 LLM 也无法选中正确旧实体。",
+        "evidence": [
+          {
+            "path": "graphiti_core/utils/maintenance/node_operations.py",
+            "startLine": 456,
+            "endLine": 484
+          },
+          {
+            "path": "graphiti_core/utils/maintenance/node_operations.py",
+            "startLine": 585,
+            "endLine": 632
+          },
+          {
+            "path": "graphiti_core/utils/maintenance/node_operations.py",
+            "startLine": 816,
+            "endLine": 891
+          }
+        ]
+      },
+      {
+        "name": "可配置的混合检索与重排",
+        "problem": "单一向量检索容易漏掉精确人名/关系词，单一关键词检索又无法处理语义改写；只用 LLM 汇总延迟高。",
+        "mechanism": "EdgeSearchConfig 决定候选方法集合；edge_search 为 BM25、余弦相似度和 BFS 各生成一个候选任务并并行执行，每个任务取 2*limit 候选；合并后用 reranker 选择 RRF、MMR、cross-encoder 或 node_distance，再截断到 limit。",
+        "pseudocode": "tasks = []\nif bm25 in methods: tasks.append(fulltext(query, 2*limit))\nif cosine in methods: tasks.append(similarity(query_vector, 2*limit))\nif bfs in methods: tasks.append(bfs(origin_uuids, depth, 2*limit))\nresults = gather(tasks)\nif reranker == rrf: uuids, scores = rrf([uuid_lists])\nif reranker == mmr: uuids, scores = mmr(query_vector, embeddings)\nif reranker == cross_encoder: uuids = cross_encoder.rank(query, facts)\nreturn edges[:limit]",
+        "dataStructures": "SearchConfig、EdgeSearchConfig.search_methods、EdgeReranker、候选 uuid 映射和重排分数列表。",
+        "projectCode": "本项目决定何时嵌入 query、如何组任务、如何合并 uuid 和选择重排器；RRF 函数本身的实现未在已读代码片段中。",
+        "externalDependency": "图数据库提供全文索引、向量余弦表达式和 BFS 路径查询；embedding 服务提供 query/fact 向量；cross-encoder 服务提供可选语义重排。",
+        "tradeoff": "收益是不同召回方式互补且可按后端配置；代价是每个方法都可能产生数据库查询和候选，参数与索引配置不当会增加延迟或噪声。",
+        "evidence": [
+          {
+            "path": "graphiti_core/search/search.py",
+            "startLine": 98,
+            "endLine": 153
+          },
+          {
+            "path": "graphiti_core/search/search.py",
+            "startLine": 291,
+            "endLine": 383
+          },
+          {
+            "path": "graphiti_core/search/search_config.py",
+            "startLine": 80,
+            "endLine": 87
+          }
+        ]
+      },
+      {
+        "name": "Episode 溯源与 MERGE 持久化",
+        "problem": "需要回答某个实体或事实来自哪次原始输入，并且重复保存同一 uuid 时不能无限追加重复节点/边。",
+        "mechanism": "保存 episode 时创建 EpisodicNode；再为每个被提及实体建立 EpisodicEdge（MENTIONS），并把关系边 uuid 写回 episode.entity_edges。节点/边保存查询以 uuid 为 MERGE 键，存在则 SET 属性，不存在才创建。",
+        "pseudocode": "for node in entity_nodes:\n    make MENTIONS(episode, node)\nepisode.entity_edges = [edge.uuid for edge in entity_edges]\nbulk_save(episodes, episodic_edges, nodes, entity_edges)\nMERGE (n:Entity {uuid: node.uuid})\nSET n = node_data\nMERGE (source)-[e:RELATES_TO {uuid: edge.uuid}]->(target)\nSET e = edge_data",
+        "dataStructures": "EpisodicNode.entity_edges、EpisodicEdge(source=episode,target=entity)、EntityEdge.episodes；数据库中的 Entity/Episodic/RELATES_TO/MENTIONS。",
+        "projectCode": "本项目构建溯源边、写回 episode 的实体边列表，并生成跨后端 MERGE 查询。",
+        "externalDependency": "图数据库执行 MERGE/SET 和事务；本项目只定义查询与参数。",
+        "tradeoff": "收益是同一 uuid 保存可重复执行且溯源可查；代价是 MERGE 不按 fact 语义自动去重，事实去重仍依赖上层检索和 LLM 决议。",
+        "evidence": [
+          {
+            "path": "graphiti_core/utils/maintenance/edge_operations.py",
+            "startLine": 69,
+            "endLine": 113
+          },
+          {
+            "path": "graphiti_core/graphiti.py",
+            "startLine": 1031,
+            "endLine": 1044
+          },
+          {
+            "path": "graphiti_core/models/edges/edge_db_queries.py",
+            "startLine": 63,
+            "endLine": 73
+          }
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "decision": "add_episode 不再在并发过程中重写共享 self.driver，而是为不同 group_id 返回请求级 driver/clients 副本",
+        "constraint": "add_episode 内部有大量 await（LLM、embedding、DB 写入），并发处理不同 group_id 时共享实例状态可能被另一个请求改写。",
+        "alternative": "继续在入口处把 self.driver 改成当前 group_id 对应的数据库连接。",
+        "why": "在本文两段对话并发写入不同 group 时，如果共享 driver 被中途改写，第一个请求后半段的节点/边可能落到第二个 group 的数据库。请求级 driver 让每个调用从始至终使用同一个数据库目标。",
+        "cost": "多 group 场景会复制 clients 和驱动包装，调用链需要显式传递 driver/clients；默认数据库路径为保持兼容仍复用共享实例。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "graphiti_core/graphiti.py",
+            "startLine": 1304,
+            "endLine": 1332
+          }
+        ]
+      },
+      {
+        "decision": "冲突事实采用失效标记而不是删除或直接覆盖",
+        "constraint": "需要保留旧事实以支持历史查询和来源追溯，同时表达新事实何时取代旧事实。",
+        "alternative": "发现矛盾后删除旧边，或把旧边 fact 直接改成新事实。",
+        "why": "删除会让历史查询丢失‘Alice 曾经在 Acme’；直接覆盖会让旧 episode 的溯源指向被改写的内容。写入 invalid_at/expired_at 后，旧边仍能说明它曾经为真，新边负责当前事实。",
+        "cost": "数据库会累积历史边，查询方或上层服务必须理解时间字段；如果时间抽取错误，失效方向也可能错误。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "When information changes, old facts are invalidated — not deleted.",
+        "evidence": [
+          {
+            "path": "README.md",
+            "startLine": 125,
+            "endLine": 126
+          },
+          {
+            "path": "graphiti_core/utils/maintenance/edge_operations.py",
+            "startLine": 715,
+            "endLine": 783
+          }
+        ]
+      },
+      {
+        "decision": "检索采用可配置的多路召回并由重排器融合，而不是只做单路向量检索",
+        "constraint": "Agent 记忆查询既可能依赖语义相似，也可能依赖精确人名、关系词或图上的邻近关系。",
+        "alternative": "只计算 query 与 fact 的余弦相似度，取 top-k。",
+        "why": "在‘Alice 现在在哪工作’这类查询中，精确实体名和关系事实很重要，图遍历还能把相邻事实带回候选集。混合召回让不同信号先各自产生候选，再融合排序；代价是需要配置和更多数据库查询。",
+        "cost": "延迟和候选噪声增加，效果依赖各后端索引、limit、min_score 和 reranker 选择；基础 Graphiti.search 并未暴露时间过滤参数。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "Combines semantic embeddings, keyword (BM25), and graph traversal for low-latency, high-precision queries without reliance on LLM summarization.",
+        "evidence": [
+          {
+            "path": "README.md",
+            "startLine": 133,
+            "endLine": 134
+          },
+          {
+            "path": "graphiti_core/search/search_config.py",
+            "startLine": 80,
+            "endLine": 87
+          },
+          {
+            "path": "graphiti_core/search/search.py",
+            "startLine": 291,
+            "endLine": 383
+          }
+        ]
+      },
+      {
+        "decision": "实体去重先做候选召回和确定性决议，只把未解决项交给 LLM",
+        "constraint": "每个抽取实体都调用 LLM 去重会增加成本和延迟，而精确名称/身份属性/向量相似已经能排除大量重复。",
+        "alternative": "把所有抽取实体和全图实体一起发给 LLM，让模型一次性判断重复。",
+        "why": "两段对话里 Alice 可能以相同名称再次出现，精确名称候选可以先定位旧节点；语义候选补充别名；只有候选无法决定时才让 LLM 做选择题。这样既保留确定性路径，也限制 LLM 输入规模。",
+        "cost": "候选召回失败或阈值不合适时，正确旧实体不会进入 LLM 选项；确定性相似度规则也需要维护。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "graphiti_core/utils/maintenance/node_operations.py",
+            "startLine": 840,
+            "endLine": 891
+          }
+        ]
+      }
+    ],
+    "codeWalkthroughs": [
+      {
+        "title": "add_episode 如何把抽取、解析、边处理和持久化串起来",
+        "explanation": "这段代码先抽取实体并解析出 uuid_map，再把同一批实体交给 _extract_and_resolve_edges 生成带时间字段的边。随后把 resolved_edges 与 invalidated_edges 合并为 entity_edges，只把 new_edges 传给实体摘要/属性抽取，避免把已存在的旧事实重复写进摘要。最后 _process_episode_data 负责写 episode、实体、关系边和 MENTIONS 溯源；update_communities 是可选分支，不是每次写入必经。",
+        "evidence": [
+          {
+            "path": "graphiti_core/graphiti.py",
+            "startLine": 1470,
+            "endLine": 1505
+          },
+          {
+            "path": "graphiti_core/graphiti.py",
+            "startLine": 1507,
+            "endLine": 1531
+          }
+        ]
+      },
+      {
+        "title": "日期比较如何使旧关系失效",
+        "explanation": "第一段先处理新边自身已经带 invalid_at 的情况：如果它已经是历史事实，就把 expired_at 记为当前写入时间。第二段把候选按 valid_at 排序；如果某个候选比新边更晚开始为真，则新边自己应被该候选取代，写入新边.invalid_at 并过期。resolve_edge_contradictions 再遍历候选，若候选有效时间早于新边有效时间，则把候选.invalid_at 设为新边.valid_at。这里全是日期比较，不做语义判断，语义矛盾候选来自前面的 LLM 去重/矛盾识别。",
+        "evidence": [
+          {
+            "path": "graphiti_core/utils/maintenance/edge_operations.py",
+            "startLine": 724,
+            "endLine": 745
+          },
+          {
+            "path": "graphiti_core/utils/maintenance/edge_operations.py",
+            "startLine": 756,
+            "endLine": 781
+          }
+        ]
+      },
+      {
+        "title": "edge_search 如何按配置组合召回与重排",
+        "explanation": "edge_search 只把配置中出现的 BM25、余弦相似度和 BFS 加入 search_tasks，每个任务取 2*limit 个候选并并行执行。随后把多组结果压成 edge_uuid_map，再根据 EdgeReranker 分支：RRF 或 episode_mentions 把各组 uuid 列表交给 rrf；MMR 加载 fact 向量后计算多样性；cross_encoder 先 RRF 截断再让交叉编码器打分；node_distance 以中心节点距离重排。最后按重排后的 uuid 取回边并截断 limit。RRF 的具体公式不在已读函数体内，因此这里只确认调用边界。",
+        "evidence": [
+          {
+            "path": "graphiti_core/search/search.py",
+            "startLine": 291,
+            "endLine": 333
+          },
+          {
+            "path": "graphiti_core/search/search.py",
+            "startLine": 377,
+            "endLine": 383
+          }
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "question": "如果把第二段冲突对话的 reference_time 改成早于第一段，失效方向会怎样变化？",
+        "change": "保持事实文本与实体相同，把 Episode B 的 reference_time 从 2025-03-02 改为 2023-01-01，使抽取边若按 reference_time 得到更早的 valid_at。",
+        "expected": "在抽取模型确实给出对应 valid_at 的前提下，新边会被视为更早开始为真：_apply_temporal_invalidation 会先发现已有候选比新边更晚，从而把新边自己标记 invalid_at=候选.valid_at 并设置 expired_at；旧候选不会因为这次写入而被过期。若模型没有按 reference_time 填 valid_at，结果不会按此预期变化。",
+        "evidence": [
+          {
+            "path": "graphiti_core/utils/maintenance/edge_operations.py",
+            "startLine": 730,
+            "endLine": 743
+          },
+          {
+            "path": "graphiti_core/utils/maintenance/temporal_edge_utils.py",
+            "startLine": 39,
+            "endLine": 71
+          }
+        ]
+      },
+      {
+        "question": "给 search 传入 center_node_uuid 是否会改变检索路径和排序依据？",
+        "change": "同一 query 分别调用 Graphiti.search(center_node_uuid=None) 与 Graphiti.search(center_node_uuid=Alice 节点 uuid)。",
+        "expected": "前者选择 EDGE_HYBRID_SEARCH_RRF，edge_search 使用 RRF 融合候选；后者选择 EDGE_HYBRID_SEARCH_NODE_DISTANCE，edge_search 要求 center_node_uuid 非空，并用 node_distance_reranker 按到中心节点的关系距离重排。具体返回顺序仍取决于候选召回和数据库中的图距离，不能从代码直接预测某条边一定第一。",
+        "evidence": [
+          {
+            "path": "graphiti_core/graphiti.py",
+            "startLine": 1955,
+            "endLine": 1957
+          },
+          {
+            "path": "graphiti_core/search/search.py",
+            "startLine": 421,
+            "endLine": 455
+          }
+        ]
+      }
+    ],
+    "takeaways": [
+      "写入路径不是简单追加：episode 先抽取实体，实体解析产生 uuid_map，边再基于统一实体 uuid 去重和判断时间冲突。",
+      "冲突处理的关键是 EntityEdge 的 valid_at/invalid_at/expired_at 与日期比较；旧事实保留，但可被标记为已被取代。",
+      "检索不是单一向量 top-k：SearchConfig 决定召回方法，edge_search 并行收集候选后再选 RRF、MMR、cross-encoder 或 node_distance。",
+      "实体去重采用候选级联：精确名称/身份/语义召回负责缩小范围，确定性决议优先，LLM 只处理未解决项。",
+      "持久化依赖 uuid 的 MERGE 与 MENTIONS 溯源边；事实语义去重和矛盾判断仍由上层检索与 LLM 决议，不由数据库自动完成。"
+    ],
+    "gaps": [
+      "RRF 函数体（search_utils.py 中 rrf）未在已读代码片段内，无法确认其精确分数公式、去重细节和并列名次处理。",
+      "add_nodes_and_edges_bulk 的实现与事务边界未读，无法确认批量写入失败时 episode、节点、边如何回滚。",
+      "LLM 抽取与去重是模型行为，本仓库代码不能保证从给定两段对话一定抽出 Acme/Globex 或一定给出某个 valid_at，因此示例排序只是推演。",
+      "基础 Graphiti.search 入口没有 reference_time 参数，已读代码也未展示过期边过滤；当前/历史查询应由谁按时间字段过滤不能从这些片段完全确认。"
+    ]
+  }
+}

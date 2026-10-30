@@ -1,0 +1,997 @@
+{
+  "version": 3,
+  "repo": "langchain-ai/langgraph",
+  "ref": "main",
+  "sha": "6f2df053f4487ce6ea8decc0d7482c8e46e0f132",
+  "analysis": {
+    "version": 3,
+    "kind": "architecture",
+    "requestedModel": "deepseek-flash",
+    "actualModel": "deepseek-flash",
+    "filesRead": 24,
+    "charactersRead": 337675,
+    "modules": 8,
+    "flowSteps": 9,
+    "mechanisms": 4,
+    "decisions": 4,
+    "readingStrategy": "model-and-profile",
+    "structuralChecks": "passed",
+    "usage": {
+      "prompt_tokens": 141665,
+      "completion_tokens": 11330
+    },
+    "notes": []
+  },
+  "plan": {
+    "scenario": "一个包含模型节点与工具节点的 StateGraph，经 StateGraph.compile 变成 CompiledStateGraph（Pregel 子类），从 Pregel.stream 进入同步执行循环：每轮 tick 由 _algo 准备任务、_runner 执行节点、_algo 合并写入通道，_loop 提交检查点；中断与恢复由 _checkpoint 与 InMemorySaver 承载。",
+    "files": [
+      {
+        "path": "libs/langgraph/langgraph/graph/state.py",
+        "focus": [
+          "StateGraph.compile",
+          "CompiledStateGraph.attach_node",
+          "CompiledStateGraph.attach_edge",
+          "CompiledStateGraph.attach_branch",
+          "_get_channels",
+          "_get_channel"
+        ],
+        "reason": "公开入口：compile 把节点/边/分支转成 Pregel 的 channels、nodes、branches 与 START 通道，并构造 CompiledStateGraph；attach_* 定义执行对象如何被注册。"
+      },
+      {
+        "path": "libs/langgraph/langgraph/pregel/main.py",
+        "focus": [
+          "Pregel.stream",
+          "Pregel.invoke",
+          "Pregel._defaults",
+          "Pregel.stream_writer"
+        ],
+        "reason": "真实请求入口：invoke 只是收集 stream 输出；stream 解析配置、构造 SyncQueue、驱动 PregelLoop 并产出各 stream_mode 数据。"
+      },
+      {
+        "path": "libs/langgraph/langgraph/pregel/_loop.py",
+        "focus": [
+          "PregelLoop.tick",
+          "PregelLoop.after_tick",
+          "PregelLoop._put_checkpoint",
+          "PregelLoop._suppress_interrupt"
+        ],
+        "reason": "superstep 调度核心：tick 选择任务并执行，after_tick 合并写入、更新通道版本并决定是否提交检查点/中断。"
+      },
+      {
+        "path": "libs/langgraph/langgraph/pregel/_algo.py",
+        "focus": [
+          "prepare_next_tasks",
+          "apply_writes",
+          "_apply_writes",
+          "local_read",
+          "_scratchpad"
+        ],
+        "reason": "核心算法：由通道版本与触发通道计算下一批任务，apply_writes 把节点输出按 reducer 合并进通道并推进版本。"
+      },
+      {
+        "path": "libs/langgraph/langgraph/pregel/_runner.py",
+        "focus": [
+          "PregelRunner.tick",
+          "PregelRunner.commit",
+          "PregelRunner._execute_task"
+        ],
+        "reason": "实际执行层：并发运行任务、捕获异常、调用 commit 把成功写入交给 loop；失败与重试在此层与 _retry 交互。"
+      },
+      {
+        "path": "libs/langgraph/langgraph/pregel/_retry.py",
+        "focus": [
+          "_should_retry_on",
+          "arun_with_retry",
+          "run_with_retry"
+        ],
+        "reason": "失败与重试发生层：节点 Runnable 的 retry_policy 在此被解释，决定是否重试及退避。"
+      },
+      {
+        "path": "libs/langgraph/langgraph/pregel/_checkpoint.py",
+        "focus": [
+          "create_checkpoint",
+          "_checkpoint_delta",
+          "empty_checkpoint"
+        ],
+        "reason": "检查点构造：把当前通道版本与值快照成 Checkpoint，区分完整快照与 delta，解释 checkpoint 与 reducer 的分工。"
+      },
+      {
+        "path": "libs/langgraph/langgraph/pregel/_io.py",
+        "focus": [
+          "map_command",
+          "read_channels",
+          "map_input",
+          "map_output_values"
+        ],
+        "reason": "输入/输出适配：把用户输入映射到 START 通道写入，把通道值映射为 stream 输出。"
+      },
+      {
+        "path": "libs/langgraph/langgraph/channels/base.py",
+        "focus": [
+          "BaseChannel.update",
+          "BaseChannel.checkpoint",
+          "BaseChannel.from_checkpoint"
+        ],
+        "reason": "核心数据结构：通道抽象定义 update/checkpoint/consume 契约，是状态合并与持久化的最小单位。"
+      },
+      {
+        "path": "libs/langgraph/langgraph/channels/binop.py",
+        "focus": [
+          "BinaryOperatorAggregate.update",
+          "BinaryOperatorAggregate.checkpoint"
+        ],
+        "reason": "reducer 的具体实现：Annotated 的 operator.add 等 reducer 在此合并写入，说明 reducer 与 checkpoint 分离。"
+      },
+      {
+        "path": "libs/langgraph/langgraph/channels/last_value.py",
+        "focus": [
+          "LastValue.update",
+          "LastValue.checkpoint"
+        ],
+        "reason": "默认通道语义：无 reducer 字段的覆盖式合并，与 binop 对照说明设计取舍。"
+      },
+      {
+        "path": "libs/langgraph/langgraph/pregel/_write.py",
+        "focus": [
+          "ChannelWrite",
+          "_write"
+        ],
+        "reason": "节点输出到通道写入的适配器：把节点返回值转成 PendingWrite，交给 apply_writes。"
+      },
+      {
+        "path": "libs/checkpoint/langgraph/checkpoint/memory/__init__.py",
+        "focus": [
+          "InMemorySaver.put",
+          "InMemorySaver.put_writes",
+          "InMemorySaver.get_tuple"
+        ],
+        "reason": "具体存储适配器：put 持久化 checkpoint 与 blobs，put_writes 存 pending writes，get_tuple 恢复时重建 channel_values。"
+      },
+      {
+        "path": "libs/langgraph/langgraph/pregel/_messages.py",
+        "focus": [
+          "StreamMessagesHandler"
+        ],
+        "reason": "模型节点流式输出的传输适配：messages stream_mode 的 token 事件在此产生，连接模型节点与 stream 输出。"
+      },
+      {
+        "path": "libs/langgraph/tests/test_interruption.py",
+        "focus": [
+          "test_interrupt",
+          "test_resume"
+        ],
+        "reason": "相关示例/测试：覆盖 interrupt 后从检查点恢复的端到端路径，验证 loop 与 checkpointer 协作。"
+      },
+      {
+        "path": "libs/langgraph/tests/test_pregel.py",
+        "focus": [
+          "test_stream",
+          "test_invoke"
+        ],
+        "reason": "相关示例/测试：直接覆盖 Pregel.stream/invoke 的同步执行与状态合并行为。"
+      }
+    ]
+  },
+  "report": {
+    "overview": {
+      "plainLanguage": "它把一次可能很长、可暂停的流程拆成有版本的超步：每步先按当前状态选出要跑的节点，执行节点并把写暂存，再在步边界统一合并、保存，从而失败或人工暂停后还能接着跑。",
+      "problem": "模型节点与工具节点往往多轮交替、可能并发写同一个状态键，还要支持中断、恢复和从检查点重放；如果节点直接改共享状态，失败时很难知道哪些写已提交、哪些要重跑。",
+      "scenarioInput": "推演示例：State 含 messages: Annotated[list, add_messages]；输入 {\"messages\":[HumanMessage(\"北京天气?\")]}，config 带 thread_id=\"t1\"；模型节点被配置为若需要工具则返回带 tool_calls 的 AIMessage，工具节点返回 ToolMessage。",
+      "scenarioOutput": "推演输出：若模型产生 tool_calls，则一次运行可能依次写入 AIMessage(tool_calls)、ToolMessage、最终 AIMessage；若在工具节点前设置 interrupt_after，首次调用停在检查点，第二次用 Command(resume=...) 从该边界继续。"
+    },
+    "modules": [
+      {
+        "id": "compile",
+        "name": "图编译装配器",
+        "role": "把构建期的节点、边、条件分支固化成运行期的 PregelNode、通道和写入器，因此运行循环不需要重新解释图结构。",
+        "input": "StateGraph 的 nodes、edges、branches、channels 与 checkpointer 配置",
+        "output": "CompiledStateGraph（Pregel 子类），内含 nodes、channels、START 通道和每个节点的 writers",
+        "state": "编译对象的 channels、nodes、schema mapper、checkpointer、interrupt 节点列表",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/graph/state.py",
+            "startLine": 1346,
+            "endLine": 1401
+          }
+        ]
+      },
+      {
+        "id": "entry",
+        "name": "同步流入口",
+        "role": "解析默认 checkpointer/durability/stream_mode，建立 SyncPregelLoop 与 PregelRunner，并驱动 while loop.tick()。",
+        "input": "用户 input、config、stream_mode、durability、interrupt 参数",
+        "output": "逐步流出的 values/updates 等 chunk；最终 loop.output",
+        "state": "本次运行的 Runtime、callback manager、loop 的 checkpoint 与 tasks",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/main.py",
+            "startLine": 2843,
+            "endLine": 2864
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/main.py",
+            "startLine": 2990,
+            "endLine": 3022
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/main.py",
+            "startLine": 3050,
+            "endLine": 3079
+          }
+        ]
+      },
+      {
+        "id": "loop",
+        "name": "超步循环与提交边界",
+        "role": "每轮准备任务、检查 before 中断；任务完成后合并 writes、发 values、保存 checkpoint，并检查 after 中断。",
+        "input": "当前 checkpoint、channels、pending writes、step/stop、interrupt 列表",
+        "output": "tasks 交给 runner；updated_channels 和新的 checkpoint 写回存储",
+        "state": "checkpoint、channel_versions、versions_seen、tasks、checkpoint_pending_writes、step",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/_loop.py",
+            "startLine": 650,
+            "endLine": 698
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_loop.py",
+            "startLine": 700,
+            "endLine": 777
+          }
+        ]
+      },
+      {
+        "id": "algo",
+        "name": "任务选择与写入合并算法",
+        "role": "根据通道版本和触发关系生成 PULL/PUSH 任务，并在超步边界把各任务 writes 应用到通道，调用各通道的 reducer。",
+        "input": "checkpoint、channels、pending_writes、trigger_to_nodes、updated_channels",
+        "output": "PregelExecutableTask 字典；apply_writes 返回更新过的通道集合",
+        "state": "checkpoint.versions_seen、channel_versions；各 BaseChannel 的值",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/_algo.py",
+            "startLine": 474,
+            "endLine": 511
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_algo.py",
+            "startLine": 596,
+            "endLine": 758
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_algo.py",
+            "startLine": 254,
+            "endLine": 344
+          }
+        ]
+      },
+      {
+        "id": "runner",
+        "name": "并发任务执行器",
+        "role": "把选中任务提交到线程池或单任务快路径，调用 run_with_retry；任务完成后 commit 把 writes 或错误/中断写回 loop。",
+        "input": "PregelExecutableTask 列表、retry_policy、timeout、get_waiter",
+        "output": "执行结果通过 task.writes 和 put_writes 进入 loop；yield 让入口输出流",
+        "state": "FuturesDict、task.writes、SKIP_RERAISE_SET、handled_exception_ids",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/_runner.py",
+            "startLine": 173,
+            "endLine": 218
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_runner.py",
+            "startLine": 575,
+            "endLine": 615
+          }
+        ]
+      },
+      {
+        "id": "channels",
+        "name": "状态通道与 reducer",
+        "role": "定义某个状态键如何接收本步多个写入并合并成新值；LastValue 只允许单写，BinaryOperatorAggregate/add_messages 负责累积或按 ID 合并。",
+        "input": "本步写入值序列 Sequence[Update]",
+        "output": "更新后的通道值；update() 返回是否真正改变",
+        "state": "通道内部 value；LastValueAfterFinish 还含 finished 标记",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/channels/binop.py",
+            "startLine": 127,
+            "endLine": 148
+          },
+          {
+            "path": "libs/langgraph/langgraph/channels/last_value.py",
+            "startLine": 56,
+            "endLine": 67
+          },
+          {
+            "path": "libs/langgraph/langgraph/graph/message.py",
+            "startLine": 219,
+            "endLine": 237
+          }
+        ]
+      },
+      {
+        "id": "checkpoint",
+        "name": "检查点与待提交写存储",
+        "role": "保存 checkpoint 的通道版本/值、父指针和每个 task 的 pending writes，使下一次运行能定位边界并重放。",
+        "input": "config、Checkpoint、metadata、new_versions、writes、task_id",
+        "output": "可按 thread_id/checkpoint_ns/checkpoint_id 读取的 CheckpointTuple",
+        "state": "storage、blobs、writes 三个 defaultdict；InMemorySaver 仅存内存",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "libs/checkpoint/langgraph/checkpoint/memory/__init__.py",
+            "startLine": 430,
+            "endLine": 474
+          },
+          {
+            "path": "libs/checkpoint/langgraph/checkpoint/memory/__init__.py",
+            "startLine": 500,
+            "endLine": 512
+          }
+        ]
+      },
+      {
+        "id": "external",
+        "name": "LangChain Runnable 与模型/工具",
+        "role": "用户节点本身是 Runnable；LangChain 负责回调、模型调用和工具调用，LangGraph 只负责调度、合并与持久化。",
+        "input": "节点输入状态、RunnableConfig",
+        "output": "节点返回值或异常，被 write/commit 转为 writes",
+        "state": "回调管理器与用户节点内部状态不由 LangGraph 直接管理",
+        "kind": "dependency",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/_retry.py",
+            "startLine": 614,
+            "endLine": 618
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/main.py",
+            "startLine": 2885,
+            "endLine": 2894
+          }
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "from": "compile",
+        "to": "entry",
+        "label": "生成 CompiledStateGraph，提供 Pregel.stream"
+      },
+      {
+        "from": "entry",
+        "to": "loop",
+        "label": "构造并驱动 SyncPregelLoop.tick"
+      },
+      {
+        "from": "loop",
+        "to": "algo",
+        "label": "准备任务与合并 writes"
+      },
+      {
+        "from": "loop",
+        "to": "runner",
+        "label": "把未写任务交给 PregelRunner.tick"
+      },
+      {
+        "from": "runner",
+        "to": "external",
+        "label": "run_with_retry 调用 task.proc.invoke"
+      },
+      {
+        "from": "loop",
+        "to": "channels",
+        "label": "after_tick 通过 apply_writes 调用通道 update"
+      },
+      {
+        "from": "loop",
+        "to": "checkpoint",
+        "label": "_put_checkpoint 与 put_writes 持久化"
+      }
+    ],
+    "flow": [
+      {
+        "title": "编译图，把边和条件分支变成写入器",
+        "phase": "装配",
+        "condition": "必经",
+        "symbol": "StateGraph.compile / CompiledStateGraph.attach_node / CompiledStateGraph.attach_edge",
+        "owner": "project",
+        "input": "构建期 nodes、edges、branches",
+        "action": "创建 CompiledStateGraph，向 channels 加入 START；attach_node 为每个节点建立 PregelNode，其 triggers 指向 branch 通道，writers 使用 ChannelWrite；attach_edge 给源节点追加写入 branch:to:end 的 writer；attach_branch 追加条件分支 writer 与可选 reader。",
+        "stateChange": "compiled.nodes、compiled.channels 与各节点 writers 被填充",
+        "output": "可供 stream 调用的编译图",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/graph/state.py",
+            "startLine": 1346,
+            "endLine": 1401
+          },
+          {
+            "path": "libs/langgraph/langgraph/graph/state.py",
+            "startLine": 1531,
+            "endLine": 1547
+          },
+          {
+            "path": "libs/langgraph/langgraph/graph/state.py",
+            "startLine": 1551,
+            "endLine": 1575
+          },
+          {
+            "path": "libs/langgraph/langgraph/graph/state.py",
+            "startLine": 1580,
+            "endLine": 1624
+          }
+        ]
+      },
+      {
+        "title": "解析运行默认值并建立同步循环",
+        "phase": "初始化",
+        "condition": "必经",
+        "symbol": "Pregel.stream / Pregel._defaults",
+        "owner": "project",
+        "input": "input、config、stream_mode、durability",
+        "action": "_defaults 解析 checkpointer、store、cache、interrupt 列表和 durability；stream 建 SyncQueue、Runtime、callback manager，并以 checkpointer/channels/nodes 构造 SyncPregelLoop，再构造 PregelRunner。",
+        "stateChange": "loop 获得初始输入、checkpoint 配置和 stream 协议；runner 获得 submit/put_writes 弱引用",
+        "output": "进入 while loop.tick()",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/main.py",
+            "startLine": 2843,
+            "endLine": 2864
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/main.py",
+            "startLine": 2990,
+            "endLine": 3022
+          }
+        ]
+      },
+      {
+        "title": "tick 选出本超步要执行的任务",
+        "phase": "查询/调度",
+        "condition": "必经",
+        "symbol": "PregelLoop.tick / prepare_next_tasks",
+        "owner": "project",
+        "input": "当前 checkpoint、channels、updated_channels、trigger_to_nodes",
+        "action": "tick 调 _prepare_tasks_and_emit_checkpoint；prepare_next_tasks 先处理 TASKS 通道里的 PUSH/Send，再用 updated_channels 与 trigger_to_nodes 得到候选节点，逐个 prepare_single_task 检查触发版本、构造输入和 PregelExecutableTask；没有任务则 status=done。",
+        "stateChange": "self.tasks 被填充；任务含 writes deque、retry_policy、cache_key、task_id",
+        "output": "tasks 字典",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/_loop.py",
+            "startLine": 664,
+            "endLine": 669
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_algo.py",
+            "startLine": 474,
+            "endLine": 511
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_algo.py",
+            "startLine": 596,
+            "endLine": 758
+          }
+        ]
+      },
+      {
+        "title": "执行前检查中断点",
+        "phase": "可选分支",
+        "condition": "配置了 interrupt_before 且 should_interrupt 命中",
+        "symbol": "PregelLoop.tick / should_interrupt",
+        "owner": "project",
+        "input": "checkpoint、interrupt_before、tasks",
+        "action": "若通道自上次中断后有更新且任务名命中列表，status=interrupt_before 并抛 GraphInterrupt；否则继续本步执行。",
+        "stateChange": "运行状态变为中断，异常交给 loop 退出路径保存",
+        "output": "不执行本步任务，进入中断处理",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/_loop.py",
+            "startLine": 676,
+            "endLine": 681
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_algo.py",
+            "startLine": 156,
+            "endLine": 186
+          }
+        ]
+      },
+      {
+        "title": "runner 执行节点并提交 writes",
+        "phase": "执行/写入",
+        "condition": "存在未写任务",
+        "symbol": "PregelRunner.tick / run_with_retry / PregelRunner.commit",
+        "owner": "project",
+        "input": "loop.tasks 中未写任务",
+        "action": "入口调用 runner.tick；单任务快路径直接 run_with_retry(t, ...)，多任务提交线程池。run_with_retry 每次尝试先清空 task.writes，再 task.proc.invoke；节点通过 config 里的 CONFIG_KEY_SEND 把返回值写入 task.writes。commit 成功时调用 put_writes 保存；异常时写 ERROR，GraphInterrupt 时写 INTERRUPT。",
+        "stateChange": "task.writes 被填充并持久化为 pending writes；失败/中断也被记录",
+        "output": "写入后的 tasks，等待 after_tick 合并",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/main.py",
+            "startLine": 3055,
+            "endLine": 3063
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_runner.py",
+            "startLine": 200,
+            "endLine": 218
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_runner.py",
+            "startLine": 575,
+            "endLine": 615
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_retry.py",
+            "startLine": 601,
+            "endLine": 618
+          }
+        ]
+      },
+      {
+        "title": "把本步结果转成流式输出",
+        "phase": "输出",
+        "condition": "stream_mode 包含对应模式，或 debug/print_mode 要求",
+        "symbol": "Pregel.stream / map_output_values / map_output_updates",
+        "owner": "project",
+        "input": "runner.tick 产生的输出塞入 stream 队列；after_tick 也可能发 values",
+        "action": "入口在每个 runner yield 后从 sync queue 取 chunk 并经 _output 产出；values 模式读通道当前完整值，updates 模式按任务名汇总该任务写入的键值。",
+        "stateChange": "无状态合并；仅产生输出 chunk",
+        "output": "调用者看到 values 或 updates chunk",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/main.py",
+            "startLine": 3063,
+            "endLine": 3074
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_io.py",
+            "startLine": 100,
+            "endLine": 117
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_io.py",
+            "startLine": 118,
+            "endLine": 174
+          }
+        ]
+      },
+      {
+        "title": "超步边界统一合并状态",
+        "phase": "写入/合并",
+        "condition": "本步任务已结束",
+        "symbol": "PregelLoop.after_tick / apply_writes",
+        "owner": "project",
+        "input": "tasks 的 writes、checkpoint、channels",
+        "action": "after_tick 收集所有 writes，调 apply_writes：按 task path 排序保证确定性；更新 versions_seen；对 task.triggers 调 consume；按通道分组 writes，逐个 channels[chan].update(vals)，由通道 reducer 完成合并；再通知未更新通道新步，并在疑似最后一步 finish。",
+        "stateChange": "channels 值被 reducer 合并；checkpoint.channel_versions 与 versions_seen 更新；updated_channels 返回",
+        "output": "合并后的通道状态与更新通道集合",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/_loop.py",
+            "startLine": 702,
+            "endLine": 730
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_algo.py",
+            "startLine": 254,
+            "endLine": 344
+          }
+        ]
+      },
+      {
+        "title": "保存检查点与待提交写",
+        "phase": "持久化",
+        "condition": "存在 checkpointer；durability 决定时机",
+        "symbol": "PregelLoop._put_checkpoint / InMemorySaver.put / InMemorySaver.put_writes",
+        "owner": "project",
+        "input": "合并后的 checkpoint、checkpoint_metadata、new_versions、writes",
+        "action": "_put_checkpoint 创建新 Checkpoint 并提交 _checkpointer_put_after_previous；InMemorySaver.put 把 channel_values 按版本拆进 blobs，把 checkpoint、metadata、父 id 放入 storage；put_writes 以 (task_id, write_idx) 存 writes，正索引重复写会跳过。",
+        "stateChange": "storage/blobs/writes 增加本步记录；checkpoint_config 指向新 checkpoint id",
+        "output": "下一次 get_tuple 可读的检查点边界",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/_loop.py",
+            "startLine": 1237,
+            "endLine": 1313
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_loop.py",
+            "startLine": 1366,
+            "endLine": 1374
+          },
+          {
+            "path": "libs/checkpoint/langgraph/checkpoint/memory/__init__.py",
+            "startLine": 451,
+            "endLine": 473
+          },
+          {
+            "path": "libs/checkpoint/langgraph/checkpoint/memory/__init__.py",
+            "startLine": 500,
+            "endLine": 512
+          }
+        ]
+      },
+      {
+        "title": "中断后从检查点和 resume 写恢复",
+        "phase": "可选分支/恢复",
+        "condition": "发生 GraphInterrupt 或用户用同一 thread_id 再次调用",
+        "symbol": "PregelRunner.commit / PregelLoop._suppress_interrupt / Pregel.invoke / _scratchpad",
+        "owner": "project",
+        "input": "中断异常、pending INTERRUPT/RESUME writes、原 thread_id",
+        "action": "commit 把 INTERRUPT 写保存；_suppress_interrupt 在退出时持久化当前 checkpoint 和 pending writes，并保存 output；再次 invoke 走 stream，loop 加载 checkpoint 后，_scratchpad 从 pending writes 找到 RESUME 或全局 resume，再在下一 tick 重新准备任务。",
+        "stateChange": "中断点被保留；resume 值进入任务 scratchpad；任务从该边界继续",
+        "output": "继续执行或再次停在下一个中断点",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/_runner.py",
+            "startLine": 586,
+            "endLine": 592
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_loop.py",
+            "startLine": 1507,
+            "endLine": 1558
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/main.py",
+            "startLine": 3973,
+            "endLine": 4047
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_algo.py",
+            "startLine": 1288,
+            "endLine": 1341
+          }
+        ]
+      }
+    ],
+    "technologies": [
+      {
+        "name": "Pregel/BSP 超步调度",
+        "problem": "要让并发节点在同一状态快照上执行，又能在边界确定性地合并写入。",
+        "mechanism": "每轮先用 checkpoint 的 channel_versions/versions_seen 和 trigger_to_nodes 选出任务；任务只把写放入自己的 task.writes；全部结束后 apply_writes 一次性更新通道并推进版本。",
+        "pseudocode": "每轮 tasks=prepare_next_tasks(checkpoint,channels,versions_seen)；无任务则结束；每个任务 run(t) 并在 task.writes 收集写；updated=apply_writes(checkpoint,channels,tasks)；再用 create_checkpoint 保存并 step 加一",
+        "dataStructures": "checkpoint.channel_versions、checkpoint.versions_seen、tasks[id]->PregelExecutableTask、task.writes(deque)、updated_channels(set)",
+        "projectCode": "PregelLoop.tick/after_tick、_algo.prepare_next_tasks/prepare_single_task/apply_writes 自己实现选择与合并；_runner 负责并发执行。",
+        "externalDependency": "用户节点内部的 LangChain Runnable、模型和工具由外部框架执行；LangGraph 只接收其返回值/异常并转成 writes。",
+        "tradeoff": "边界合并使状态可重放、并发写可归并，但同一超步内节点看不到彼此本步写入，且会多一次调度边界。",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/_loop.py",
+            "startLine": 650,
+            "endLine": 698
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_algo.py",
+            "startLine": 254,
+            "endLine": 344
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_algo.py",
+            "startLine": 474,
+            "endLine": 511
+          }
+        ]
+      },
+      {
+        "name": "通道 reducer 合并",
+        "problem": "同一状态键可能被多个任务写入，需要定义多个值如何变成一个值。",
+        "mechanism": "BaseChannel.update(values) 接收本步该通道的全部写入；LastValue 要求恰好一个值，BinaryOperatorAggregate 用二元函数折叠，add_messages 按消息 ID 替换或追加，RemoveMessage 删除。",
+        "pseudocode": "update(values)：空则返回 False；若当前为空取第一个；遍历剩余值，遇到 Overwrite 则替换当前值且只允许一次，否则 current=operator(current,value)；返回 True",
+        "dataStructures": "LastValue.value；BinaryOperatorAggregate.value+operator；add_messages 的 merged_by_id 与 ids_to_remove",
+        "projectCode": "channels/base.py 定义 update/consume/finish 接口；binop.py、last_value.py、graph/message.py 提供具体 reducer。",
+        "externalDependency": "LangChain 的 BaseMessage/RemoveMessage 类型与消息转换由外部包提供。",
+        "tradeoff": "reducer 让并发写有确定语义，但 LastValue 对同一超步多写直接报 InvalidUpdateError；自定义 reducer 的合并语义需开发者保证符合业务。",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/channels/binop.py",
+            "startLine": 127,
+            "endLine": 148
+          },
+          {
+            "path": "libs/langgraph/langgraph/channels/last_value.py",
+            "startLine": 56,
+            "endLine": 67
+          },
+          {
+            "path": "libs/langgraph/langgraph/graph/message.py",
+            "startLine": 219,
+            "endLine": 237
+          }
+        ]
+      },
+      {
+        "name": "检查点与 pending writes 分层",
+        "problem": "暂停、失败恢复和重放需要知道执行到哪个边界以及边界上哪些任务已写了什么。",
+        "mechanism": "checkpoint 保存通道版本、通道值、versions_seen 和父 id；put_writes 另按 (thread_id, checkpoint_ns, checkpoint_id, task_id, idx) 保存任务写入。恢复时先加载 checkpoint，再把 pending writes 重新应用到成功任务或用于 resume。",
+        "pseudocode": "put：按 new_versions 把 channel_values 拆入 blobs，并保存 checkpoint/metadata/父 id；put_writes：对每个 write 用 (task_id, 索引) 建键，已有正索引写则跳过，否则序列化保存",
+        "dataStructures": "storage[thread][ns][checkpoint_id]；blobs[(thread, ns, channel, version)]；writes[(thread, ns, checkpoint_id)] -> {(task_id, idx): write}",
+        "projectCode": "InMemorySaver 用 defaultdict 实现 put/get_tuple/put_writes；_put_checkpoint 负责生成 checkpoint 并提交保存。",
+        "externalDependency": "生产持久化可换成 BaseCheckpointSaver 的其他实现；本仓库的 InMemorySaver 作者明确只建议调试/测试。",
+        "tradeoff": "分层让恢复边界清晰，但保存频率与 durability 有关；内存实现不能跨进程持久，生产需外部 saver。",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/_loop.py",
+            "startLine": 1237,
+            "endLine": 1313
+          },
+          {
+            "path": "libs/checkpoint/langgraph/checkpoint/memory/__init__.py",
+            "startLine": 430,
+            "endLine": 474
+          },
+          {
+            "path": "libs/checkpoint/langgraph/checkpoint/memory/__init__.py",
+            "startLine": 41,
+            "endLine": 45
+          }
+        ]
+      },
+      {
+        "name": "节点级重试",
+        "problem": "单个模型/工具节点可能瞬时失败，不应让整个图立即失败。",
+        "mechanism": "run_with_retry 在任务层循环：每次尝试先清空 task.writes；异常匹配 retry_policy 时按 initial_interval、backoff_factor、max_interval 和 jitter 计算 sleep；超过 max_attempts 才抛出，并置 RESUMING 让子图恢复。",
+        "pseudocode": "attempts=0；循环：清空 task.writes；尝试 task.proc.invoke；遇到 GraphBubbleUp 直接抛；遇到其它异常则找匹配 retry_policy，找不到就抛；attempts 加一，达到 max_attempts 就抛；否则按退避 sleep 后重试",
+        "dataStructures": "task.retry_policy、attempts、RetryPolicy.max_attempts/initial_interval/backoff_factor/jitter",
+        "projectCode": "_retry.run_with_retry 实现重试循环与退避；_runner 负责把任务提交到该函数并在失败后 commit ERROR。",
+        "externalDependency": "异常类型和节点调用由 LangChain Runnable/用户代码产生；LangGraph 不自动回滚节点已造成的外部副作用。",
+        "tradeoff": "重试隐藏瞬时故障，但会重复执行节点，外部副作用可能重复；只清空 task.writes 不等于撤销外部世界。",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/_retry.py",
+            "startLine": 601,
+            "endLine": 684
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_runner.py",
+            "startLine": 204,
+            "endLine": 220
+          }
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "decision": "编译期把边和条件分支固化成节点的 writers 与 branch 通道，而不是在运行循环里重新遍历图。",
+        "constraint": "运行期需要按通道版本快速判断哪些节点被触发，并保持确定性。",
+        "alternative": "每次 tick 时扫描 edges/branches 决定下一批节点。",
+        "why": "在示例中，模型节点完成后只需向 branch:to:tools 写入，工具节点的 trigger 通道变为可用后下一 tick 自然被选中；编译期装配让触发判断只依赖通道版本和 trigger_to_nodes。",
+        "cost": "编译对象较复杂，动态修改图后必须重新 compile；条件边需要 reader/写入口约定。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/graph/state.py",
+            "startLine": 1531,
+            "endLine": 1547
+          },
+          {
+            "path": "libs/langgraph/langgraph/graph/state.py",
+            "startLine": 1551,
+            "endLine": 1575
+          },
+          {
+            "path": "libs/langgraph/langgraph/graph/state.py",
+            "startLine": 1580,
+            "endLine": 1624
+          }
+        ]
+      },
+      {
+        "decision": "节点执行结果先写入 task.writes，超步结束才由 apply_writes 合并进全局通道。",
+        "constraint": "同一超步内多个模型/工具任务可能并发，读状态必须是本步开始的一致快照。",
+        "alternative": "节点执行时直接修改全局 state。",
+        "why": "示例中若模型节点和工具节点并发写 messages，直接改全局状态会出现半更新；先暂存再按通道 reducer 合并，可把并发写变成一次确定的 update 序列，且失败时未提交写可丢弃。",
+        "cost": "节点内看不到同超步其他节点的写入；需要通过条件边 local_read 等机制显式读取本节点写入。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/_algo.py",
+            "startLine": 705,
+            "endLine": 749
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_loop.py",
+            "startLine": 702,
+            "endLine": 730
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_algo.py",
+            "startLine": 254,
+            "endLine": 344
+          }
+        ]
+      },
+      {
+        "decision": "将 reducer、checkpoint、interrupt 分成三层：reducer 定义状态合并，checkpoint 定义可恢复边界，interrupt 只是控制流暂停。",
+        "constraint": "状态合并、持久化、人工暂停是三个不同问题，混在一个状态对象里会让恢复时无法区分已提交值和未执行任务。",
+        "alternative": "用一个全局 state 加一个 paused 标志，暂停时直接保存整个对象。",
+        "why": "示例中 messages 的合并需要 add_messages；恢复需要知道执行到哪个超步和哪些 task writes 已保存；人工中断需要抛 GraphInterrupt 但仍保存边界。三者分开后，resume 可以只补 RESUME 写并重跑未完成任务。",
+        "cost": "状态分散在 channels、checkpoint、pending writes 和 scratchpad 中，调试时需要同时看多处；自定义 saver 要实现较完整接口。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/_loop.py",
+            "startLine": 676,
+            "endLine": 681
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_loop.py",
+            "startLine": 1507,
+            "endLine": 1558
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_runner.py",
+            "startLine": 586,
+            "endLine": 592
+          }
+        ]
+      },
+      {
+        "decision": "仓库内的 InMemorySaver 定位为调试/测试存储，而不是生产持久化方案。",
+        "constraint": "内存字典无法跨进程、跨机器持久化，进程退出即丢失。",
+        "alternative": "生产直接使用 PostgresSaver 等外部检查点实现。",
+        "why": "示例用 InMemorySaver 可以验证 thread_id 恢复、interrupt 和 pending writes 行为；但真实长运行 agent 需要可持久化、可并发访问的 saver。",
+        "cost": "测试方便但生产不适用；需要额外依赖和部署数据库。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "Only use `InMemorySaver` for debugging or testing purposes.",
+        "evidence": [
+          {
+            "path": "libs/checkpoint/langgraph/checkpoint/memory/__init__.py",
+            "startLine": 41,
+            "endLine": 45
+          }
+        ]
+      }
+    ],
+    "codeWalkthroughs": [
+      {
+        "title": "compile 如何把节点和边变成执行对象",
+        "explanation": "compile 先创建 CompiledStateGraph，channels 由状态通道、managed 通道和 START 组成；然后 attach_node(START) 和每个业务节点。attach_node 为业务节点建立 PregelNode：triggers 指向 branch 通道，channels 是输入通道，writers 是 ChannelWrite，真正执行体放在 bound。attach_edge 不保存边对象，而是给源节点的 writers 追加一个写 branch:to:end 的 ChannelWrite；条件分支则由 attach_branch 追加 branch.run 生成的 writer。这样运行期只需看通道触发。",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/graph/state.py",
+            "startLine": 1346,
+            "endLine": 1401
+          },
+          {
+            "path": "libs/langgraph/langgraph/graph/state.py",
+            "startLine": 1531,
+            "endLine": 1547
+          },
+          {
+            "path": "libs/langgraph/langgraph/graph/state.py",
+            "startLine": 1551,
+            "endLine": 1575
+          }
+        ]
+      },
+      {
+        "title": "一次同步超步的主循环",
+        "explanation": "Pregel.stream 在构造 SyncPregelLoop 和 PregelRunner 后进入 while loop.tick()。tick 先准备任务；若没有任务则 done 返回 False。入口把未写任务交给 runner.tick，runner 的单任务快路径调用 run_with_retry，内部执行 task.proc.invoke，节点的 ChannelWrite 通过 CONFIG_KEY_SEND 把写 append 到 task.writes。随后入口调用 loop.after_tick，after_tick 收集 task.writes 并调 apply_writes 合并通道。",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/main.py",
+            "startLine": 3050,
+            "endLine": 3079
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_loop.py",
+            "startLine": 650,
+            "endLine": 669
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_runner.py",
+            "startLine": 200,
+            "endLine": 218
+          }
+        ]
+      },
+      {
+        "title": "apply_writes 与 InMemorySaver.put 的边界",
+        "explanation": "apply_writes 先按 task path 排序，保证写合并顺序确定；对每个 task 的 triggers 更新 versions_seen，并 consume 对应通道。然后把 writes 按通道分组，忽略 NO_WRITES/PUSH/RESUME/INTERRUPT/RETURN/ERROR 等控制通道，对普通通道调用 channels[chan].update(vals)。update 返回 True 才推进 channel_versions 并加入 updated_channels。_put_checkpoint 随后 create_checkpoint，并把保存任务提交给 saver。InMemorySaver.put 把 checkpoint 的 channel_values 按 (thread, ns, channel, version) 拆进 blobs，把 checkpoint 本体、metadata、父 id 放入 storage；put_writes 以 (task_id, 写索引) 为键，并在遇到已有正索引写时跳过。",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/_algo.py",
+            "startLine": 293,
+            "endLine": 344
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_loop.py",
+            "startLine": 1301,
+            "endLine": 1313
+          },
+          {
+            "path": "libs/checkpoint/langgraph/checkpoint/memory/__init__.py",
+            "startLine": 451,
+            "endLine": 504
+          }
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "question": "stream_mode=\"updates\" 与 \"values\" 在同一个超步后输出什么差异？",
+        "change": "把 graph.stream 的 stream_mode 从 \"values\" 改为 \"updates\"，输入与图不变。",
+        "expected": "updates 只显示节点名及其本步写入的键值；values 会读通道当前完整状态，因此在 messages 场景会看到累计消息列表。原因是 map_output_updates 按 task.writes 分组，而 map_output_values 调 read_channels 读完整通道。",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/_io.py",
+            "startLine": 100,
+            "endLine": 117
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_io.py",
+            "startLine": 118,
+            "endLine": 174
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/main.py",
+            "startLine": 3063,
+            "endLine": 3074
+          }
+        ]
+      },
+      {
+        "question": "durability=\"sync\" 是否让每个超步等待检查点写完再进入下一 tick？",
+        "change": "compile 时传入 InMemorySaver，并把 invoke/stream 的 durability 设为 \"sync\"，与默认 \"async\" 对比。",
+        "expected": "sync 下 Pregel.stream 在 loop.after_tick 后调用 loop._put_checkpoint_fut.result()，会阻塞到本步保存完成；async 下不等待。这样 sync 更适合要求下一步开始前上一步已持久化的场景。",
+        "evidence": [
+          {
+            "path": "libs/langgraph/langgraph/pregel/main.py",
+            "startLine": 3077,
+            "endLine": 3079
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_loop.py",
+            "startLine": 1366,
+            "endLine": 1374
+          }
+        ]
+      },
+      {
+        "question": "interrupt_after=\"*\" 时首次 invoke 是否停在下一个节点之前？",
+        "change": "构造 step_1 -> step_2 -> step_3 的 StateGraph，compile(checkpointer=..., interrupt_after=\"*\")，首次 invoke 后读取 get_state，再次 invoke(None)。",
+        "expected": "首次调用在 step_1 后中断，get_state(thread).next 为 (\"step_2\",)；再次 invoke(None) 从该检查点继续到 step_2 后中断。测试直接断言了 next 和 checkpoint 数量随 durability 变化。",
+        "evidence": [
+          {
+            "path": "libs/langgraph/tests/test_interruption.py",
+            "startLine": 41,
+            "endLine": 58
+          },
+          {
+            "path": "libs/langgraph/langgraph/pregel/_loop.py",
+            "startLine": 767,
+            "endLine": 774
+          }
+        ]
+      }
+    ],
+    "takeaways": [
+      "compile 是静态装配阶段：节点、边、条件分支被转成 PregelNode 的 triggers/writers 和 branch 通道，运行期只按通道版本触发。",
+      "一次超步分成选任务、执行并暂存 writes、边界 apply_writes、保存 checkpoint 四段；节点执行中不直接提交全局状态。",
+      "reducer 决定同一状态键多个写入如何合并；LastValue 对同一步多写报错，因此并发写同一键必须使用合适的 Annotated reducer。",
+      "interrupt 不是直接杀进程：GraphInterrupt 会经 commit 写入 INTERRUPT，退出路径保存 checkpoint 和 pending writes，恢复时再读 RESUME。",
+      "retry 发生在 runner 的单任务层，重试会清空 task.writes 但不回滚外部副作用；失败与重试不能与状态合并混为一层。",
+      "InMemorySaver 适合调试/测试；生产可恢复性依赖可持久化的 BaseCheckpointSaver 实现。"
+    ],
+    "gaps": [
+      "未读模型节点和工具节点的具体实现，因此不能确认示例中模型一定产生 tool_calls、工具一定返回什么内容，也不能预测路由。",
+      "未完整阅读 BaseCheckpointSaver 的所有序列化/迁移实现，跨进程、跨版本检查点恢复边界只能从 InMemorySaver 与 _put_checkpoint 已读代码推断。",
+      "未完整追踪 v2/v3 stream transformer 与 messages token 细节；本回答只把 stream chunk 当作入口按模式产出的输出，不把它等同于原始 token delta。",
+      "compile 中 serde allowlist、schema mapper 和所有错误处理分支未逐行展开，相关边界需继续读 state.py 其余部分。"
+    ]
+  }
+}

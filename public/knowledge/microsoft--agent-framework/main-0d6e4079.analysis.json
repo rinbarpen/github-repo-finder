@@ -1,0 +1,961 @@
+{
+  "version": 3,
+  "repo": "microsoft/agent-framework",
+  "ref": "main",
+  "sha": "1a6300e287658d184201e2389decf6c183c0ff87",
+  "analysis": {
+    "version": 3,
+    "kind": "architecture",
+    "requestedModel": "deepseek-flash",
+    "actualModel": "deepseek-flash",
+    "filesRead": 11,
+    "charactersRead": 349978,
+    "modules": 7,
+    "flowSteps": 8,
+    "mechanisms": 4,
+    "decisions": 5,
+    "readingStrategy": "model-and-profile",
+    "structuralChecks": "passed",
+    "usage": {
+      "prompt_tokens": 131851,
+      "completion_tokens": 12629
+    },
+    "notes": [
+      "已统一 1 个图表内部 ID，模块与连线含义未变"
+    ]
+  },
+  "plan": {
+    "scenario": "Python create_harness_agent 构造带文件工具与待办的 Agent：create_harness_agent 只做装配（组装 instructions、compaction、context providers、file access、todo、mode、tool approval、loop、telemetry 等），返回 Agent；真正的运行循环在 RawAgent.run → _prepare_run_context → _call_chat_client → _parse_non_streaming_response/_parse_streaming_response，工具调用由 chat client 的 function invocation 层执行，harness loop 由 AgentLoopMiddleware 包裹整次 run 并按 should_continue 判定是否继续，遇到待批准的工具调用则中断返回。",
+    "files": [
+      {
+        "path": "python/packages/core/agent_framework/_harness/_agent.py",
+        "focus": [
+          "create_harness_agent",
+          "_assemble_instructions",
+          "_assemble_compaction",
+          "_assemble_context_providers",
+          "_assemble_shell"
+        ],
+        "reason": "公开入口。create_harness_agent 位于文件后半段（312-704），完整读取可确认它只是装配：校验 token 参数、拼装 harness/agent instructions、按开关构造 compaction、TodoProvider、AgentModeProvider、FileMemoryProvider、FileAccessProvider、SkillsProvider、BackgroundAgentsProvider、ToolApprovalMiddleware、AgentLoopMiddleware、telemetry，最后返回 Agent。回答“只是装配还是也实现运行循环”。"
+      },
+      {
+        "path": "python/packages/core/agent_framework/_agents.py",
+        "focus": [
+          "RawAgent.run",
+          "RawAgent._run_non_streaming",
+          "RawAgent._run_streaming",
+          "RawAgent._prepare_run_context",
+          "RawAgent._call_chat_client",
+          "RawAgent._parse_non_streaming_response",
+          "RawAgent._parse_streaming_response",
+          "RawAgent._prepare_session_and_messages"
+        ],
+        "reason": "核心运行实现。RawAgent.run（1221-1312）是真实请求入口，内部 _prepare_run_context 组装 session/messages/tools/options，_call_chat_client 进入模型与工具执行，_parse_* 把响应转成 AgentResponse/流。需完整读取以说明输入如何走到输出、工具调用与批准如何回传、harness loop 如何判断继续。"
+      },
+      {
+        "path": "python/packages/core/agent_framework/_harness/_loop.py",
+        "focus": [
+          "AgentLoopMiddleware",
+          "AgentLoopMiddleware.process",
+          "AgentLoopMiddleware._should_continue"
+        ],
+        "reason": "harness loop 的实际实现。create_harness_agent 在 loop_should_continue 存在时把 AgentLoopMiddleware 作为最外层中间件，每轮是一次完整 agent run（含工具批准）；遇到 pending approval 即停止返回。需读取以确认继续判定与最大迭代。"
+      },
+      {
+        "path": "python/packages/core/agent_framework/_harness/_tool_approval.py",
+        "focus": [
+          "ToolApprovalMiddleware",
+          "ToolApprovalMiddleware.process",
+          "ToolApprovalMiddleware._evaluate_rules"
+        ],
+        "reason": "权限审批适配器。负责“don't ask again”常驻规则、排队审批提示与 auto_approval_rules 回调；决定一次工具调用是直接执行、自动批准还是返回待批准请求，是“可能等待批准再继续”的关键。"
+      },
+      {
+        "path": "python/packages/core/agent_framework/_harness/_file_access.py",
+        "focus": [
+          "FileAccessProvider",
+          "FileAccessProvider.__init__",
+          "FileAccessProvider._build_tools",
+          "FileAccessProvider._resolve_working_folder"
+        ],
+        "reason": "文件访问适配器。create_harness_agent 通过 file_access_store 注入，构造 read/read_lines/ls/grep 与 write/delete/replace/replace_lines 工具，并按 session_scoped、disable_write_tools、approval_mode 决定暴露与审批策略；说明文件访问为何单独建模。"
+      },
+      {
+        "path": "python/packages/core/agent_framework/_harness/_todo.py",
+        "focus": [
+          "TodoProvider",
+          "TodoProvider.__init__",
+          "TodoProvider._build_tools"
+        ],
+        "reason": "待办适配器。作为 context provider 注入，向模型暴露待办工具并在每轮注入待办状态；说明待办为何作为独立 provider 建模而非写进 agent 循环。"
+      },
+      {
+        "path": "python/packages/core/agent_framework/_harness/_mode.py",
+        "focus": [
+          "AgentModeProvider",
+          "AgentModeProvider.__init__",
+          "AgentModeProvider._build_tools"
+        ],
+        "reason": "模式（plan/execute）适配器。与 todo、file access 并列作为 context provider，说明模式状态为何独立建模并如何影响工具暴露与指令。"
+      },
+      {
+        "path": "python/packages/core/agent_framework/_sessions.py",
+        "focus": [
+          "AgentSession",
+          "SessionContext",
+          "HistoryProvider",
+          "InMemoryHistoryProvider",
+          "PerServiceCallHistoryPersistingMiddleware",
+          "_run_identity_scope",
+          "_adopt_run_persistence_gate_claim"
+        ],
+        "reason": "会话状态与历史持久化。RawAgent.run 用 _run_identity_scope 与 _adopt_run_persistence_gate_claim 管理每次 run 的持久化边界，PerServiceCallHistoryPersistingMiddleware 在每次模型调用后落历史；说明会话状态为何单独建模以及批准/继续时状态如何保留。"
+      },
+      {
+        "path": "python/packages/core/agent_framework/_clients.py",
+        "focus": [
+          "BaseChatClient.get_response",
+          "SupportsChatGetResponse"
+        ],
+        "reason": "模型与工具执行的传输边界。RawAgent._call_chat_client 调用 client.get_response，function invocation 循环在此层完成；读取以确认工具调用实际被调用的实现位置，避免把 SDK 包装器当核心。"
+      },
+      {
+        "path": "python/packages/core/agent_framework/_middleware.py",
+        "focus": [
+          "AgentMiddlewareLayer",
+          "FunctionInvocationContext",
+          "categorize_middleware",
+          "_select_run_level_tools"
+        ],
+        "reason": "中间件分层。AgentLoopMiddleware 与 ToolApprovalMiddleware 的排序（loop 最外层、approval 外层）决定一次 run 的调用链；读取以说明设计取舍：loop 包裹整次 run 而非在循环内直接调模型。"
+      },
+      {
+        "path": "python/packages/core/agent_framework/_tools.py",
+        "focus": [
+          "FunctionTool",
+          "FunctionTool.__init__",
+          "FunctionTool.invoke"
+        ],
+        "reason": "工具核心数据结构与调用实现。file access、todo、mode 工具最终都包装为 FunctionTool，approval_mode 与 function invocation 都作用于此；读取以确认工具调用的实际执行路径。"
+      },
+      {
+        "path": "python/packages/core/agent_framework/_types.py",
+        "focus": [
+          "AgentResponse",
+          "AgentResponseUpdate",
+          "FunctionCallContent",
+          "FunctionResultContent",
+          "ChatOptions"
+        ],
+        "reason": "核心数据类型（类型文件，最多两个之一）。定义输入消息、工具调用/结果内容、响应与流更新，是理解“输入如何走到输出”的数据结构基础。"
+      },
+      {
+        "path": "python/packages/core/agent_framework/_harness/_file_memory.py",
+        "focus": [
+          "FileMemoryProvider",
+          "FileMemoryProvider.__init__"
+        ],
+        "reason": "默认开启的文件会话记忆 provider，与 file access 区分：前者是记忆，后者是工具。读取以说明 create_harness_agent 默认装配项及存储适配器。"
+      },
+      {
+        "path": "python/samples/02-agents/harness/harness_research.py",
+        "focus": [
+          "main"
+        ],
+        "reason": "相关示例（至少一个测试/示例）。展示 create_harness_agent 的实际调用、session 创建、run 与工具/待办交互，可对照验证装配与运行路径。"
+      },
+      {
+        "path": "python/samples/02-agents/harness/console/observers/tool_approval.py",
+        "focus": [
+          "ToolApprovalObserver"
+        ],
+        "reason": "批准交互示例。展示运行中收到待批准工具调用后如何提示并回传批准，对应“可能等待批准，再继续到完成”的场景。"
+      },
+      {
+        "path": "python/samples/02-agents/context_providers/todo_provider.py",
+        "focus": [
+          "main"
+        ],
+        "reason": "待办 provider 示例，验证 TodoProvider 作为 context provider 的装配与工具暴露方式。"
+      }
+    ]
+  },
+  "report": {
+    "overview": {
+      "plainLanguage": "把一次任务拆成可重复的模型调用：模型提出工具动作，宿主批准后执行，结果写回会话，直到待办完成或不再满足继续条件。",
+      "problem": "直接调用模型时，文件读写、待办跟踪、模式切换、工具审批、会话历史和循环终止都要手工编排；如果都塞进一个 run 函数，安全边界和状态持久化会相互纠缠。",
+      "scenarioInput": "假定用户说：读取 notes/todo.md，把未完成事项补进待办，并写 summary.md。构造 create_harness_agent(client, file_access_store=FileSystemAgentFileStore(...), loop_should_continue=todos_remaining(), loop_next_message=todos_remaining_message)。",
+      "scenarioOutput": "推演：模型可能先调用 todos_add（无需审批），再提出 file_access_read 或 file_access_write；文件工具默认 always_require，ToolApprovalMiddleware 会把调用变成 function_approval_request 返回给调用者。调用者批准后再次 run，审批响应被收集并驱动工具执行；文件写入 store，最终返回 summary。若仍有未完成 todo，AgentLoopMiddleware 用 next_message 再跑一轮；todos_remaining 返回 False 后停止。"
+    },
+    "modules": [
+      {
+        "id": "entry",
+        "name": "装配工厂",
+        "role": "create_harness_agent 只负责把 client、历史、压缩、上下文提供者、工具、中间件和默认选项组装成 Agent；它不实现 run 循环。",
+        "input": "chat client 与可选参数，如 file_access_store、loop_should_continue、disable_tool_auto_approval。",
+        "output": "配置好的 Agent 实例。",
+        "state": "创建 provider/middleware 实例，并把 compaction_strategy、context_providers、middleware 等写入 Agent 构造参数。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_agent.py",
+            "startLine": 312,
+            "endLine": 356
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_agent.py",
+            "startLine": 684,
+            "endLine": 697
+          }
+        ]
+      },
+      {
+        "id": "atlas_1",
+        "name": "Agent 运行入口",
+        "role": "RawAgent.run 准备一次运行的上下文，调用 chat client，并把返回的 ChatResponse 解析成 AgentResponse；AgentMiddlewareLayer 在 run 外再包一层 agent middleware。",
+        "input": "用户消息、AgentSession、run options、tools。",
+        "output": "AgentResponse 或流式 ResponseStream。",
+        "state": "创建 SessionContext，更新 session/response，安装 per-service-call history middleware。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_agents.py",
+            "startLine": 1221,
+            "endLine": 1310
+          },
+          {
+            "path": "python/packages/core/agent_framework/_agents.py",
+            "startLine": 1523,
+            "endLine": 1775
+          },
+          {
+            "path": "python/packages/core/agent_framework/_middleware.py",
+            "startLine": 1992,
+            "endLine": 2107
+          }
+        ]
+      },
+      {
+        "id": "providers",
+        "name": "上下文提供者",
+        "role": "在每次 run 前把工具、指令、消息注入 SessionContext；TodoProvider、AgentModeProvider、FileAccessProvider 分别管理待办、模式和文件工具。",
+        "input": "AgentSession、SessionContext、provider 自己的 state。",
+        "output": "增加到 context 的 messages、instructions、tools。",
+        "state": "provider 状态写入 session.state[source_id]；文件 provider 还维护 store 和工作目录。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_todo.py",
+            "startLine": 461,
+            "endLine": 584
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_mode.py",
+            "startLine": 317,
+            "endLine": 389
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_file_access.py",
+            "startLine": 2234,
+            "endLine": 2476
+          },
+          {
+            "path": "python/packages/core/agent_framework/_sessions.py",
+            "startLine": 516,
+            "endLine": 576
+          }
+        ]
+      },
+      {
+        "id": "loop",
+        "name": "循环中间件",
+        "role": "AgentLoopMiddleware 包裹整次 run，按 should_continue 和 max_iterations 决定是否再跑一轮；遇到待审批请求时中断并返回给调用者。",
+        "input": "AgentContext、call_next、should_continue、next_message。",
+        "output": "聚合后的 AgentResponse，或下一轮输入。",
+        "state": "progress 日志、aggregated messages、usage；可选地恢复 session 快照。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_loop.py",
+            "startLine": 445,
+            "endLine": 468
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_loop.py",
+            "startLine": 533,
+            "endLine": 626
+          }
+        ]
+      },
+      {
+        "id": "approval",
+        "name": "工具审批中间件",
+        "role": "ToolApprovalMiddleware 把 standing rules、自动审批回调和排队中的审批请求组织成一次 run 内的审批状态机。",
+        "input": "AgentContext、消息中的 function_approval_request/function_approval_response、AgentSession。",
+        "output": "批准的 function_approval_response，或把待审批请求返回给调用者。",
+        "state": "session.state[source_id] 中的 ToolApprovalState：rules、queued_approval_requests、collected_approval_responses。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_tool_approval.py",
+            "startLine": 178,
+            "endLine": 235
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_tool_approval.py",
+            "startLine": 429,
+            "endLine": 473
+          }
+        ]
+      },
+      {
+        "id": "session",
+        "name": "会话与上下文状态",
+        "role": "AgentSession 保存 session_id、service_session_id 和共享 state；SessionContext 保存一次 run 的 provider 注入结果。",
+        "input": "provider 写入的消息、工具、指令和状态。",
+        "output": "按 provider 顺序合并后的消息列表与 session 状态。",
+        "state": "AgentSession.state 是可变 dict；SessionContext.context_messages 按 source_id 分区。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_sessions.py",
+            "startLine": 1844,
+            "endLine": 1879
+          },
+          {
+            "path": "python/packages/core/agent_framework/_sessions.py",
+            "startLine": 716,
+            "endLine": 749
+          }
+        ]
+      },
+      {
+        "id": "client",
+        "name": "Chat client 分层入口",
+        "role": "RawAgent 通过 client.get_response 进入模型调用；具体客户端内部再组合 telemetry、function invocation、chat middleware 等层。",
+        "input": "messages、options、compaction_strategy、function_invocation_kwargs、client_kwargs。",
+        "output": "ChatResponse 或 ResponseStream。",
+        "state": "由具体客户端和模型服务管理；本仓库基类只做参数解析和压缩入口。",
+        "kind": "dependency",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_clients.py",
+            "startLine": 551,
+            "endLine": 630
+          },
+          {
+            "path": "python/packages/core/agent_framework/_clients.py",
+            "startLine": 1056,
+            "endLine": 1080
+          }
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "from": "entry",
+        "to": "atlas_1",
+        "label": "返回配置好的 Agent，调用者随后调用 run"
+      },
+      {
+        "from": "entry",
+        "to": "providers",
+        "label": "构造 history/todo/mode/file_access 等 provider 并放入 context_providers"
+      },
+      {
+        "from": "entry",
+        "to": "loop",
+        "label": "仅当 loop_should_continue 非 None 时构造 AgentLoopMiddleware"
+      },
+      {
+        "from": "entry",
+        "to": "approval",
+        "label": "默认构造 ToolApprovalMiddleware，除非 disable_tool_auto_approval"
+      },
+      {
+        "from": "atlas_1",
+        "to": "providers",
+        "label": "_prepare_session_and_messages 依次调用 provider.before_run"
+      },
+      {
+        "from": "atlas_1",
+        "to": "client",
+        "label": "_call_chat_client 调用 client.get_response"
+      },
+      {
+        "from": "atlas_1",
+        "to": "session",
+        "label": "读取/更新 AgentSession 与 SessionContext"
+      },
+      {
+        "from": "loop",
+        "to": "atlas_1",
+        "label": "每轮通过 call_next 再执行一次完整 agent run"
+      },
+      {
+        "from": "approval",
+        "to": "session",
+        "label": "审批规则和队列持久化在 session.state"
+      }
+    ],
+    "flow": [
+      {
+        "title": "工厂装配出 Agent",
+        "phase": "装配",
+        "condition": "必经：调用 create_harness_agent",
+        "symbol": "create_harness_agent",
+        "owner": "project",
+        "input": "client 与可选参数",
+        "action": "解析压缩策略、构造 history/shell/context providers，合并 instructions、tools、default_options，组装 middleware，最后构造 Agent 并返回",
+        "stateChange": "创建 provider 和 middleware 实例；Agent 持有 context_providers、middleware、compaction_strategy；此时没有运行循环",
+        "output": "配置好的 Agent",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_agent.py",
+            "startLine": 584,
+            "endLine": 629
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_agent.py",
+            "startLine": 667,
+            "endLine": 697
+          }
+        ]
+      },
+      {
+        "title": "启用 loop 时开始一轮循环",
+        "phase": "调用/可选分支",
+        "condition": "条件：loop_should_continue 非 None，AgentLoopMiddleware 位于中间件管线外层",
+        "symbol": "AgentLoopMiddleware.process",
+        "owner": "project",
+        "input": "AgentContext、call_next",
+        "action": "把本次输入保存为 original_messages；若需要 fresh_context 则快照 session；然后调用 _process_non_streaming 或 _process_streaming",
+        "stateChange": "context.messages 可能被追加 additional_instructions；snapshot 可能被保存",
+        "output": "进入内层 middleware 或最终 agent run",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_loop.py",
+            "startLine": 445,
+            "endLine": 468
+          }
+        ]
+      },
+      {
+        "title": "工具审批中间件准备入站消息并进入下一层",
+        "phase": "初始化/查询",
+        "condition": "默认：disable_tool_auto_approval 为 False 时启用",
+        "symbol": "ToolApprovalMiddleware.process",
+        "owner": "project",
+        "input": "AgentContext、AgentSession 中的批准状态",
+        "action": "要求 session 存在，读取 ToolApprovalState，处理调用者传入的 function_approval_response，注入已收集的审批响应，然后调用 call_next 进入内层 agent run",
+        "stateChange": "rules 可能新增；collected_approval_responses 被注入消息；状态保存回 session.state",
+        "output": "带审批响应消息的上下文，交给 RawAgent.run",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_tool_approval.py",
+            "startLine": 429,
+            "endLine": 473
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_tool_approval.py",
+            "startLine": 591,
+            "endLine": 665
+          }
+        ]
+      },
+      {
+        "title": "RawAgent.run 准备一次运行",
+        "phase": "初始化/查询",
+        "condition": "必经：最终 handler 调用 run",
+        "symbol": "RawAgent.run / RawAgent._prepare_run_context / RawAgent._prepare_session_and_messages",
+        "owner": "project",
+        "input": "用户 messages、session、run tools/options",
+        "action": "合并 options 和 tools，确定 active session，创建 SessionContext，按顺序调用 context providers 的 before_run，合并 provider 注入的 tools/instructions，生成 session_messages",
+        "stateChange": "SessionContext 被填充；provider 可能写入 session.state[source_id]；返回 _RunContext",
+        "output": "包含 session_messages、chat_options、client_kwargs、function_invocation_kwargs 的运行上下文",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_agents.py",
+            "startLine": 1291,
+            "endLine": 1299
+          },
+          {
+            "path": "python/packages/core/agent_framework/_agents.py",
+            "startLine": 1614,
+            "endLine": 1618
+          },
+          {
+            "path": "python/packages/core/agent_framework/_agents.py",
+            "startLine": 1828,
+            "endLine": 1856
+          }
+        ]
+      },
+      {
+        "title": "调用 chat client 进入模型与工具层",
+        "phase": "调用",
+        "condition": "必经：非流式或流式 run",
+        "symbol": "RawAgent._call_chat_client",
+        "owner": "project",
+        "input": "_RunContext 中的 messages/options/compaction_strategy",
+        "action": "调用 self.client.get_response(...)；具体客户端分层负责模型调用和 function invocation；本仓库已读代码确认入口和层名，未展开 FunctionInvocationLayer 方法体",
+        "stateChange": "无直接 session 写入；客户端返回 ChatResponse 或 ResponseStream",
+        "output": "原始 ChatResponse/ResponseStream",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_agents.py",
+            "startLine": 1328,
+            "endLine": 1354
+          },
+          {
+            "path": "python/packages/core/agent_framework/_clients.py",
+            "startLine": 1056,
+            "endLine": 1080
+          }
+        ]
+      },
+      {
+        "title": "完成响应并写回会话",
+        "phase": "写入/收尾",
+        "condition": "必经：模型返回最终响应",
+        "symbol": "RawAgent._parse_non_streaming_response",
+        "owner": "project",
+        "input": "_RunContext 与 ChatResponse",
+        "action": "给消息补 author_name，更新 session，构建 AgentResponse，设置 session_context._response，再运行 after providers",
+        "stateChange": "session 和 session_context._response 更新",
+        "output": "AgentResponse",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_agents.py",
+            "startLine": 1388,
+            "endLine": 1412
+          }
+        ]
+      },
+      {
+        "title": "审批中间件处理出站工具调用",
+        "phase": "查询/可选写入",
+        "condition": "条件：结果中出现 function_approval_request，且 ToolApprovalMiddleware 启用",
+        "symbol": "ToolApprovalMiddleware._process_outbound_messages",
+        "owner": "project",
+        "input": "context.result.messages 中的 function_approval_request",
+        "action": "先匹配 standing rules 或 auto_approval_rules；匹配则生成 approved response 放入 collected；未匹配时保留一个给调用者，多余请求按策略排队",
+        "stateChange": "ToolApprovalState 的 collected_approval_responses/queued_approval_requests 变化并保存到 session.state",
+        "output": "带待审批请求的 AgentResponse，或继续内部循环",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_tool_approval.py",
+            "startLine": 688,
+            "endLine": 724
+          }
+        ]
+      },
+      {
+        "title": "循环判断是否再跑一轮",
+        "phase": "查询/可选分支",
+        "condition": "条件：loop_should_continue 非 None，且本轮没有待审批请求",
+        "symbol": "AgentLoopMiddleware._process_non_streaming / AgentLoopMiddleware._evaluate_stop / todos_remaining",
+        "owner": "project",
+        "input": "本轮 AgentResponse、progress、session、agent",
+        "action": "先检查 pending approval 并中断；否则先看 max_iterations，再调用 should_continue；todos_remaining 从 agent.context_providers 找 TodoProvider，加载当前 session 的 todo items，判断是否有未完成项；若继续，用 next_message 生成下一轮输入",
+        "stateChange": "progress 追加本轮反馈；aggregated messages 增加；context.messages 被替换为下一轮输入",
+        "output": "继续下一轮 run，或返回聚合/最终响应",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_loop.py",
+            "startLine": 552,
+            "endLine": 571
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_loop.py",
+            "startLine": 775,
+            "endLine": 791
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_loop.py",
+            "startLine": 953,
+            "endLine": 1014
+          }
+        ]
+      }
+    ],
+    "technologies": [
+      {
+        "name": "上下文提供者注入管线",
+        "problem": "每次 run 前要把待办、模式、文件工具和指令追加到请求中，但不能让 Agent 类知道每个具体功能。",
+        "mechanism": "SessionContext 按 source_id 收集 messages/instructions/tools；Agent._prepare_session_and_messages 按 provider 顺序调用 before_run；每个 provider 写入自己的片段；最后 get_messages(include_input=True) 按 provider 插入顺序拼接 context messages，再把 tools/instructions 合并进 chat_options。",
+        "pseudocode": "ctx = SessionContext(input_messages)\nfor provider in agent.context_providers:\n    await provider.before_run(session, ctx, state=session.state[provider.source_id])\nchat_options.tools += ctx.tools\nchat_options.instructions += ctx.instructions\nmessages = ctx.get_messages(include_input=True)",
+        "dataStructures": "SessionContext.context_messages: dict[source_id, list[Message]]；SessionContext.instructions: list[str]；SessionContext.tools: list[Any]；AgentSession.state: dict。",
+        "projectCode": "SessionContext、_prepare_session_and_messages、TodoProvider.before_run、AgentModeProvider.before_run、FileAccessProvider.before_run。",
+        "externalDependency": "模型调用与工具函数执行由 chat client 的分层 get_response 负责；本仓库已读范围只确认调用入口和层名，未展开 FunctionInvocationLayer 方法体。",
+        "tradeoff": "组合灵活，新增能力只需加 provider；代价是 source_id 冲突、provider 顺序和 session state 分区需要调用者理解。",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_sessions.py",
+            "startLine": 516,
+            "endLine": 576
+          },
+          {
+            "path": "python/packages/core/agent_framework/_sessions.py",
+            "startLine": 716,
+            "endLine": 749
+          },
+          {
+            "path": "python/packages/core/agent_framework/_agents.py",
+            "startLine": 1828,
+            "endLine": 1856
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_todo.py",
+            "startLine": 461,
+            "endLine": 584
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_file_access.py",
+            "startLine": 2234,
+            "endLine": 2476
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_mode.py",
+            "startLine": 317,
+            "endLine": 389
+          }
+        ]
+      },
+      {
+        "name": "工具审批规则与队列状态机",
+        "problem": "模型提出的敏感工具调用不能直接执行；宿主可能跨多次 run 才批准，而且“总是批准”规则要记住。",
+        "mechanism": "ToolApprovalState 保存 rules、queued_approval_requests、collected_approval_responses。出站时收集 function_approval_request，逐条匹配 ToolApprovalRule（工具名、可选 canonical 参数、server_label）或 auto_approval_rules；匹配则生成 approved response，未匹配的请求排队或返回给调用者。入站时绑定 function_approval_response，若带 always_approve scope 则新增规则，再把响应收集起来注入下一轮消息。",
+        "pseudocode": "state = load(session.state[source_id])\nfor req in approval_requests(messages):\n    if matches_rule(req, state.rules) or await auto_rule(req):\n        state.collected.append(approve(req))\n    else:\n        unresolved.append(req)\nif unresolved and not preserve_batch:\n    state.queued.extend(unresolved[1:])\n    return unresolved[0]\nfor resp in inbound_approval_responses:\n    record_rule_if_always_approve(resp)\n    state.collected.append(resp)",
+        "dataStructures": "ToolApprovalRule(tool_name, arguments: dict[str,str]|None, server_label)；ToolApprovalState(rules, queued_approval_requests, collected_approval_responses)。",
+        "projectCode": "ToolApprovalMiddleware、ToolApprovalRule、ToolApprovalState、_matches_rule、_process_outbound_messages、_handle_inbound_approval_response。",
+        "externalDependency": "function_approval_request/response 的生成和获批工具的最终执行由工具调用层负责；本仓库已读代码只处理审批状态和消息。",
+        "tradeoff": "安全边界清晰且规则可跨 run 复用；代价是必须提供 AgentSession，规则按名称可能与其他同名工具碰撞，需要调用者审查。",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_tool_approval.py",
+            "startLine": 178,
+            "endLine": 235
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_tool_approval.py",
+            "startLine": 343,
+            "endLine": 356
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_tool_approval.py",
+            "startLine": 688,
+            "endLine": 724
+          }
+        ]
+      },
+      {
+        "name": "循环中间件的停止与下一消息",
+        "problem": "一个任务可能需要多轮模型调用，但普通问答不应默认循环；遇到待审批还要暂停。",
+        "mechanism": "AgentLoopMiddleware.process 保存 original_messages；非流式 _process_non_streaming 循环 call_next，每轮收集 result.messages 和 usage；先检查 function_approval_request，有则 break；否则 _evaluate_stop 先检查 max_iterations，再调用 should_continue；should_continue 可返回 bool 或 (bool, feedback)；不停止时 _resolve_next_message 生成下一轮消息。",
+        "pseudocode": "loop:\n  await call_next()\n  result = context.result\n  aggregate(result)\n  if has_pending_approval(result): break\n  stop, feedback = evaluate_stop(iteration)\n  if stop: break\n  next_messages = resolve_next_message(feedback)\n  context.messages = next_messages",
+        "dataStructures": "progress: list[str]；aggregated: list[Message]；aggregated_usage；iteration/work_iterations。",
+        "projectCode": "AgentLoopMiddleware、todos_remaining、todos_remaining_message、background_tasks_running。",
+        "externalDependency": "每轮模型调用仍由 RawAgent.run 和 chat client 完成；loop 只调度。",
+        "tradeoff": "显式启用，避免默认多轮成本；代价是调用者要提供可终止的 should_continue，并处理审批暂停。",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_loop.py",
+            "startLine": 445,
+            "endLine": 468
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_loop.py",
+            "startLine": 533,
+            "endLine": 626
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_loop.py",
+            "startLine": 775,
+            "endLine": 791
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_loop.py",
+            "startLine": 953,
+            "endLine": 1014
+          }
+        ]
+      },
+      {
+        "name": "文件访问工具的作用域与写锁",
+        "problem": "给模型文件读写能力时，需要控制工作目录、并发写和审批边界。",
+        "mechanism": "FileAccessProvider.before_run 动态注册工具；session_scoped 或显式 scope 时，_resolve_session_key 用 scope 或 session_id 经 _storage_key_segment 映射到固定工作目录；每个工具把相对路径拼到 session_key 下；写、删除、替换等操作在 _store_write_lock 内执行，避免同一目录的读改写交错。",
+        "pseudocode": "key = scope or session_id\nworkspace = workspace_namespace + storage_segment(key)\nawait store.create_directory(workspace)\nregister(file_access_read, approval=readonly_mode)\nregister(file_access_write, approval=write_mode)\nasync with lock(parent_folder(path)):\n    await store.write(path, content, overwrite=overwrite)",
+        "dataStructures": "AgentFileStore；session_key 字符串；工具注册的 approval_mode；写锁按父目录。",
+        "projectCode": "FileAccessProvider、AgentFileStore、FileSystemAgentFileStore、_store_write_lock。",
+        "externalDependency": "实际磁盘/内存存储由 AgentFileStore 实现；模型工具调用由 function invocation 层执行。",
+        "tradeoff": "默认共享 store 并默认审批，安全但会打断无人值守流程；session_scoped 可隔离但要求 session_id 或 scope 非空。",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_file_access.py",
+            "startLine": 2094,
+            "endLine": 2122
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_file_access.py",
+            "startLine": 2234,
+            "endLine": 2276
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_file_access.py",
+            "startLine": 2259,
+            "endLine": 2286
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_file_access.py",
+            "startLine": 2373,
+            "endLine": 2415
+          }
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "decision": "create_harness_agent 返回配置好的 Agent，而不是在工厂里实现运行循环",
+        "constraint": "Agent/RawAgent.run 已经定义了每次 run 的准备、client 调用和响应解析；harness 特性需要能独立禁用或替换。",
+        "alternative": "定义一个 HarnessAgent 子类，在 run 内硬编码文件工具、审批和循环。",
+        "why": "本场景中不传 file_access_store 就不应有文件工具，不传 loop_should_continue 就不应循环；返回普通 Agent 让这些差异只体现在装配列表里。若工厂自己实现循环，会重复 RawAgent.run 的 session/history/tool 处理，并与 middleware 层冲突。",
+        "cost": "调用者需要理解 middleware 顺序、session 要求和 provider 注入时机。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_agent.py",
+            "startLine": 357,
+            "endLine": 375
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_agent.py",
+            "startLine": 684,
+            "endLine": 697
+          }
+        ]
+      },
+      {
+        "decision": "循环默认不加入，只有提供 loop_should_continue 时才构造 AgentLoopMiddleware",
+        "constraint": "普通单次问答不应被 todos_remaining 检查拖入多轮；循环可能产生额外模型调用和成本。",
+        "alternative": "总是加入一个默认 should_continue，例如只要还有 todo 就继续。",
+        "why": "在示例中，只有调用者显式传 todos_remaining() 才希望“做到待办完成”；否则一次 run 返回即结束。显式传入 predicate 也把终止责任交给调用者，避免默认无限循环。",
+        "cost": "需要自己组合 should_continue 和 next_message；如果 predicate 永不返回 False，只能依赖 max_iterations 兜底。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_agent.py",
+            "startLine": 669,
+            "endLine": 677
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_loop.py",
+            "startLine": 445,
+            "endLine": 468
+          }
+        ]
+      },
+      {
+        "decision": "ToolApprovalMiddleware 要求 AgentSession，审批规则和队列放在 session state",
+        "constraint": "一次 run 可能返回多个审批请求，用户批准发生在下一次 run；standing rules 要跨 run 记住。",
+        "alternative": "审批状态放在 middleware 实例或每次 run 的临时对象里。",
+        "why": "如果规则和队列不持久，下一次 run 无法知道之前批准了哪个请求，也无法复用“总是批准”规则；放在 session.state[source_id] 还能按 session 隔离。",
+        "cost": "不带 session 的 run 会直接报错；复用 session 给不同工具集时需要审查旧规则是否仍适用。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "This middleware is opt-in and requires callers to run the agent with an\n    :class:`AgentSession`, because approval rules and queued requests are stored\n    in session state.",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_tool_approval.py",
+            "startLine": 378,
+            "endLine": 397
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_tool_approval.py",
+            "startLine": 429,
+            "endLine": 433
+          }
+        ]
+      },
+      {
+        "decision": "FileAccessProvider 的文件工具默认 always_require，文件访问本身是 opt-in",
+        "constraint": "模型可能修改共享 store；文件写操作需要宿主可见的审批边界。",
+        "alternative": "文件工具默认 never_require，直接执行。",
+        "why": "默认审批会把 file_access_write 变成 function_approval_request，先返回给调用者，而不是让模型直接落盘；要无人值守时再显式 disable 某类审批或加 auto_approval_rules。",
+        "cost": "默认场景需要人工批准；自动审批规则按工具名匹配，可能误批同名工具。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "By default all tools require approval: each is registered with\n    ``approval_mode=\"always_require\"`` so the host must approve every file\n    operation the model proposes.",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_file_access.py",
+            "startLine": 1957,
+            "endLine": 1966
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_file_access.py",
+            "startLine": 2234,
+            "endLine": 2245
+          }
+        ]
+      },
+      {
+        "decision": "模式、审批、文件访问、待办分别建模为 provider/middleware/session state 分区，而不是一个全局 harness 状态",
+        "constraint": "这些关注点的生命周期和安全边界不同：模式要随 session 持久，审批规则要跨 run 持久，文件工具每次 run 注入，待办需要按 session 读写。",
+        "alternative": "用一个全局状态对象保存 current_mode、approval_rules、file_paths、todos。",
+        "why": "在示例里，todos_remaining 需要从 agent.context_providers 找到 TodoProvider 并读 session state；ToolApprovalMiddleware 需要独立读取 rules/queue；FileAccessProvider 需要在 before_run 动态注册工具。混成一个状态会让 provider 注入、审批匹配和循环判断互相耦合。",
+        "cost": "需要协调 source_id、provider 顺序和 session 复用；不同 provider 的 state 结构需要各自序列化。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_mode.py",
+            "startLine": 223,
+            "endLine": 240
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_tool_approval.py",
+            "startLine": 178,
+            "endLine": 235
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_file_access.py",
+            "startLine": 1927,
+            "endLine": 1966
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_todo.py",
+            "startLine": 414,
+            "endLine": 428
+          },
+          {
+            "path": "python/packages/core/agent_framework/_sessions.py",
+            "startLine": 1844,
+            "endLine": 1879
+          }
+        ]
+      }
+    ],
+    "codeWalkthroughs": [
+      {
+        "title": "工厂把可选特性变成 provider 和 middleware 列表",
+        "explanation": "create_harness_agent 在 _assemble_context_providers 中只有 file_access_store 非 None 才追加 FileAccessProvider，所以默认没有文件工具；随后组装 middleware：默认先放 ToolApprovalMiddleware，如果 loop_should_continue 非 None 再把 AgentLoopMiddleware 插到最前面，使 loop 成为最外层。最后构造 Agent 时把 assembled_providers、assembled_middleware、before_compaction 和 require_per_service_call_history_persistence 传入，然后直接返回。这里没有 while 循环，运行循环要么在 RawAgent.run 的单次调用里，要么由可选的 AgentLoopMiddleware 包裹。",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_agent.py",
+            "startLine": 193,
+            "endLine": 202
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_agent.py",
+            "startLine": 667,
+            "endLine": 697
+          }
+        ]
+      },
+      {
+        "title": "RawAgent.run 的单次非流式调用链",
+        "explanation": "非流式分支先 await _prepare_run_context()，得到包含 session_messages、chat_options、client_kwargs 的上下文；然后 _call_chat_client 调 self.client.get_response(...)，把 messages/options/compaction_strategy/function_invocation_kwargs 交给 chat client 分层。工具调用不在 RawAgent.run 的这些行里直接循环，而是交给客户端内部的 function invocation 层；已读证据能确认调用入口，但不能确认该层具体如何解析 function_call。返回后 _parse_non_streaming_response 补 author_name、更新 session、构建 AgentResponse，并设置 session_context._response，再跑 after providers。",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_agents.py",
+            "startLine": 1291,
+            "endLine": 1299
+          },
+          {
+            "path": "python/packages/core/agent_framework/_agents.py",
+            "startLine": 1328,
+            "endLine": 1354
+          },
+          {
+            "path": "python/packages/core/agent_framework/_agents.py",
+            "startLine": 1388,
+            "endLine": 1412
+          }
+        ]
+      },
+      {
+        "title": "AgentLoopMiddleware 每轮重跑并在审批处暂停",
+        "explanation": "_has_pending_approval_request 只要在本轮结果的消息内容里看到 type 为 function_approval_request，就返回 True。_process_non_streaming 的 while True 中调用 call_next() 后，先检查这个条件；为 True 就 break，把响应交回调用者，而不是注入 next_message。没有待审批时，_evaluate_stop 先看 max_iterations，再调用 should_continue；_should_continue 把 bool 或 (bool, feedback) 归一化。若 stop 为 False，后续会生成下一轮输入并再次 call_next；todos_remaining 正是可作为 should_continue 的谓词，从 agent.context_providers 找 TodoProvider 并读取当前 session 的 items。",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_loop.py",
+            "startLine": 471,
+            "endLine": 489
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_loop.py",
+            "startLine": 552,
+            "endLine": 571
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_loop.py",
+            "startLine": 775,
+            "endLine": 791
+          }
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "question": "不传 file_access_store 时，Agent 是否还会有文件工具？",
+        "change": "调用 create_harness_agent(client)，不传 file_access_store，但保留默认 todo。",
+        "expected": "assembled_providers 中不会出现 FileAccessProvider，模型看不到 file_access_* 工具；TodoProvider 仍默认加入。原因是 _assemble_context_providers 只在 file_access_store is not None 时追加 FileAccessProvider。",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_agent.py",
+            "startLine": 179,
+            "endLine": 202
+          }
+        ]
+      },
+      {
+        "question": "默认审批启用时，不带 session 调用 run 会怎样？",
+        "change": "create_harness_agent(client, file_access_store=store)，保持 disable_tool_auto_approval=False，然后 agent.run(...) 不传 session。",
+        "expected": "ToolApprovalMiddleware.process 检测到 context.session is None，抛出 RuntimeError('ToolApprovalMiddleware requires an AgentSession.')；因为文件工具默认 always_require，审批中间件又是默认加入的。",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_agent.py",
+            "startLine": 667,
+            "endLine": 668
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_tool_approval.py",
+            "startLine": 429,
+            "endLine": 433
+          }
+        ]
+      },
+      {
+        "question": "循环谓词如何受模式影响？",
+        "change": "使用 loop_should_continue=todos_remaining(looping_modes=['execute'])，并把当前模式设为 plan。",
+        "expected": "todos_remaining 先解析 AgentModeProvider 的当前模式；若不在 allowed_modes，直接返回 False，即使还有未完成 todo 也不继续。这验证模式状态与循环停止条件是分开建模、在谓词里组合的。",
+        "evidence": [
+          {
+            "path": "python/packages/core/agent_framework/_harness/_loop.py",
+            "startLine": 987,
+            "endLine": 1012
+          },
+          {
+            "path": "python/packages/core/agent_framework/_harness/_mode.py",
+            "startLine": 134,
+            "endLine": 170
+          }
+        ]
+      }
+    ],
+    "takeaways": [
+      "create_harness_agent 是装配工厂：它构造 Agent、providers 和 middleware，不实现运行循环；真正的单次执行在 RawAgent.run，循环由可选的 AgentLoopMiddleware 包裹。",
+      "工具审批是显式的安全状态机：文件工具默认 always_require，ToolApprovalMiddleware 用 session.state 保存规则、队列和已收集响应；遇到待审批请求时 loop 会暂停并把请求交回调用者。",
+      "上下文提供者按 run 注入工具和指令，session.state 按 source_id 分区；待办、模式、文件访问各有自己的状态结构和生命周期，不能用一个全局状态替代。",
+      "循环是否继续由 should_continue 和 max_iterations 决定，todos_remaining 只是其中一个谓词；默认不循环，避免普通问答被拖入多轮和额外成本。"
+    ],
+    "gaps": [
+      "FunctionInvocationLayer 的完整方法体未包含在已读片段，无法确认 function_call 如何被解析、执行并回填 function_result 的具体循环。",
+      "具体 chat client provider 如何把模型工具调用转换成 function_approval_request 未读，无法确认该转换发生在哪一层。",
+      "FileSystemAgentFileStore 的完整实现被裁剪，未读所有读写/搜索方法，无法确认磁盘路径安全和搜索算法的全部细节。",
+      "无法从已读代码确认模型在示例中一定按 todos_add、file_access_read、file_access_write 的顺序调用；这些只是可能的推演。",
+      "RawAgent._update_session_from_chat_response 方法体未包含在已读片段，无法确认会话字段更新的全部细节。"
+    ]
+  }
+}

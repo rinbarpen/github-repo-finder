@@ -1,0 +1,969 @@
+{
+  "version": 3,
+  "repo": "a2ui-project/a2ui",
+  "ref": "main",
+  "sha": "b8bee8fbd16f37afae8a6ba3f1ad16a76d305130",
+  "analysis": {
+    "version": 3,
+    "kind": "architecture",
+    "requestedModel": "deepseek-flash",
+    "actualModel": "deepseek-flash",
+    "filesRead": 24,
+    "charactersRead": 324049,
+    "modules": 6,
+    "flowSteps": 9,
+    "mechanisms": 4,
+    "decisions": 5,
+    "readingStrategy": "model-and-profile",
+    "structuralChecks": "passed",
+    "usage": {
+      "prompt_tokens": 120352,
+      "completion_tokens": 19048
+    },
+    "notes": [
+      "decisions[0] 无法逐字核对作者说明，已标为工程推断"
+    ]
+  },
+  "plan": {
+    "scenario": "A2UI v0.9/v0.9.1 协议消息（createSurface/updateComponents/updateDataModel/deleteSurface）经版本适配器解析为内部操作，MessageProcessor 校验并写入 SurfaceGroupModel/SurfaceModel/DataModel，Lit 渲染器通过 node-resolver 与 generic-binder 解析组件树和数据绑定并渲染，用户交互触发 action 经 SurfaceModel 的 onAction 回到 Agent。",
+    "files": [
+      {
+        "path": "typescript/core/web_core/src/processing/message-processor.ts",
+        "focus": [
+          "MessageProcessor.processMessages",
+          "MessageProcessor.processMessagesWithErrors",
+          "MessageProcessor.processOperation",
+          "MessageProcessor.processCreateSurfaceOp",
+          "MessageProcessor.processUpdateComponentsOp",
+          "MessageProcessor.processUpdateDataModelOp",
+          "MessageProcessor.applyComponentUpdate",
+          "MessageProcessor.validateComponentsBatch"
+        ],
+        "reason": "公开入口与主流程：processMessages 接收原始消息，经适配器拆成 InternalOperation，再逐个分派到 createSurface/updateComponents/updateDataModel/deleteSurface 处理；后半段的 processUpdateComponentsOp 与 processUpdateDataModelOp 是实际写状态的核心实现。"
+      },
+      {
+        "path": "typescript/core/web_core/src/processing/adapters/v0_9.ts",
+        "focus": [
+          "V0Point9Adapter.extractOperationsFromObject"
+        ],
+        "reason": "v0.9 具体传输适配器：把协议 JSON 的四个原生键映射为 InternalOperation，并声明兼容 catalog 版本 0.9/0.9.1，是版本边界所在。"
+      },
+      {
+        "path": "typescript/core/web_core/src/processing/adapters/base.ts",
+        "focus": [
+          "BaseVersionAdapter.extractOperations",
+          "BaseVersionAdapter.parseMessage"
+        ],
+        "reason": "适配器基类定义消息解析与操作抽取的模板方法，v0_9 只覆盖差异部分；需确认版本校验与 schema 校验发生在何处。"
+      },
+      {
+        "path": "typescript/core/web_core/src/processing/adapters/factory.ts",
+        "focus": [
+          "defaultVersionAdapterFactory",
+          "VersionAdapterFactory.getAdapter"
+        ],
+        "reason": "按版本选择适配器的工厂，决定 v0.8/v0.9/v1.0 分流，避免混用 API。"
+      },
+      {
+        "path": "typescript/core/web_core/src/processing/operations.ts",
+        "focus": [
+          "InternalOperation"
+        ],
+        "reason": "内部操作类型定义，是适配器输出与 processor 输入之间的核心数据结构契约。"
+      },
+      {
+        "path": "typescript/core/web_core/src/state/surface-group-model.ts",
+        "focus": [
+          "SurfaceGroupModel.createSurface",
+          "SurfaceGroupModel.deleteSurface",
+          "SurfaceGroupModel.onAction"
+        ],
+        "reason": "surface 集合的持有者与 action 聚合点，processor 通过它创建/删除 surface 并转发用户 action。"
+      },
+      {
+        "path": "typescript/core/web_core/src/state/surface-model.ts",
+        "focus": [
+          "SurfaceModel.updateComponents",
+          "SurfaceModel.updateDataModel",
+          "SurfaceModel.dispatchAction"
+        ],
+        "reason": "单个 surface 的状态容器：组件模型、数据模型、catalog 绑定与 action 派发都在这里落地。"
+      },
+      {
+        "path": "typescript/core/web_core/src/state/data-model.ts",
+        "focus": [
+          "DataModel.set",
+          "DataModel.get",
+          "DataModel.resolvePath"
+        ],
+        "reason": "数据模型的具体存储与路径寻址实现，updateDataModel 的 path/value 语义在此实现。"
+      },
+      {
+        "path": "typescript/core/web_core/src/state/surface-components-model.ts",
+        "focus": [
+          "SurfaceComponentsModel.upsert",
+          "SurfaceComponentsModel.get"
+        ],
+        "reason": "组件树的扁平存储（id→component），流式 updateComponents 增量合并的实际数据结构。"
+      },
+      {
+        "path": "typescript/core/web_core/src/resolution/node-resolver.ts",
+        "focus": [
+          "NodeResolver.resolve",
+          "NodeResolver.resolveNode"
+        ],
+        "reason": "把扁平组件 id 引用解析成可渲染节点树，是渲染前的核心算法。"
+      },
+      {
+        "path": "typescript/core/web_core/src/resolution/generic-binder.ts",
+        "focus": [
+          "GenericBinder.bind",
+          "GenericBinder.resolveBinding"
+        ],
+        "reason": "数据绑定求值：把组件属性中的 path/表达式绑定解析为具体值，连接 DataModel 与渲染。"
+      },
+      {
+        "path": "typescript/renderers/lit/src/surface/a2ui-surface.ts",
+        "focus": [
+          "A2uiSurface.render",
+          "A2uiSurface.updated"
+        ],
+        "reason": "Lit 渲染器入口：订阅 surface 模型变化并触发重渲染，是输出侧适配器。"
+      },
+      {
+        "path": "typescript/renderers/lit/src/surface/render-a2ui-node.ts",
+        "focus": [
+          "renderA2uiNode"
+        ],
+        "reason": "按解析后的节点类型选择已注册组件实现，体现预注册 catalog 而非执行生成代码的边界。"
+      },
+      {
+        "path": "typescript/core/web_core/src/catalog/types.ts",
+        "focus": [
+          "Catalog",
+          "ComponentApi"
+        ],
+        "reason": "catalog 与组件 API 的类型契约，说明预注册组件的能力边界（类型文件，计入两个类型文件之一）。"
+      },
+      {
+        "path": "typescript/core/web_core/src/v0_9/schema/server-to-client.ts",
+        "focus": [
+          "A2uiMessageSchema"
+        ],
+        "reason": "v0.9 协议消息的 schema 定义，确认 createSurface/updateComponents/updateDataModel/deleteSurface 的字段形状（类型文件，计入两个类型文件之一）。"
+      },
+      {
+        "path": "typescript/core/web_core/src/processing/message-processor.test.ts",
+        "focus": [
+          "describe('processMessages')",
+          "describe('updateComponents')",
+          "describe('updateDataModel')"
+        ],
+        "reason": "覆盖主流程的测试，验证消息到状态变更的实际行为，作为示例/测试证据。"
+      },
+      {
+        "path": "typescript/renderers/lit/src/tests/a2ui-surface.test.ts",
+        "focus": [
+          "describe('A2uiSurface')"
+        ],
+        "reason": "渲染侧示例测试，验证 surface 模型到 Lit 输出的路径与 action 回传。"
+      }
+    ]
+  },
+  "report": {
+    "overview": {
+      "plainLanguage": "Agent 只发送声明式 JSON，客户端用自己可信的组件目录把它解释成界面，并把数据变化和用户操作当作状态事件处理。",
+      "problem": "生成式 Agent 想给出丰富界面，但直接执行模型生成代码有安全风险，且同一份界面描述要跨 Lit、Flutter 等不同客户端复用；同时界面要能随对话增量更新。",
+      "scenarioInput": "示意输入：一组 v0.9 消息，先 createSurface(surfaceId='s1', catalogId='basic')，再 updateComponents 写入 root Column、title Text(text={path:'/user/name'})、go Button(action={event:{name:'book'}})，最后 updateDataModel('/user/name','Ada')；组件属性名只表示形状。",
+      "scenarioOutput": "推演结果：SurfaceGroupModel 中出现 s1；SurfaceComponentsModel 持有 root/title/go 等组件模型；DataModel 的 /user/name 为 Ada；Lit 通过 NodeResolver 解析 root 并渲染 Column、Text 和 Button；点击 go 后产生 ActionPayload{name:'book', surfaceId:'s1', sourceComponentId:'go'} 交给 actionHandler。"
+    },
+    "modules": [
+      {
+        "id": "entry",
+        "name": "协议处理与版本适配层",
+        "role": "把不同协议版本的原始消息先解析成统一内部操作，再由 MessageProcessor 校验和分派；它位于网络消息与状态模型之间。",
+        "input": "v0.8/v0.9/v0.9.1/v1.0 的原始 JSON 消息或内部操作。",
+        "output": "InternalCreateSurfaceOp、InternalUpdateComponentsOp、InternalUpdateDataModelOp、InternalDeleteSurfaceOp 等统一操作。",
+        "state": "不长期保存 UI 状态；持有适配器注册表、catalogs、validationConfig、rpc 与 graphBounds 缓存。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/processing/message-processor.ts",
+            "startLine": 568,
+            "endLine": 590
+          },
+          {
+            "path": "typescript/core/web_core/src/processing/adapters/v0_9.ts",
+            "startLine": 36,
+            "endLine": 81
+          },
+          {
+            "path": "typescript/core/web_core/src/processing/adapters/base.ts",
+            "startLine": 212,
+            "endLine": 272
+          }
+        ]
+      },
+      {
+        "id": "state",
+        "name": "表面、组件与数据状态层",
+        "role": "持有多个 surface、每个 surface 的组件模型和 JSON Pointer 数据模型，并提供创建、删除、更新与事件发射。",
+        "input": "内部操作中的 surfaceId、components、path/value 等字段。",
+        "output": "SurfaceModel、ComponentModel、DataModel 的可订阅状态。",
+        "state": "SurfaceGroupModel.surfaces、SurfaceComponentsModel.components、DataModel.data 与 DataModel.signals。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/state/surface-group-model.ts",
+            "startLine": 61,
+            "endLine": 107
+          },
+          {
+            "path": "typescript/core/web_core/src/state/surface-model.ts",
+            "startLine": 222,
+            "endLine": 268
+          },
+          {
+            "path": "typescript/core/web_core/src/state/data-model.ts",
+            "startLine": 112,
+            "endLine": 129
+          },
+          {
+            "path": "typescript/core/web_core/src/state/data-model.ts",
+            "startLine": 242,
+            "endLine": 259
+          }
+        ]
+      },
+      {
+        "id": "catalog",
+        "name": "可信组件目录与校验层",
+        "role": "定义哪些组件和函数可被 Agent 请求，并用 schema 校验组件属性、函数参数和目录版本；它是安全边界和类型边界。",
+        "input": "Catalog 实例、组件 payload、catalogId、协议版本。",
+        "output": "解析后的 ComponentApi/FunctionApi、校验错误或通过校验的组件。",
+        "state": "Catalog.components、functions、protocolVersion 与 validationSchema 缓存。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/catalog/types.ts",
+            "startLine": 423,
+            "endLine": 450
+          },
+          {
+            "path": "typescript/core/web_core/src/processing/message-processor.ts",
+            "startLine": 1103,
+            "endLine": 1134
+          }
+        ]
+      },
+      {
+        "id": "resolution",
+        "name": "组件树解析与通用绑定层",
+        "role": "把 flat 组件字典解析成可渲染的 ComponentNode 树，并按 schema 把属性中的数据路径、action、子组件引用和校验规则解析成运行时值。",
+        "input": "SurfaceModel 的 componentsModel、DataModel、Catalog 中的 Zod schema。",
+        "output": "rootNode Signal、ComponentNode 及其已解析 props、action 闭包。",
+        "state": "NodeResolver.records、nodesByEdge、pendingParents、childEdges；GenericBinder.currentProps 与 dataListeners。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/resolution/node-resolver.ts",
+            "startLine": 297,
+            "endLine": 387
+          },
+          {
+            "path": "typescript/core/web_core/src/resolution/generic-binder.ts",
+            "startLine": 493,
+            "endLine": 520
+          }
+        ]
+      },
+      {
+        "id": "lit",
+        "name": "Lit 渲染入口",
+        "role": "监听 SurfaceModel 的 root 组件，把 ComponentNode 渲染成实际 Web Components；它只负责展示与接收交互，不解析协议消息。",
+        "input": "SurfaceModel 与 NodeResolver 产出的 rootNode。",
+        "output": "DOM 元素；用户交互时由解析层产生的 action 闭包回到状态层。",
+        "state": "A2uiSurface._rootNode、unsubscribe。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "typescript/renderers/lit/src/surface/a2ui-surface.ts",
+            "startLine": 107,
+            "endLine": 146
+          },
+          {
+            "path": "typescript/renderers/lit/src/surface/render-a2ui-node.ts",
+            "startLine": 17,
+            "endLine": 18
+          }
+        ]
+      },
+      {
+        "id": "external",
+        "name": "外部框架职责",
+        "role": "提供 Lit 自定义元素与更新周期、Zod schema 解析、Preact Signals 响应式信号；项目自身负责协议、状态和绑定规则。",
+        "input": "组件 schema、DOM 环境、signal 写入。",
+        "output": "schema 校验结果、响应式通知、Lit 渲染生命周期。",
+        "state": "由外部框架管理，项目只通过订阅与 signal 读写接入。",
+        "kind": "dependency",
+        "evidence": [
+          {
+            "path": "typescript/renderers/lit/src/surface/a2ui-surface.ts",
+            "startLine": 17,
+            "endLine": 27
+          },
+          {
+            "path": "typescript/core/web_core/src/state/data-model.ts",
+            "startLine": 19,
+            "endLine": 27
+          },
+          {
+            "path": "typescript/core/web_core/src/resolution/generic-binder.ts",
+            "startLine": 17,
+            "endLine": 31
+          }
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "from": "entry",
+        "to": "state",
+        "label": "标准化操作分派后写入 surface、components 和 data"
+      },
+      {
+        "from": "entry",
+        "to": "catalog",
+        "label": "创建 surface 与组件时按 catalogId 和协议版本解析并校验"
+      },
+      {
+        "from": "state",
+        "to": "resolution",
+        "label": "组件创建/删除、属性更新和数据变更触发订阅"
+      },
+      {
+        "from": "resolution",
+        "to": "lit",
+        "label": "rootNode Signal 与 ComponentNode 供渲染"
+      },
+      {
+        "from": "resolution",
+        "to": "state",
+        "label": "数据绑定写入与 action 派发回到状态层"
+      },
+      {
+        "from": "state",
+        "to": "entry",
+        "label": "surface.onAction 经 SurfaceGroupModel 转发到 actionHandler"
+      }
+    ],
+    "flow": [
+      {
+        "title": "接收消息并准备内部操作",
+        "phase": "入口与装配",
+        "condition": "收到 processMessages 调用时必经；数组或单条消息都会被展开。",
+        "symbol": "MessageProcessor.processMessages / MessageProcessor.prepareOperations / MessageProcessor.prepareSingleItem",
+        "owner": "project",
+        "input": "原始消息 payload 与可选 ExecutionContext。",
+        "action": "在 validationConfig 作用域内，把数组展开为单条 item；每条 item 先经过递归/路径校验和 targetVersion 校验，再判断是否已是内部操作。",
+        "stateChange": "无业务状态变化；只确定本次调用使用的校验配置和待处理操作列表。",
+        "output": "InternalOperation[] 交给 processOperation。",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/processing/message-processor.ts",
+            "startLine": 568,
+            "endLine": 590
+          },
+          {
+            "path": "typescript/core/web_core/src/processing/message-processor.ts",
+            "startLine": 751,
+            "endLine": 785
+          }
+        ]
+      },
+      {
+        "title": "版本适配器把 v0.9 消息转成统一操作",
+        "phase": "解析与转换",
+        "condition": "消息不是内部操作时必经。",
+        "symbol": "MessageProcessor.extractSingleMessageOperations / BaseVersionAdapter.extractOperations / V0Point9Adapter.extractOperationsFromObject",
+        "owner": "project",
+        "input": "形如 {version:'v0.9', createSurface:{...}} 的原始对象。",
+        "action": "工厂按 version 选适配器；BaseVersionAdapter 检查 native action 唯一性并用 Zod schema 校验；V0Point9Adapter 把 createSurface/updateComponents/updateDataModel/deleteSurface 分别映射成带 type 的内部操作。",
+        "stateChange": "无 UI 状态变化；内部操作补充 version 与 envelopeContext。",
+        "output": "如 {type:'createSurface', surfaceId, catalogId, theme, sendDataModel, version} 的统一操作。",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/processing/message-processor.ts",
+            "startLine": 704,
+            "endLine": 730
+          },
+          {
+            "path": "typescript/core/web_core/src/processing/adapters/base.ts",
+            "startLine": 212,
+            "endLine": 272
+          },
+          {
+            "path": "typescript/core/web_core/src/processing/adapters/v0_9.ts",
+            "startLine": 36,
+            "endLine": 81
+          }
+        ]
+      },
+      {
+        "title": "创建 surface 并解析默认 catalog",
+        "phase": "写入表面状态",
+        "condition": "收到 createSurface 操作时必经；若带 components 则内部继续走 updateComponents，若带 dataModel 则写根数据。",
+        "symbol": "MessageProcessor.processOperation / MessageProcessor.applyStateOperation / MessageProcessor.processCreateSurfaceOp",
+        "owner": "project",
+        "input": "InternalCreateSurfaceOp 中的 surfaceId、catalogId、theme、sendDataModel、components、dataModel、version。",
+        "action": "按 catalogId 或默认 catalog 解析 catalog，检查 catalog 与消息协议版本兼容，验证 theme，构造 SurfaceModel，并把兼容版本的可用 catalogs 放入 availableCatalogs。",
+        "stateChange": "SurfaceGroupModel 中新增一个 SurfaceModel；若提供 dataModel，则 surface.dataModel.set('/', dataModel)。",
+        "output": "可被后续 updateComponents/updateDataModel 引用的 SurfaceModel。",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/processing/message-processor.ts",
+            "startLine": 933,
+            "endLine": 956
+          },
+          {
+            "path": "typescript/core/web_core/src/processing/message-processor.ts",
+            "startLine": 848,
+            "endLine": 884
+          },
+          {
+            "path": "typescript/core/web_core/src/processing/message-processor.ts",
+            "startLine": 1013,
+            "endLine": 1096
+          }
+        ]
+      },
+      {
+        "title": "批量校验并写入组件更新",
+        "phase": "写入组件状态",
+        "condition": "收到 updateComponents 操作时必经；createSurface 携带 components 也会进入。",
+        "symbol": "MessageProcessor.processUpdateComponentsOp / MessageProcessor.validateComponentsBatch / MessageProcessor.applyComponentUpdate",
+        "owner": "project",
+        "input": "surfaceId 与 components 数组。",
+        "action": "先检查同一批次内重复 id，并逐个校验组件属性、catalog 解析和嵌套函数调用；再做组件图校验；全部通过后才在 batchWrite 中调用 applyComponentUpdate。",
+        "stateChange": "同类型/同 catalog 的已有组件替换 properties 并触发 onUpdated；类型或 catalog 变化时移除旧 ComponentModel 并新增。",
+        "output": "SurfaceComponentsModel 中的新组件树状态，供 NodeResolver 订阅。",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/processing/message-processor.ts",
+            "startLine": 1455,
+            "endLine": 1480
+          },
+          {
+            "path": "typescript/core/web_core/src/processing/message-processor.ts",
+            "startLine": 1411,
+            "endLine": 1433
+          },
+          {
+            "path": "typescript/core/web_core/src/processing/message-processor.ts",
+            "startLine": 1362,
+            "endLine": 1394
+          }
+        ]
+      },
+      {
+        "title": "把数据模型更新写到 JSON Pointer 路径",
+        "phase": "写入数据状态",
+        "condition": "收到 updateDataModel 操作时必经；path 缺省表示根。",
+        "symbol": "MessageProcessor.processUpdateDataModelOp / DataModel.set",
+        "owner": "project",
+        "input": "surfaceId、可选 path、value。",
+        "action": "校验 path 是 RFC 6901 形状；DataModel.set 解析路径，阻止 __proto__/constructor/prototype，必要时自动创建容器，再写入或删除值。",
+        "stateChange": "DataModel.data 被修改，notifySignals 更新该路径、祖先路径和当前订阅的子孙路径对应 signal。",
+        "output": "绑定到该路径的 GenericBinder/组件会收到通知并重新解析。",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/processing/message-processor.ts",
+            "startLine": 1483,
+            "endLine": 1520
+          },
+          {
+            "path": "typescript/core/web_core/src/state/data-model.ts",
+            "startLine": 112,
+            "endLine": 129
+          },
+          {
+            "path": "typescript/core/web_core/src/state/data-model.ts",
+            "startLine": 242,
+            "endLine": 259
+          }
+        ]
+      },
+      {
+        "title": "Lit 订阅 root 并建立节点解析器",
+        "phase": "渲染装配",
+        "condition": "surface 属性变化或元素重新连接时。",
+        "symbol": "A2uiSurface.subscribeToRoot / NodeResolver.buildRoot / NodeResolver.createNode",
+        "owner": "project",
+        "input": "SurfaceModel。",
+        "action": "A2uiSurface 创建 NodeResolver，并用 effect 监听 rootNode Signal；NodeResolver 在 root 已存在时 buildRoot，否则等待组件创建事件。",
+        "stateChange": "NodeResolver 的 records、rootRecord 和 rootNode 被建立；A2uiSurface._rootNode 被更新。",
+        "output": "root 节点一旦可解析，A2uiSurface.render 调用 renderA2uiNode。",
+        "evidence": [
+          {
+            "path": "typescript/renderers/lit/src/surface/a2ui-surface.ts",
+            "startLine": 107,
+            "endLine": 146
+          },
+          {
+            "path": "typescript/core/web_core/src/resolution/node-resolver.ts",
+            "startLine": 205,
+            "endLine": 214
+          },
+          {
+            "path": "typescript/core/web_core/src/resolution/node-resolver.ts",
+            "startLine": 297,
+            "endLine": 387
+          }
+        ]
+      },
+      {
+        "title": "物化子组件引用并绑定动态数据",
+        "phase": "解析与订阅",
+        "condition": "组件节点创建或 binder 输出变化时。",
+        "symbol": "NodeResolver.materialize / GenericBinder.bindDynamicValue",
+        "owner": "project",
+        "input": "组件 schema 推导出的 BehaviorNode、binder 当前 props、DataModel。",
+        "action": "materialize 把 child ref 字符串替换成 ComponentNode，把不再引用的子节点 dispose；对 DYNAMIC 属性，GenericBinder 订阅 DataModel，并把 {path:...} 包成 WritableBinding/ResolvedBinding。",
+        "stateChange": "node.childEdges、node.props 和 binder 的数据订阅被更新；数据变化触发 updateDeepValue 与 notify。",
+        "output": "Lit 渲染时看到已解析的 props 和稳定的子节点。",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/resolution/node-resolver.ts",
+            "startLine": 549,
+            "endLine": 568
+          },
+          {
+            "path": "typescript/core/web_core/src/resolution/node-resolver.ts",
+            "startLine": 667,
+            "endLine": 682
+          },
+          {
+            "path": "typescript/core/web_core/src/resolution/generic-binder.ts",
+            "startLine": 536,
+            "endLine": 548
+          }
+        ]
+      },
+      {
+        "title": "用户点击触发 action 闭包",
+        "phase": "交互与事件",
+        "condition": "用户触发带 action 的组件时。",
+        "symbol": "GenericBinder.bindAction / SurfaceModel.dispatchAction / SurfaceGroupModel.addSurface",
+        "owner": "project",
+        "input": "组件 action payload，如 {event:{name:'book', context:{...}}}。",
+        "action": "bindAction 返回闭包；闭包对 functionCall 走 resolveAction，对普通 event 先 resolveAction 再 dispatchAction；SurfaceModel.dispatchAction 组装 ActionPayload 并 emit onAction。",
+        "stateChange": "SurfaceModel.onAction 发射；SurfaceGroupModel.addSurface 注册的订阅把它转发到 group.onAction。",
+        "output": "ActionPayload 进入全局 action 流。",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/resolution/generic-binder.ts",
+            "startLine": 575,
+            "endLine": 607
+          },
+          {
+            "path": "typescript/core/web_core/src/state/surface-model.ts",
+            "startLine": 314,
+            "endLine": 355
+          },
+          {
+            "path": "typescript/core/web_core/src/state/surface-group-model.ts",
+            "startLine": 70,
+            "endLine": 77
+          }
+        ]
+      },
+      {
+        "title": "全局 actionHandler 收到 ActionPayload",
+        "phase": "回传 Agent 边界",
+        "condition": "MessageProcessor 构造时提供了 actionHandler。",
+        "symbol": "MessageProcessor.constructor",
+        "owner": "project",
+        "input": "group.onAction 上的 ActionPayload。",
+        "action": "构造时把 actionHandler 订阅到 SurfaceGroupModel.onAction。",
+        "stateChange": "无内部状态变化；调用外部 actionHandler。",
+        "output": "宿主应用把 action 编码回 Agent。",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/processing/message-processor.ts",
+            "startLine": 220,
+            "endLine": 242
+          }
+        ]
+      }
+    ],
+    "technologies": [
+      {
+        "name": "版本适配与统一内部操作",
+        "problem": "不同协议版本的 wire 字段不同，如果状态层到处判断版本会重复且容易混用。",
+        "mechanism": "先由 VersionAdapterFactory 按 version 或 payload 选适配器；适配器用 Zod 校验原始消息，再把本版本 action 映射成带 type 的内部操作；MessageProcessor 只 switch type。",
+        "pseudocode": "adapter = resolveFromPayload(payload)\nobj = unwrap messages\ncheck exactly one native action\nparsed = adapter.schema.safeParse(with version)\nif parsed failed: throw wrapped validation error\nops = []\nif 'createSurface' in obj: ops.push(createSurface op)\nif 'updateComponents' in obj: ops.push(updateComponents op)\nreturn ops",
+        "dataStructures": "InternalOperation 是带 type 的联合类型，并可携带 envelopeContext；每个 op 保留 version，供后续 catalog 兼容性判断。",
+        "projectCode": "BaseVersionAdapter 负责通用展开、action 唯一性检查和 schema 校验；V0Point9Adapter 负责 v0.9/v0.9.1 字段映射。",
+        "externalDependency": "Zod 负责 wire schema 的 structural parse；适配器工厂只负责选择，不执行业务状态变更。",
+        "tradeoff": "收益是状态层不必理解多版本差异；代价是每新增协议版本要维护适配器和兼容映射，且错误要经过适配器上下文映射。",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/processing/adapters/base.ts",
+            "startLine": 212,
+            "endLine": 272
+          },
+          {
+            "path": "typescript/core/web_core/src/processing/adapters/v0_9.ts",
+            "startLine": 36,
+            "endLine": 81
+          },
+          {
+            "path": "typescript/core/web_core/src/processing/operations.ts",
+            "startLine": 140,
+            "endLine": 149
+          }
+        ]
+      },
+      {
+        "name": "JSON Pointer 数据模型与响应式通知",
+        "problem": "Agent 的 updateDataModel 只给路径和值，渲染绑定需要精确知道哪个路径变化并更新对应组件。",
+        "mechanism": "DataModel.set 解析 JSON Pointer，沿对象/数组走到父节点，写入或删除叶子；然后 notifySignals 批量更新本路径、祖先路径和已订阅的子孙路径 signal。",
+        "pseudocode": "segments = parse(path)\nif segments empty: data = value; notifyAll; return\nparent = walk/create containers(segments[0..-2])\nif removes: delete/undefined parent[last]\nelse: parent[last] = value\nnotifySignals(path)\nfor ancestor of path: updateSignal(ancestor)\nfor subscribed descendant: updateSignal(descendant)",
+        "dataStructures": "data 是嵌套 JSON 对象；signals 是 path→Signal；订阅记录用于 dispose；FORBIDDEN_KEYS 防止原型污染。",
+        "projectCode": "路径解析、容器自动创建、数组索引边界、祖先/子孙通知选择都在 DataModel 内实现。",
+        "externalDependency": "Preact Signals 提供 signal、batchWrite、effect；DataModel 只决定何时写哪个 signal。",
+        "tradeoff": "收益是组件只需订阅路径就能响应流式数据更新；代价是路径写错会报数据错误，且每次写要扫描已订阅子孙路径。",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/state/data-model.ts",
+            "startLine": 112,
+            "endLine": 129
+          },
+          {
+            "path": "typescript/core/web_core/src/state/data-model.ts",
+            "startLine": 242,
+            "endLine": 259
+          },
+          {
+            "path": "typescript/core/web_core/src/state/data-model.ts",
+            "startLine": 420,
+            "endLine": 454
+          }
+        ]
+      },
+      {
+        "name": "Schema 驱动的 GenericBinder",
+        "problem": "不同 catalog 的组件属性不同，不能为每个组件字段手写数据绑定、action 和子列表逻辑。",
+        "mechanism": "GenericBinder 先从 Zod schema 递归推导 BehaviorNode：DYNAMIC、ACTION、STRUCTURAL、CHECKABLE、STATIC、OBJECT、ARRAY；再按该树遍历组件原始属性，分别订阅数据、生成 action 闭包、映射模板子列表或计算校验状态。",
+        "pseudocode": "behavior = scrapeSchemaBehavior(componentSchema)\nprops = resolveAndBind(rawProps, behavior)\nfor each node in behavior:\n  DYNAMIC -> subscribe data path, produce resolved value/setter\n  ACTION -> return async closure\n  STRUCTURAL -> expand template to child refs\n  CHECKABLE -> subscribe rules, inject isValid/errors\nnotify listeners with currentProps",
+        "dataStructures": "BehaviorNode 树缓存于 WeakMap；GenericBinder.currentProps 保存解析结果；dataListeners 保存动态订阅；actionClosures 保持 action 引用稳定。",
+        "projectCode": "schema 行为树推导、动态值订阅、action 闭包、子列表模板映射和校验状态注入都由本项目实现。",
+        "externalDependency": "Zod 提供 schema 结构和 parse；GenericBinder 依赖 Zod 的 _def 形状做推导，因此与 Zod schema 写法有耦合。",
+        "tradeoff": "收益是新增组件只提供 schema 就能接入绑定；代价是 schema 推导复杂，依赖 Zod 内部结构，复杂 union 需要额外规则。",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/resolution/generic-binder.ts",
+            "startLine": 75,
+            "endLine": 93
+          },
+          {
+            "path": "typescript/core/web_core/src/resolution/generic-binder.ts",
+            "startLine": 254,
+            "endLine": 299
+          },
+          {
+            "path": "typescript/core/web_core/src/resolution/generic-binder.ts",
+            "startLine": 472,
+            "endLine": 520
+          },
+          {
+            "path": "typescript/core/web_core/src/resolution/generic-binder.ts",
+            "startLine": 785,
+            "endLine": 819
+          }
+        ]
+      },
+      {
+        "name": "组件树物化与占位/循环处理",
+        "problem": "flat 组件字典中的子组件引用可能暂时缺失、被替换或形成环，直接递归渲染会崩溃或显示旧节点。",
+        "mechanism": "NodeResolver 以 edgeKey 标识父子引用；createNode 对缺失定义建 placeholder，对未知类型建 unknown-type，对循环引用建 cyclic placeholder；materialize 根据 binder 输出新建、复用或 dispose 子节点。",
+        "pseudocode": "createNode(componentId,dataPath,edgeKey,parent):\n  model = components.get(componentId)\n  if !model: register placeholder; pendingParents.add\n  api = catalog.components.get(model.type)\n  if !api: dispatch error; register unknown-type\n  binder = new GenericBinder(context, api.schema)\n  binder.subscribe(props => materialize(record))\nmaterialize(record):\n  resolve child refs to ComponentNode\n  dispose edges no longer referenced\n  wrap dynamic values and setProps",
+        "dataStructures": "NodeRecord 保存 node、edgeKey、occurrence、parent、refFields、behavior、binder、childEdges；nodesByEdge 用于复用；pendingParents 等待组件到达。",
+        "projectCode": "placeholder 升级、循环检测、子节点生命周期和实例 id 都在 NodeResolver 内实现。",
+        "externalDependency": "使用项目内 signal 作为 rootNode 通知机制；不执行模型生成代码。",
+        "tradeoff": "收益是流式到达和增量更新时不会因缺组件或环而崩；代价是节点身份、占位和子边释放逻辑复杂，需要测试覆盖。",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/resolution/node-resolver.ts",
+            "startLine": 297,
+            "endLine": 387
+          },
+          {
+            "path": "typescript/core/web_core/src/resolution/node-resolver.ts",
+            "startLine": 439,
+            "endLine": 517
+          },
+          {
+            "path": "typescript/core/web_core/src/resolution/node-resolver.ts",
+            "startLine": 549,
+            "endLine": 568
+          },
+          {
+            "path": "typescript/core/web_core/src/resolution/node-resolver.ts",
+            "startLine": 646,
+            "endLine": 665
+          }
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "decision": "客户端只渲染预注册 catalog 中的组件，不执行 LLM 生成的可执行代码。",
+        "constraint": "Agent 可能来自远程或跨信任边界，生成代码会带来安全风险；同时同一 payload 要跨客户端复用。",
+        "alternative": "让 Agent 生成任意组件代码或 HTML/脚本，客户端直接插入执行。",
+        "why": "本项目中 Agent 只能写 component:'Text' 这类 catalog 名称；NodeResolver 找不到类型时只发 UNKNOWN_COMPONENT_TYPE 并显示占位，而不是执行未知代码。这样按钮、文本框等能力被限制在宿主预批准的组件和函数集合内。",
+        "cost": "能力受 catalog 限制，新组件需要宿主先注册；复杂 UI 需要 catalog 设计而不是任意代码。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "README.md",
+            "startLine": 42,
+            "endLine": 46
+          },
+          {
+            "path": "typescript/core/web_core/src/resolution/node-resolver.ts",
+            "startLine": 325,
+            "endLine": 346
+          }
+        ]
+      },
+      {
+        "decision": "协议版本差异在适配器层被吸收成 InternalOperation，状态层按统一 type 分派。",
+        "constraint": "v0.8、v0.9、v0.9.1、v1.0 的消息字段和 catalog 规则不同，直接在每个状态方法里判断版本会重复且容易漏分支。",
+        "alternative": "让 MessageProcessor 直接读取原始消息对象，内部到处 if version。",
+        "why": "示例中的 v0.9 createSurface 由 V0Point9Adapter 映射出 catalogId、theme、sendDataModel、dataModel、version；MessageProcessor 后续只处理 processCreateSurfaceOp 的统一字段。v1.0 无默认 catalog 的差异则可在 processCreateSurfaceOp 中按 op.version 判断，而不是在 wire 解析处散开。",
+        "cost": "新增协议版本需要新增/修改适配器和兼容映射；适配器错误上下文还要经过错误映射。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/processing/adapters/base.ts",
+            "startLine": 212,
+            "endLine": 272
+          },
+          {
+            "path": "typescript/core/web_core/src/processing/adapters/v0_9.ts",
+            "startLine": 36,
+            "endLine": 81
+          },
+          {
+            "path": "typescript/core/web_core/src/processing/message-processor.ts",
+            "startLine": 1017,
+            "endLine": 1023
+          }
+        ]
+      },
+      {
+        "decision": "单个 updateComponents 批次先完整校验，再在 batchWrite 中统一写入。",
+        "constraint": "组件更新可能包含多个组件；如果边校验边写入，后面的组件失败会留下前面的部分更新。",
+        "alternative": "遍历 components 时每验证一个就立即 applyComponentUpdate。",
+        "why": "示例中同一批次若出现重复 id，validateComponentsBatch 会在 seenBatchIds 中先抛 A2uiIntegrityError；因为此时还没进入 mutation pass，旧组件树不会被改掉。校验通过后才 applyComponentUpdate 并记录 graphBound。",
+        "cost": "需要暂存整批组件并做额外图校验；跨多个内部操作的整个消息列表并不因此变成全局事务。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/processing/message-processor.ts",
+            "startLine": 1455,
+            "endLine": 1480
+          },
+          {
+            "path": "typescript/core/web_core/src/processing/message-processor.ts",
+            "startLine": 1411,
+            "endLine": 1433
+          }
+        ]
+      },
+      {
+        "decision": "组件属性绑定由 schema 推导，而不是为每种组件类型硬编码字段处理。",
+        "constraint": "catalog 可以扩展组件和函数，组件属性中既有普通值，也有数据路径、action、子列表和校验规则。",
+        "alternative": "为 Text、Button、Column 等每个组件的每个字段写专门绑定代码。",
+        "why": "在场景里 Text.text 的 {path:'/user/name'} 会被 GenericBinder 按 DYNAMIC 处理并订阅 DataModel；Button.action 会被按 ACTION 处理成闭包；Column.children 会按 STRUCTURAL 展开。若硬编码，每个新 catalog 组件都要改 renderer。",
+        "cost": "GenericBinder 依赖 Zod schema 的结构和内部 _def，复杂 union/嵌套对象需要额外匹配规则；调试 schema 推导比手写字段更抽象。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/resolution/generic-binder.ts",
+            "startLine": 75,
+            "endLine": 93
+          },
+          {
+            "path": "typescript/core/web_core/src/resolution/generic-binder.ts",
+            "startLine": 254,
+            "endLine": 299
+          },
+          {
+            "path": "typescript/core/web_core/src/resolution/generic-binder.ts",
+            "startLine": 785,
+            "endLine": 819
+          }
+        ]
+      },
+      {
+        "decision": "SurfaceModel 同时保存 defaultCatalog、availableCatalogs 和 protocolVersion，并按版本过滤可用 catalog。",
+        "constraint": "同一个 renderer 可能同时处理 v0.9 和 v1.0 消息；不同版本的 catalog 不能混用，v1.0 surface 还可能没有默认 catalog。",
+        "alternative": "全局只放一个 catalog，surface 创建时不做版本兼容检查。",
+        "why": "createSurface 时先解析 catalog 并检查 protocolVersion 兼容，然后把兼容 catalog 放进 availableCatalogs；组件或函数若命名了不兼容 catalog，resolveSurfaceItemCatalog 会报错。这样场景中的 v0.9 surface 不会被错误地按 v1.0 catalog 解释。",
+        "cost": "创建 surface 和解析组件时多一层版本判断；v1.0 无默认 catalog 的分支增加复杂度。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/processing/message-processor.ts",
+            "startLine": 1017,
+            "endLine": 1067
+          },
+          {
+            "path": "typescript/core/web_core/src/state/surface-model.ts",
+            "startLine": 222,
+            "endLine": 268
+          },
+          {
+            "path": "typescript/core/web_core/src/processing/adapters/base.ts",
+            "startLine": 63,
+            "endLine": 102
+          }
+        ]
+      }
+    ],
+    "codeWalkthroughs": [
+      {
+        "title": "v0.9 适配器把四种消息映射成内部操作",
+        "explanation": "extractOperationsFromObject 分别检查 createSurface、updateComponents、updateDataModel、deleteSurface 是否存在；createSurface 会保留 catalogId、theme、sendDataModel、components、dataModel，并把 version 设为消息 version 或 adapter 默认版本。updateComponents 只提取 surfaceId 和 components 数组，updateDataModel 提取 path 和 value，deleteSurface 只取 surfaceId。这样后续 MessageProcessor 不需要知道 v0.9 的 wire 包装字段。",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/processing/adapters/v0_9.ts",
+            "startLine": 36,
+            "endLine": 81
+          }
+        ]
+      },
+      {
+        "title": "updateComponents 的两阶段：先校验整批，后写入状态",
+        "explanation": "validateComponentsBatch 用 seenBatchIds 发现同一批次重复 id，并在 validateComponentProperties 失败时把错误路径重定位到 /components/{index}；processUpdateComponentsOp 先调用它和组件图校验，只有都通过才进入 batchWrite 的 mutation pass。applyComponentUpdate 对已有同类型/同 catalog 组件只替换 properties，对类型或 catalog 变化则移除旧模型并创建新模型，因此流式更新不会把旧节点类型错误保留下来。",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/processing/message-processor.ts",
+            "startLine": 1411,
+            "endLine": 1433
+          },
+          {
+            "path": "typescript/core/web_core/src/processing/message-processor.ts",
+            "startLine": 1455,
+            "endLine": 1480
+          }
+        ]
+      },
+      {
+        "title": "action 从组件闭包走到 SurfaceModel 事件",
+        "explanation": "GenericBinder.bindAction 先按 path 缓存闭包；点击时如果 payload 是 functionCall 或带 call/@call，就 await dataContext.resolveAction 直接执行；否则先 resolveAction，再把结果交给 context.dispatchAction。SurfaceModel.dispatchAction 从 event 或直接 name 中提取目标，组装 surfaceId、sourceComponentId、timestamp、context，并仅在 payload 明确给出 catalogId 时保留它，最后 emit onAction。",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/resolution/generic-binder.ts",
+            "startLine": 575,
+            "endLine": 607
+          },
+          {
+            "path": "typescript/core/web_core/src/state/surface-model.ts",
+            "startLine": 314,
+            "endLine": 355
+          }
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "question": "同一 updateComponents 批次中重复 id 时，是否会部分写入组件树？",
+        "change": "把一次 updateComponents 的 components 改成两个 id 都为 'root' 的组件，第二个可以是不同类型。",
+        "expected": "应在 validateComponentsBatch 的 seenBatchIds 检查处抛出 A2uiIntegrityError，并因为尚未进入 batchWrite 而不改变旧组件树；这验证单批次先校验后写入。",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/processing/message-processor.ts",
+            "startLine": 1411,
+            "endLine": 1433
+          },
+          {
+            "path": "typescript/core/web_core/src/processing/message-processor.ts",
+            "startLine": 1455,
+            "endLine": 1480
+          }
+        ]
+      },
+      {
+        "question": "Text.text 绑定到 /user/name 后，updateDataModel 是否会让该 Text 属性得到新值？",
+        "change": "先让组件 text 为 {path:'/user/name'}，再发送 updateDataModel(surfaceId='s1', path='/user/name', value='Ada')。",
+        "expected": "DataModel.set 写入后 notifySignals 会更新该路径及祖先/子孙 signal；GenericBinder.bindDynamicValue 的订阅回调触发 updateDeepValue 和 notify，因此 Text 的已解析 prop 应变为 Ada。",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/state/data-model.ts",
+            "startLine": 112,
+            "endLine": 129
+          },
+          {
+            "path": "typescript/core/web_core/src/state/data-model.ts",
+            "startLine": 242,
+            "endLine": 259
+          },
+          {
+            "path": "typescript/core/web_core/src/state/data-model.ts",
+            "startLine": 420,
+            "endLine": 454
+          },
+          {
+            "path": "typescript/core/web_core/src/resolution/generic-binder.ts",
+            "startLine": 536,
+            "endLine": 548
+          }
+        ]
+      },
+      {
+        "question": "点击带 event 的 Button 时，ActionPayload 的 name 和 sourceComponentId 如何确定？",
+        "change": "把 Button 的 action event name 从 'book' 改为 'cancel'，组件 id 保持 'go'，然后触发该 action。",
+        "expected": "GenericBinder.bindAction 返回的闭包会 resolveAction，然后 SurfaceModel.dispatchAction 组装 name='cancel'、surfaceId='s1'、sourceComponentId='go' 的 ActionPayload；group 转发后 actionHandler 应收到这个对象。",
+        "evidence": [
+          {
+            "path": "typescript/core/web_core/src/resolution/generic-binder.ts",
+            "startLine": 596,
+            "endLine": 603
+          },
+          {
+            "path": "typescript/core/web_core/src/state/surface-model.ts",
+            "startLine": 335,
+            "endLine": 354
+          },
+          {
+            "path": "typescript/core/web_core/src/state/surface-group-model.ts",
+            "startLine": 70,
+            "endLine": 77
+          }
+        ]
+      }
+    ],
+    "takeaways": [
+      "版本适配层把 wire 差异收敛成 InternalOperation，状态层只按操作类型和 version 做业务判断，避免在 surface/data 方法里到处混用 v0.9 与 v1.0 字段。",
+      "安全边界来自预注册 catalog：Agent 只能请求目录中的组件和函数，未知组件类型会被报错并降级为占位，而不是执行生成代码。",
+      "单个 updateComponents 批次采用“先整批校验、后批量写入”，避免该批次因后一个组件失败而留下前一个组件已写入的半更新；但跨多个内部操作不是全局事务。",
+      "数据模型用 JSON Pointer 路径作为订阅键，DataModel 写路径后通知祖先和子孙 signal，GenericBinder 再把变化映射到组件 props，因此流式 updateDataModel 不需要重建整棵 UI。",
+      "组件树解析用 NodeResolver 维护节点身份、占位和子边生命周期，用 GenericBinder 按 schema 解析动态值/action/子列表；两块共同把 flat 状态转成可渲染的响应式 ComponentNode 树。"
+    ],
+    "gaps": [
+      "renderA2uiNode 在本仓库已读的 Lit 文件中只是从 @a2ui/web_core/universal 重导出，具体如何把 ComponentNode 映射成 DOM tag、如何传 props 的实现未读到。",
+      "PayloadValidator.validateComponent、validateFunction、validateTheme 的具体方法体未在已读片段中，无法列出完整校验规则和错误详情生成方式。",
+      "RpcHandler.callAgentFunction、handleCallRendererFunction、handleAgentFunctionResponse 的方法体未读到，无法确认 agent 函数调用和 renderer 函数调用的超时、取消与 outbound 消息编码细节。",
+      "DataContext.resolveAction、subscribeDynamicValue、resolveDynamicValue 的方法体未读到，无法确认表达式函数、嵌套动态值和 action context 的完整求值规则。",
+      "createSurface 携带 components 时直接调用 processUpdateComponentsOp，但该内部调用的 envelopeContext 与原 createSurface 错误上下文如何合并，未在已读片段中完整确认。"
+    ]
+  }
+}

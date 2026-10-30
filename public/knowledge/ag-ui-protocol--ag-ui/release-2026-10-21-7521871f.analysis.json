@@ -1,0 +1,917 @@
+{
+  "version": 3,
+  "repo": "ag-ui-protocol/ag-ui",
+  "ref": "release/2026-10-21",
+  "sha": "05fea43abfe16bb8fd077ba258c8471943cafed2",
+  "analysis": {
+    "version": 3,
+    "kind": "architecture",
+    "requestedModel": "deepseek-flash",
+    "actualModel": "deepseek-flash",
+    "filesRead": 20,
+    "charactersRead": 349165,
+    "modules": 7,
+    "flowSteps": 8,
+    "mechanisms": 4,
+    "decisions": 5,
+    "readingStrategy": "model-and-profile",
+    "structuralChecks": "passed",
+    "usage": {
+      "prompt_tokens": 118370,
+      "completion_tokens": 22699
+    },
+    "notes": [
+      "decisions[2] 无法逐字核对作者说明，已标为工程推断",
+      "decisions[3] 无法逐字核对作者说明，已标为工程推断"
+    ]
+  },
+  "plan": {
+    "scenario": "浏览器通过 HttpAgent 发起一轮 Agent 请求：AbstractAgent.runAgent 组装 RunAgentInput、初始化订阅者并构建 RxJS 管道；HttpAgent.run 在发送前执行 enforceOutgoingInput 与 requestInit，经 runHttpRequest 发出 POST 并接收 SSE；transformHttpEventStream 把字节流解析为 BaseEvent；管道依次经过 enforceEvents、transformChunks、verifyEvents 校验与归一化；applyBeforeSourceError 调用 defaultApplyEvents 把文本增量、工具调用和状态 delta 应用到 messages/state 并通知订阅者；最终由 onFinalize 收尾并返回 result 与 newMessages。",
+    "files": [
+      {
+        "path": "sdks/typescript/packages/client/src/agent/agent.ts",
+        "focus": [
+          "AbstractAgent.runAgent",
+          "AbstractAgent.connectAgent",
+          "AbstractAgent.onInitialize",
+          "AbstractAgent.prepareRunAgentInput",
+          "AbstractAgent.applyBeforeSourceError",
+          "AbstractAgent.processApplyEvents",
+          "AbstractAgent.onFinalize"
+        ],
+        "reason": "公开入口与主方法所在：runAgent 定义完整管道顺序（enforce→transformChunks→verify→apply→catchError→finalize），onInitialize 处理中断恢复与订阅者变更，applyBeforeSourceError/processApplyEvents 是事件进入状态的核心路径，onFinalize 完成收尾。"
+      },
+      {
+        "path": "sdks/typescript/packages/client/src/agent/http.ts",
+        "focus": [
+          "HttpAgent.run",
+          "HttpAgent.requestInit",
+          "HttpAgent.runAgent",
+          "sanitizeOutgoingInput"
+        ],
+        "reason": "具体传输适配器：run 在延迟 thunk 内执行 enforceOutgoingInput 并调用 runHttpRequest，requestInit 构造 POST/SSE 请求头与 JSON body，sanitizeOutgoingInput 是出站前的最后一道 no-null 守卫。"
+      },
+      {
+        "path": "sdks/typescript/packages/client/src/run/http-request.ts",
+        "focus": [
+          "runHttpRequest"
+        ],
+        "reason": "实际发起 fetch 并处理响应状态/错误的最小实现，是 HttpAgent.run 到 transformHttpEventStream 之间的真实传输层。"
+      },
+      {
+        "path": "sdks/typescript/packages/client/src/transform/http.ts",
+        "focus": [
+          "transformHttpEventStream"
+        ],
+        "reason": "把 HTTP 响应体转换为 BaseEvent 流的适配器，连接传输与事件管道，是输入如何变成事件的关键一步。"
+      },
+      {
+        "path": "sdks/typescript/packages/client/src/transform/sse.ts",
+        "focus": [
+          "transformSSE"
+        ],
+        "reason": "SSE 帧解析实现，说明字节流如何被切分为事件帧，是传输适配器的核心算法。"
+      },
+      {
+        "path": "sdks/typescript/packages/client/src/enforce/enforce.ts",
+        "focus": [
+          "enforceEvents",
+          "enforceOutgoingInput"
+        ],
+        "reason": "入站/出站校验边界：enforceEvents 在管道中先于展开执行，enforceOutgoingInput 在 HttpAgent.run 中发送前执行，决定未知字段剥离与已知字段失败。"
+      },
+      {
+        "path": "sdks/typescript/packages/client/src/chunks/transform.ts",
+        "focus": [
+          "transformChunks"
+        ],
+        "reason": "把 chunk 事件展开为 start/content/end 等规范事件，是文本增量与工具调用增量归一化的核心算法。"
+      },
+      {
+        "path": "sdks/typescript/packages/client/src/verify/verify.ts",
+        "focus": [
+          "verifyEvents"
+        ],
+        "reason": "在展开后校验消息开闭、工具调用配对与生命周期顺序，是事件流合法性的核心状态机。"
+      },
+      {
+        "path": "sdks/typescript/packages/client/src/apply/default.ts",
+        "focus": [
+          "defaultApplyEvents"
+        ],
+        "reason": "核心状态应用实现：把文本增量、工具调用、状态 delta 写入 messages/state，并驱动订阅者回调，是事件变成前端状态的落点。"
+      },
+      {
+        "path": "sdks/typescript/packages/client/src/agent/subscriber.ts",
+        "focus": [
+          "runSubscribersWithMutation"
+        ],
+        "reason": "订阅者执行与变更合并的核心数据结构与算法，解释 onRunInitialized 等回调如何修改 messages/state。"
+      },
+      {
+        "path": "sdks/typescript/packages/client/src/agent/__tests__/http.test.ts",
+        "focus": [
+          "HttpAgent"
+        ],
+        "reason": "HttpAgent 的请求构造与运行行为测试，覆盖公开入口到传输适配器的真实调用路径。"
+      },
+      {
+        "path": "sdks/typescript/packages/client/src/apply/__tests__/default.text-message.test.ts",
+        "focus": [
+          "defaultApplyEvents"
+        ],
+        "reason": "文本增量如何被应用到消息的示例测试，直接对应场景中的文本增量路径。"
+      },
+      {
+        "path": "sdks/typescript/packages/client/src/apply/__tests__/default.tool-calls.test.ts",
+        "focus": [
+          "defaultApplyEvents"
+        ],
+        "reason": "工具调用事件如何组装为消息与状态的示例测试，覆盖场景中的工具调用路径。"
+      },
+      {
+        "path": "sdks/typescript/packages/client/src/apply/__tests__/default.state.test.ts",
+        "focus": [
+          "defaultApplyEvents"
+        ],
+        "reason": "状态快照与 delta 应用的具体示例，覆盖场景中的状态更新路径。"
+      },
+      {
+        "path": "sdks/typescript/packages/client/src/verify/__tests__/verify.lifecycle.test.ts",
+        "focus": [
+          "verifyEvents"
+        ],
+        "reason": "生命周期校验的示例测试，说明 run started/finished 与中断等边界如何被验证。"
+      },
+      {
+        "path": "sdks/typescript/packages/client/src/transform/__tests__/sse.test.ts",
+        "focus": [
+          "transformSSE"
+        ],
+        "reason": "SSE 解析的示例测试，展示传输帧到事件的转换细节。"
+      }
+    ]
+  },
+  "report": {
+    "overview": {
+      "plainLanguage": "浏览器把一次 Agent 调用发成 HTTP 请求，后端用事件流一段段回传，前端按到达顺序把文本、工具调用和状态拼成最终会话。",
+      "problem": "一次性完整响应只能等全部结束，无法边流边显示；文本增量、工具调用参数和状态补丁又必须按顺序合并，否则 UI 与后端历史会不一致。",
+      "scenarioInput": "假设 HttpAgent 的 initialMessages 有一条用户消息“北京天气怎么样？”，initialState 为 {count:0}，调用 runAgent({runId:'r1'})。",
+      "scenarioOutput": "假设后端回传事件流：RUN_STARTED、TEXT_MESSAGE_START(m1)、TEXT_MESSAGE_CONTENT(m1,'北京')、TEXT_MESSAGE_CONTENT(m1,'晴')、TEXT_MESSAGE_END、TOOL_CALL_START(t1,'getWeather')、TOOL_CALL_ARGS(t1,'{\"city\":\"北京\"}')、TOOL_CALL_END、TOOL_CALL_RESULT、STATE_DELTA(/count=1)、RUN_FINISHED(success,result)。前端会先出现空 assistant 消息，再逐步变成“北京晴”；toolCalls[0].function.arguments 逐步累积；state.count 变为 1；runAgent 返回 result 和只含本轮新增消息的 newMessages。以上是推演形状，不代表模型一定调用某工具。"
+    },
+    "modules": [
+      {
+        "id": "orchestrator",
+        "name": "运行编排与 HTTP 入口",
+        "role": "AbstractAgent 负责组装输入、合并订阅者、构建 RxJS 管道并返回结果；HttpAgent 负责在一次运行中替换 AbortController 并实现 run。",
+        "input": "RunAgentParameters、AgentSubscriber、agent.messages 与 agent.state。",
+        "output": "RunAgentInput、BaseEvent 流、RunAgentResult。",
+        "state": "isRunning、agentId、messages、state、subscribers、activeRunDetach$、activeRunCompletionPromise。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/agent/agent.ts",
+            "startLine": 296,
+            "endLine": 324
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/agent/agent.ts",
+            "startLine": 336,
+            "endLine": 404
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/agent/http.ts",
+            "startLine": 91,
+            "endLine": 103
+          }
+        ]
+      },
+      {
+        "id": "transport",
+        "name": "HTTP 与 SSE 分帧",
+        "role": "把 fetch 返回的字节流变成 BaseEvent；runHttpRequest 负责响应状态与读取循环，transformHttpEventStream 按 Content-Type 选择 SSE 或 protobuf 解析器。",
+        "input": "fetch thunk、Response.body 的 Uint8Array 块。",
+        "output": "BaseEvent 事件流。",
+        "state": "SSE 的字符串 buffer、TextDecoder、parser 选择标志、Subject 缓冲。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/run/http-request.ts",
+            "startLine": 22,
+            "endLine": 102
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/transform/http.ts",
+            "startLine": 13,
+            "endLine": 90
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/transform/sse.ts",
+            "startLine": 27,
+            "endLine": 90
+          }
+        ]
+      },
+      {
+        "id": "enforcement",
+        "name": "入站与出站 schema 强制",
+        "role": "发送前用 RunAgentInputSchema 剥离未知字段并校验；接收后对已知事件类型按 schema 剥离未知属性、对非法已知字段直接报错，未知事件类型则丢弃并警告。",
+        "input": "RunAgentInput 或 BaseEvent。",
+        "output": "已剥离并解析的 RunAgentInput 或 BaseEvent。",
+        "state": "EVENT_SCHEMA_BY_TYPE 映射与 KNOWN_EVENT_TYPES 集合。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/enforce/enforce.ts",
+            "startLine": 70,
+            "endLine": 101
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/enforce/enforce.ts",
+            "startLine": 108,
+            "endLine": 121
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/agent/http.ts",
+            "startLine": 91,
+            "endLine": 103
+          }
+        ]
+      },
+      {
+        "id": "chunks",
+        "name": "chunk 事件展开与 lane 装配",
+        "role": "把 TEXT_MESSAGE_CHUNK、TOOL_CALL_CHUNK、REASONING_MESSAGE_CHUNK 展开成 START/CONTENT/END；按 subagentRunId 分 lane，同一 lane 最多保持一个待装配流。",
+        "input": "可能包含 chunk 的 BaseEvent 流。",
+        "output": "展开后的 BaseEvent 流。",
+        "state": "lanes Map，键是 subagentRunId 或 undefined，值是 PendingStream。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/chunks/transform.ts",
+            "startLine": 253,
+            "endLine": 330
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/chunks/transform.ts",
+            "startLine": 398,
+            "endLine": 456
+          }
+        ]
+      },
+      {
+        "id": "verifier",
+        "name": "事件序列与归属校验",
+        "role": "维护 RUN_STARTED/RUN_FINISHED、文本消息、工具调用、推理、步骤、子代理和 owner 的状态机；要求第一个事件是 RUN_STARTED 或 RUN_ERROR，运行结束前实体必须关闭，归属不能矛盾。",
+        "input": "展开后的 BaseEvent 流。",
+        "output": "通过校验的 BaseEvent 流，或 AGUIError。",
+        "state": "activeMessages、activeToolCalls、owners、activeSteps、activeSubagents、closedSubagents、runFinished/runError 等。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/verify/verify.ts",
+            "startLine": 7,
+            "endLine": 90
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/verify/verify.ts",
+            "startLine": 220,
+            "endLine": 294
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/verify/verify.ts",
+            "startLine": 382,
+            "endLine": 460
+          }
+        ]
+      },
+      {
+        "id": "reducer",
+        "name": "事件归约为 messages 与 state mutation",
+        "role": "defaultApplyEvents 对每个事件先跑订阅者，再按事件类型修改本地 messages/state；processApplyEvents 把 mutation 写回 agent 并通知 onMessagesChanged/onStateChanged。",
+        "input": "已验证的 BaseEvent 流、RunAgentInput、AgentSubscriber[]。",
+        "output": "AgentStateMutation 事件流。",
+        "state": "本地 messages、state、currentMutation、runToolCallIds、answeredToolCallIds。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/apply/default.ts",
+            "startLine": 346,
+            "endLine": 390
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/apply/default.ts",
+            "startLine": 489,
+            "endLine": 535
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/apply/default.ts",
+            "startLine": 971,
+            "endLine": 1005
+          }
+        ]
+      },
+      {
+        "id": "subscribers",
+        "name": "订阅者回调与受控 mutation",
+        "role": "runSubscribersWithMutation 顺序执行订阅者；订阅者通过返回值提交 messages/state mutation，而不是原地修改；dev/test 小载荷下 deepFreeze 输入以暴露误写。",
+        "input": "AgentSubscriber[]、当前 messages/state、执行回调。",
+        "output": "合并后的 AgentStateMutation，可能带 stopPropagation。",
+        "state": "freezeInputs、局部 messages/state、messagesMutated/stateMutated、stopPropagation。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/agent/subscriber.ts",
+            "startLine": 330,
+            "endLine": 410
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/agent/subscriber.ts",
+            "startLine": 413,
+            "endLine": 455
+          }
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "from": "orchestrator",
+        "to": "transport",
+        "label": "构建管道并订阅 HttpAgent.run 返回的 transformHttpEventStream"
+      },
+      {
+        "from": "transport",
+        "to": "enforcement",
+        "label": "原始 BaseEvent 进入 enforceEvents"
+      },
+      {
+        "from": "enforcement",
+        "to": "chunks",
+        "label": "已剥离未知字段的事件进入 transformChunks"
+      },
+      {
+        "from": "chunks",
+        "to": "verifier",
+        "label": "展开后的 START/CONTENT/END 进入 verifyEvents"
+      },
+      {
+        "from": "verifier",
+        "to": "reducer",
+        "label": "验证通过的事件进入 defaultApplyEvents"
+      },
+      {
+        "from": "reducer",
+        "to": "subscribers",
+        "label": "每个事件调用 runSubscribersWithMutation"
+      },
+      {
+        "from": "subscribers",
+        "to": "reducer",
+        "label": "返回 AgentStateMutation 给 reducer"
+      },
+      {
+        "from": "reducer",
+        "to": "orchestrator",
+        "label": "processApplyEvents 写回 agent.messages/state 并通知订阅者"
+      }
+    ],
+    "flow": [
+      {
+        "title": "HttpAgent.runAgent 组装输入并合并订阅者",
+        "phase": "初始化与装配",
+        "condition": "必经；如果传入 abortController 则替换默认控制器",
+        "symbol": "HttpAgent.runAgent / AbstractAgent.runAgent / AbstractAgent.prepareRunAgentInput",
+        "owner": "project",
+        "input": "parameters、subscriber、agent.messages、agent.state",
+        "action": "HttpAgent 先设置 abortController 再调用 super.runAgent；AbstractAgent 置 isRunning=true、补 agentId，调用 prepareRunAgentInput 克隆 messages/state、过滤 activity 消息、移除值为 null 的 subagentRunId，并构造内部订阅者加 this.subscribers 加传入 subscriber 的数组。",
+        "stateChange": "isRunning 变为 true；activeRunDetach$ 与 activeRunCompletionPromise 稍后创建；输入被克隆和清洗。",
+        "output": "RunAgentInput、subscribers、currentMessageIds",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/agent/http.ts",
+            "startLine": 66,
+            "endLine": 72
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/agent/agent.ts",
+            "startLine": 296,
+            "endLine": 324
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/agent/agent.ts",
+            "startLine": 578,
+            "endLine": 609
+          }
+        ]
+      },
+      {
+        "title": "onInitialize 校验 resume 并应用初始化 mutation",
+        "phase": "初始化写入；可选分支",
+        "condition": "pendingInterrupts 非空且 input 是本次 runAgent 的输入时检查 resume 覆盖与过期；订阅者 onRunInitialized 始终执行",
+        "symbol": "AbstractAgent.onInitialize / runSubscribersWithMutation",
+        "owner": "project",
+        "input": "input、subscribers、this.pendingInterrupts",
+        "action": "如果存在未覆盖的 pending interrupt 则抛 AGUIError；过期 interrupt 只有 cancelled 条目能继续。随后按顺序跑 onRunInitialized，若有 messages/state mutation，则写回 this.messages/this.state 并重新清洗 input.messages，再通知 onMessagesChanged/onStateChanged。",
+        "stateChange": "this.messages、this.state、input.messages、input.state 可能被订阅者修改；subscriber 通知被触发。",
+        "output": "初始化后的 input 与 subscribers",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/agent/agent.ts",
+            "startLine": 611,
+            "endLine": 690
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/agent/subscriber.ts",
+            "startLine": 330,
+            "endLine": 410
+          }
+        ]
+      },
+      {
+        "title": "构建运行管道并触发 HttpAgent.run",
+        "phase": "装配与调用",
+        "condition": "必经",
+        "symbol": "AbstractAgent.runAgent / HttpAgent.run",
+        "owner": "project",
+        "input": "input、middlewares、activeRunDetach$",
+        "action": "用 reduceRight 把 middlewares 和 CompatibilityBoundary 串成 chainedAgent，最内层调用 chainedAgent.run(input)。管道顺序是 enforceEvents、transformChunks、verifyEvents、takeUntil(activeRunDetach$)、applyBeforeSourceError、catchError(onError)、finalize。",
+        "stateChange": "activeRunDetach$ 和 activeRunCompletionPromise 建立；源事件流开始被订阅。",
+        "output": "Observable<BaseEvent> 以及最终的 AgentStateMutation",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/agent/agent.ts",
+            "startLine": 326,
+            "endLine": 404
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/agent/http.ts",
+            "startLine": 91,
+            "endLine": 103
+          }
+        ]
+      },
+      {
+        "title": "发送前执行 enforceOutgoingInput 与 requestInit",
+        "phase": "写入与发送；订阅时执行",
+        "condition": "fetch thunk 被 runHttpRequest 订阅时执行；发送失败或 schema 非法会进入 catchError",
+        "symbol": "HttpAgent.run / enforceOutgoingInput / HttpAgent.requestInit / sanitizeOutgoingInput",
+        "owner": "project",
+        "input": "RunAgentInput",
+        "action": "HttpAgent.run 把 fetch 包进 runHttpRequest thunk；thunk 内先 enforceOutgoingInput 对 RunAgentInputSchema 做 omitOptionalNulls、stripUnknown、parse，再 requestInit 生成 POST、Content-Type application/json、Accept text/event-stream、JSON.stringify(sanitizeOutgoingInput(input)) 和 abort signal。",
+        "stateChange": "不修改 agent 状态；可能剥离未知字段并警告，非法已知字段在发送前抛错。",
+        "output": "fetch 的 RequestInit 与 Response",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/agent/http.ts",
+            "startLine": 53,
+            "endLine": 64
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/agent/http.ts",
+            "startLine": 91,
+            "endLine": 103
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/enforce/enforce.ts",
+            "startLine": 108,
+            "endLine": 121
+          }
+        ]
+      },
+      {
+        "title": "runHttpRequest 读取响应并由 transformHttpEventStream 解析",
+        "phase": "网络读取与解析",
+        "condition": "response.ok 为 true 时进入读取循环；Content-Type 等于 protobuf media type 走 proto，否则走 SSE；AbortError 转成 RUN_ERROR",
+        "symbol": "runHttpRequest / transformHttpEventStream / parseSSEStream",
+        "owner": "project",
+        "input": "fetch 返回的 Response",
+        "action": "runHttpRequest 对非 ok 响应读取文本并抛带 status/payload 的错误；对 ok 响应先发 HEADERS，再循环 reader.read() 发 DATA。transformHttpEventStream 用 ReplaySubject(1) 缓冲到 HEADERS 后选择解析器；SSE 用 TextDecoder stream:true 累积 buffer，按 \\n\\n 分帧，只取 data: 行拼接后 JSON.parse，并检查结果是对象且 type 是非空字符串。",
+        "stateChange": "SSE buffer、TextDecoder、parserInitialized、eventSubject 状态变化；传输结束后释放 reader。",
+        "output": "原始 BaseEvent 流",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/run/http-request.ts",
+            "startLine": 22,
+            "endLine": 102
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/transform/http.ts",
+            "startLine": 13,
+            "endLine": 90
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/transform/sse.ts",
+            "startLine": 27,
+            "endLine": 130
+          }
+        ]
+      },
+      {
+        "title": "enforceEvents、transformChunks、verifyEvents 依次处理事件",
+        "phase": "校验、展开与验证",
+        "condition": "每个事件必经；chunk 事件会被展开；未知事件类型被 enforceEvents 丢弃；非法序列或归属矛盾由 verifyEvents 抛错",
+        "symbol": "enforceEvents / transformChunks / verifyEvents",
+        "owner": "project",
+        "input": "原始 BaseEvent 流",
+        "action": "enforceEvents 先确认事件类型已知，再按类型 schema stripUnknown 并 parse；transformChunks 用 lanes 把 TEXT/TOOL/REASONING chunk 展开成 START/CONTENT/END，显式事件只关闭自己 lane，RUN_* 和 MESSAGES_SNAPSHOT 关闭所有 lane；verifyEvents 要求第一个事件是 RUN_STARTED 或 RUN_ERROR，维护打开中的消息/工具/推理/步骤/子代理和 owner，RUN_FINISHED 前要求它们关闭。",
+        "stateChange": "lanes、activeMessages、activeToolCalls、owners、activeSteps、activeSubagents 等内部状态变化。",
+        "output": "展开并验证后的 BaseEvent 流",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/enforce/enforce.ts",
+            "startLine": 70,
+            "endLine": 101
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/chunks/transform.ts",
+            "startLine": 398,
+            "endLine": 456
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/verify/verify.ts",
+            "startLine": 382,
+            "endLine": 460
+          }
+        ]
+      },
+      {
+        "title": "defaultApplyEvents 归约事件并写回 agent 状态",
+        "phase": "写入与通知",
+        "condition": "每个验证后事件必经；订阅者设置 stopPropagation 时跳过该事件的内置归约；源错误在已收事件应用完后重新抛出",
+        "symbol": "defaultApplyEvents / AbstractAgent.processApplyEvents / AbstractAgent.applyBeforeSourceError",
+        "owner": "project",
+        "input": "验证后的 BaseEvent 流、input、subscribers、agent",
+        "action": "defaultApplyEvents 克隆 agent.messages 和 input.state，逐事件先跑 onEvent 与对应订阅者，再按事件类型修改本地 messages/state：TEXT_MESSAGE_CONTENT 追加 delta，TOOL_CALL_ARGS 追加 arguments，STATE_DELTA 用 fast-json-patch 生成 newDocument；每步 emitUpdates 发出 AgentStateMutation。processApplyEvents 收到 mutation 后写 this.messages/this.state 并通知 onMessagesChanged/onStateChanged。applyBeforeSourceError 把源错误暂存，等归约排空后再 rethrow。",
+        "stateChange": "agent.messages、agent.state 被 mutation 替换；订阅者收到 onMessagesChanged/onStateChanged。",
+        "output": "AgentStateMutation 流",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/apply/default.ts",
+            "startLine": 346,
+            "endLine": 390
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/apply/default.ts",
+            "startLine": 489,
+            "endLine": 535
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/apply/default.ts",
+            "startLine": 971,
+            "endLine": 1005
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/agent/agent.ts",
+            "startLine": 503,
+            "endLine": 576
+          }
+        ]
+      },
+      {
+        "title": "finalize 收尾并返回 result 与 newMessages",
+        "phase": "收尾与查询",
+        "condition": "流完成或出错时 finalize 必执行；onFinalize 的异步结果不被 runAgent await",
+        "symbol": "AbstractAgent.onFinalize / AbstractAgent.runAgent",
+        "owner": "project",
+        "input": "input、subscribers、this.messages",
+        "action": "finalize 把 isRunning 置 false，调用 void this.onFinalize 跑 onRunFinalized 并可能写回 messages/state，然后 resolve activeRunCompletionPromise 并清空 detach 状态。lastValueFrom 返回后，runAgent 用 currentMessageIds 对比 this.messages 计算 newMessages，并返回内部订阅者捕获的 result。",
+        "stateChange": "isRunning 变为 false；finalize 订阅者可能再次修改 messages/state；activeRunDetach$/completionPromise 清空。",
+        "output": "RunAgentResult {result, newMessages}",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/agent/agent.ts",
+            "startLine": 382,
+            "endLine": 404
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/agent/agent.ts",
+            "startLine": 753,
+            "endLine": 789
+          }
+        ]
+      }
+    ],
+    "technologies": [
+      {
+        "name": "RxJS 事件管道与取消",
+        "problem": "把传输、校验、归约、错误与收尾组合成可取消的顺序流，而不是手写回调链。",
+        "mechanism": "HttpAgent.run 返回 Observable；AbstractAgent.runAgent 用 pipe 依次挂 enforceEvents、transformChunks、verifyEvents、takeUntil(activeRunDetach$)、applyBeforeSourceError、catchError、finalize，再用 lastValueFrom 等待结束。",
+        "pseudocode": "input = prepareRunAgentInput(params)\nsubs = [internalResultCapture, ...agent.subscribers, subscriber]\nawait onInitialize(input, subs)\ndetach = new Subject()\nsource = chainedAgent.run(input)\nout = source.pipe(enforce, expandChunks, verify, takeUntil(detach), apply(input, subs))\ntry:\n  await lastValueFrom(out.pipe(catchError(onError), finalize(cleanup)))\nreturn {result, newMessages: diff(agent.messages, beforeIds)}",
+        "dataStructures": "Observable、Subject、Subscription、AgentStateMutation；activeRunDetach$ 是取消信号。",
+        "projectCode": "本项目实现管道顺序、middleware 链、applyBeforeSourceError、onError/onFinalize 和 newMessages 差分。",
+        "externalDependency": "rxjs 提供 pipe、defer、mergeMap、concatMap、takeUntil、catchError、finalize、lastValueFrom 等操作符；本项目决定它们如何组合。",
+        "tradeoff": "组合式管道便于插入校验和取消，但顺序非常关键；takeUntil 与 finalize 的时序需要谨慎测试。",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/agent/agent.ts",
+            "startLine": 296,
+            "endLine": 324
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/agent/agent.ts",
+            "startLine": 336,
+            "endLine": 404
+          }
+        ]
+      },
+      {
+        "name": "SSE 分帧与内容类型协商",
+        "problem": "HTTP body 的字节块边界不等于事件边界，UTF-8 字符和 SSE 帧都可能被拆开。",
+        "mechanism": "runHttpRequest 发 HEADERS 和 DATA；transformHttpEventStream 看到 HEADERS 后按 Content-Type 选解析器；SSE 解析器用 TextDecoder stream:true 解码，buffer 累积后按 \\n\\n 切帧，保留最后一段未完成数据，把 data: 行拼接后 JSON.parse。",
+        "pseudocode": "on HEADERS:\n  parser = contentType == proto ? proto : sse\non DATA:\n  text = decoder.decode(bytes, {stream: true})\n  buffer += text\n  frames = buffer.split('\\n\\n')\n  buffer = frames.pop()\n  for frame in frames:\n    data = lines starting 'data:' joined by '\\n'\n    obj = JSON.parse(data)\n    if obj is object and typeof obj.type == 'string': emit obj",
+        "dataStructures": "buffer 字符串、TextDecoder、ReplaySubject(1)、eventSubject、reader。",
+        "projectCode": "本项目实现 SSE 分帧、data: 行提取、JSON 形状检查和 AbortError 到 RUN_ERROR 的转换。",
+        "externalDependency": "浏览器 fetch 提供 Response.body.getReader()，TextDecoder 处理 UTF-8，JSON.parse 解析帧；传输协议本身不依赖 RxJS。",
+        "tradeoff": "SSE 简单且跨语言，但需要处理拆包、粘包、最大 buffer 和取消读取；protobuf 分支需另一套解析器。",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/run/http-request.ts",
+            "startLine": 22,
+            "endLine": 102
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/transform/http.ts",
+            "startLine": 13,
+            "endLine": 90
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/transform/sse.ts",
+            "startLine": 27,
+            "endLine": 130
+          }
+        ]
+      },
+      {
+        "name": "Zod schema 剥离与严格校验",
+        "problem": "生产者可能发送旧版本、未知字段或 schema 不允许的 null；未知字段应告警剥离，但已知字段的非法值必须让运行失败。",
+        "mechanism": "enforceOutgoingInput 先 omitOptionalNulls 再对 RunAgentInputSchema stripUnknown 和 parse；enforceEvents 用 EventType 判断已知类型，按 EVENT_SCHEMA_BY_TYPE 取 schema，stripUnknown 后 parse；未知事件类型直接丢弃。",
+        "pseudocode": "function enforceOutgoing(input):\n  input = omitOptionalNulls(input, 'RunAgentInput')\n  {value, stripped} = stripUnknown(input, RunAgentInputSchema)\n  warn(stripped)\n  return RunAgentInputSchema.parse(value)\n\nfunction enforceEvent(e):\n  if e.type not in EventType: warn; drop\n  schema = EVENT_SCHEMA_BY_TYPE.get(e.type)\n  {value, stripped} = stripUnknown(e, schema)\n  warn(stripped)\n  return schema.parse(value)",
+        "dataStructures": "KNOWN_EVENT_TYPES Set、EVENT_SCHEMA_BY_TYPE Map、stripped 路径列表。",
+        "projectCode": "本项目决定在发送前和入站管道中执行剥离与校验，并决定未知事件类型丢弃、非法已知字段致命。",
+        "externalDependency": "zod/v4 和 @ag-ui/core/schemas 生成具体 schema；本项目只编排调用点和告警。",
+        "tradeoff": "严格校验能阻止坏数据进入状态和下一轮请求，但要求协议 schema 与生成类型保持一致；剥离未知字段可能掩盖生产者错误，所以每个路径都告警。",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/enforce/enforce.ts",
+            "startLine": 70,
+            "endLine": 101
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/enforce/enforce.ts",
+            "startLine": 108,
+            "endLine": 121
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/agent/http.ts",
+            "startLine": 91,
+            "endLine": 103
+          }
+        ]
+      },
+      {
+        "name": "JSON Patch 状态增量",
+        "problem": "状态更新可能只改一个字段，不应每轮发送完整快照。",
+        "mechanism": "STATE_DELTA 事件带 JSON Patch 操作数组；reducer 对当前 state 调用 jsonpatch.applyPatch(state, delta, true, false)，拿 newDocument 作为新 state，并发出 state mutation；补丁失败只告警不更新。",
+        "pseudocode": "on STATE_DELTA(e):\n  mutation = runSubscribers(e)\n  applyMutation(mutation)\n  if mutation.stopPropagation != true:\n    try:\n      result = jsonpatch.applyPatch(state, e.delta, true, false)\n      state = result.newDocument\n      currentMutation.state = state\n    catch error:\n      warn(error)",
+        "dataStructures": "State 是任意 JSON；delta 是 JSON Patch 操作数组；currentMutation 暂存待发 state。",
+        "projectCode": "本项目在 defaultApplyEvents 的 STATE_DELTA 分支决定何时调用 patch、如何发 mutation、失败时如何降级。",
+        "externalDependency": "fast-json-patch 负责按 RFC 6902 应用操作并返回 newDocument；本项目不实现 patch 算法。",
+        "tradeoff": "增量小、传输省，但补丁路径错误或顺序错会失败；失败只告警意味着 UI 可能保留旧状态。",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/apply/default.ts",
+            "startLine": 971,
+            "endLine": 1005
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/apply/__tests__/default.state.test.ts",
+            "startLine": 29,
+            "endLine": 49
+          }
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "decision": "一次运行拆成可流式消费的事件序列，而不是只返回一条完整消息",
+        "constraint": "用户需要实时看到文本增长、工具调用参数和状态更新；后端也可能在完成前发多个中间事件。",
+        "alternative": "等后端全部完成后返回一个完整 JSON，再由前端一次性渲染。",
+        "why": "全文示例中 TEXT_MESSAGE_CONTENT 每来一个 delta 就触发一次 messages mutation，STATE_DELTA 也能独立应用；如果等完整响应，首字延迟和工具调用中间态都无法显示，订阅者也无法在事件级拦截或停止传播。",
+        "cost": "必须维护事件顺序、实体开闭和归属校验；客户端复杂度明显高于一次性响应。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "README.md",
+            "startLine": 43,
+            "endLine": 53
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/agent/agent.ts",
+            "startLine": 336,
+            "endLine": 404
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/apply/default.ts",
+            "startLine": 489,
+            "endLine": 535
+          }
+        ]
+      },
+      {
+        "decision": "enforceEvents 放在 transformChunks 之前，verifyEvents 放在展开之后",
+        "constraint": "chunk 本身也是事件，必须先按自己的 schema 校验；verifyEvents 检查的消息开闭和配对只有在 chunk 展开成 START/CONTENT/END 后才存在。",
+        "alternative": "先展开 chunk 再统一校验，或把校验放到最外层。",
+        "why": "如果先展开，malformed role 可能在展开时被修成 assistant，导致同一个缺陷在普通事件中致命、在 chunk 中却不可见；先 enforce 保证展开只重塑已知合法值，verify 再检查展开后的序列。",
+        "cost": "管道顺序成为隐含契约；middleware 内部若提前调用 runNext 展开，需要额外把未知材料带到下游告警。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "Enforcement BEFORE expansion: a chunk is an event of its own, so it is validated as one like any other, and expansion then only ever reshapes values already known good.",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/agent/agent.ts",
+            "startLine": 360,
+            "endLine": 370
+          }
+        ]
+      },
+      {
+        "decision": "发送前在 fetch thunk 内做最终出站清洗和 schema 校验",
+        "constraint": "prepareRunAgentInput 之后，middleware 和 onRunInitialized 仍可能写 input；值为 null 的 subagentRunId 对接收端是 schema 非法，会杀死整轮运行。",
+        "alternative": "只在 prepareRunAgentInput 清洗一次，之后直接 JSON.stringify。",
+        "why": "HttpAgent.run 把 enforceOutgoingInput 放在 deferred thunk 中，请求真正发出前再剥离未知字段并 parse；requestInit 再调用 sanitizeOutgoingInput 去掉 null 标签。这样即使中间件或订阅者改了 input，也不会把非法 null 发到线上。",
+        "cost": "每次请求多一次 schema 剥离和 parse；错误在 fetch thunk 内抛出，必须由管道 catchError 接住。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/agent/http.ts",
+            "startLine": 15,
+            "endLine": 39
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/agent/http.ts",
+            "startLine": 91,
+            "endLine": 103
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/enforce/enforce.ts",
+            "startLine": 108,
+            "endLine": 121
+          }
+        ]
+      },
+      {
+        "decision": "TOOL_CALL_START 归约必须幂等，先查已有 toolCall 再创建消息",
+        "constraint": "同一个 start 可能因为 HITL 重同步、重放或双传输到达 reducer 两次；工具调用还可能已经存在于 agent.messages 中。",
+        "alternative": "每次 TOOL_CALL_START 都无条件 push 一个新 ToolCall。",
+        "why": "无条件 push 会让 assistant 消息持有两个相同 id 的调用，第二个副本因为 TOOL_CALL_ARGS 查找第一个匹配而永远为空；这个畸形消息还会被带回下一轮 provider。先查已有调用并只更新名称/元数据，重放就不会制造重复。",
+        "cost": "每次 start 都要扫描 messages 中已有 toolCalls；如果同名 id 被不同名称重用，需要告警并原地改 name。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/apply/default.ts",
+            "startLine": 616,
+            "endLine": 651
+          }
+        ]
+      },
+      {
+        "decision": "订阅者通过返回值提交 mutation，并用 dev/test deepFreeze 暴露原地写",
+        "constraint": "订阅者拿到的是共享 messages/state 引用；如果允许原地改，reducer 无法判断变化边界，也难以发出正确的 onMessagesChanged/onStateChanged。",
+        "alternative": "让订阅者直接修改传入的 messages/state，reducer 每步后深比较。",
+        "why": "runSubscribersWithMutation 顺序执行订阅者，只有返回的 mutation 才被 defensive clone 合并；dev/test 小载荷下 deepFreeze 输入，让误写立即变成 TypeError，而不是悄悄污染状态。stopPropagation 可以提前终止后续订阅者和内置归约。",
+        "cost": "生产环境和小载荷阈值以上会跳过 freeze 以省性能；订阅者必须遵守返回 mutation 的约定，不能依赖原地写。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "Subscribers receive shared references and must not mutate them in-place. Mutations should only be communicated via the return value.",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/agent/subscriber.ts",
+            "startLine": 330,
+            "endLine": 455
+          }
+        ]
+      }
+    ],
+    "codeWalkthroughs": [
+      {
+        "title": "runAgent 如何把输入、订阅者和管道串起来",
+        "explanation": "runAgent 先 prepareRunAgentInput 克隆并清洗消息/状态，构造内部订阅者捕获 RUN_FINISHED 的 result，并把 this.subscribers 与调用方 subscriber 合并。随后创建 activeRunDetach$，在 pipe 的第一个函数里用 reduceRight 把 middlewares 和 CompatibilityBoundary 串成 chainedAgent，再调用 chainedAgent.run(input)。管道中 enforceEvents 先校验原始事件，transformChunks 展开 chunk，verifyEvents 检查序列，takeUntil 让 detachActiveRun 能停止处理，applyBeforeSourceError 保证已收事件先应用再把源错误抛出，finalize 负责 isRunning=false、onFinalize 和完成 Promise。最后 lastValueFrom 等待流结束，用 currentMessageIds 差分出 newMessages。",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/agent/agent.ts",
+            "startLine": 296,
+            "endLine": 324
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/agent/agent.ts",
+            "startLine": 336,
+            "endLine": 400
+          }
+        ]
+      },
+      {
+        "title": "HttpAgent.run 在发送前做两次防护",
+        "explanation": "HttpAgent.run 没有立即 fetch，而是把 fetch 包进 runHttpRequest 的回调，等订阅时才执行。回调里先 enforceOutgoingInput：omitOptionalNulls、stripUnknown、parse，未知字段告警剥离，已知字段非法直接抛错。然后 requestInit 生成 POST 头、Accept text/event-stream、abort signal，并在 JSON.stringify 前调用 sanitizeOutgoingInput 去掉消息上的 subagentRunId:null。这样 middlewares 或 onRunInitialized 在 prepareRunAgentInput 之后写入的非法 null 也不会离开进程。",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/agent/http.ts",
+            "startLine": 91,
+            "endLine": 103
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/agent/http.ts",
+            "startLine": 53,
+            "endLine": 64
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/enforce/enforce.ts",
+            "startLine": 108,
+            "endLine": 121
+          }
+        ]
+      },
+      {
+        "title": "文本增量与工具调用如何写入消息",
+        "explanation": "TEXT_MESSAGE_CONTENT 先按 messageId 找到目标消息，拒绝写入 activity 消息；调用订阅者时把当前 content 作为 textMessageBuffer 传入。若订阅者没有 stopPropagation，就把 existingContent 与 delta 拼成新 content，再 applyEventMetadata 并发出 messages mutation。TOOL_CALL_START 则先在整个 messages 中查找是否已有 toolCallId：已有就只更新名称/元数据并直接返回，避免重放产生第二个空副本；没有才 resolveOrCreateAssistantMessage，初始化 toolCalls 数组并 push 一个 arguments 为空的 ToolCall。",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/apply/default.ts",
+            "startLine": 489,
+            "endLine": 535
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/apply/default.ts",
+            "startLine": 595,
+            "endLine": 651
+          }
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "question": "文本增量是否真的按 delta 追加，而不是每次用累计快照覆盖？",
+        "change": "向 defaultApplyEvents 依次发送 TEXT_MESSAGE_START(m1)、TEXT_MESSAGE_CONTENT(m1,'Hello ')、TEXT_MESSAGE_CONTENT(m1,'world!')、TEXT_MESSAGE_END(m1)。",
+        "expected": "应观察到两次 content mutation：第一次 messages[0].content 为 'Hello '，第二次为 'Hello world!'；TEXT_MESSAGE_END 不产生新的 content mutation。因为 reducer 用 existingContent + delta 赋值，而不是用事件里的完整文本覆盖。",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/apply/default.ts",
+            "startLine": 489,
+            "endLine": 535
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/apply/__tests__/default.text-message.test.ts",
+            "startLine": 49,
+            "endLine": 101
+          }
+        ]
+      },
+      {
+        "question": "重复的 TOOL_CALL_START 是否会制造第二个 toolCall？",
+        "change": "发送 RUN_STARTED、同一个 TOOL_CALL_START(tc-1, search, parentMessageId=msg-1) 两次、再发 TOOL_CALL_ARGS(tc-1,'{\"query\":\"x\"}') 和 TOOL_CALL_END。",
+        "expected": "最终 messages 中只有一个 assistant 消息，toolCalls 长度为 1，且 arguments 为 '{\"query\":\"x\"}'；重复的 start 不应再 push 一个空副本。因为 reducer 在 resolveOrCreateAssistantMessage 之前先查已有 toolCall。",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/apply/default.ts",
+            "startLine": 616,
+            "endLine": 651
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/apply/__tests__/default.tool-calls.test.ts",
+            "startLine": 883,
+            "endLine": 924
+          }
+        ]
+      },
+      {
+        "question": "STATE_DELTA 是否把 Patch 应用到当前 state 并发出 state mutation？",
+        "change": "初始 state 为 {count:0,text:'hello'}，发送 STATE_DELTA，delta 为 [{op:'replace',path:'/count',value:1},{op:'replace',path:'/text',value:'world'}]。",
+        "expected": "应观察到 update.state 为 {count:1,text:'world'}；如果 patch 路径不存在，则应告警且不发出该次 state mutation。因为 reducer 调用 fast-json-patch 的 applyPatch 并用 newDocument 替换 state。",
+        "evidence": [
+          {
+            "path": "sdks/typescript/packages/client/src/apply/default.ts",
+            "startLine": 971,
+            "endLine": 1005
+          },
+          {
+            "path": "sdks/typescript/packages/client/src/apply/__tests__/default.state.test.ts",
+            "startLine": 29,
+            "endLine": 49
+          }
+        ]
+      }
+    ],
+    "takeaways": [
+      "一次 Agent 运行在前端被拆成输入装配、HTTP/SSE 传输、入站 schema 强制、chunk 展开、序列验证、事件归约、订阅者通知和收尾八段；每段只处理一种变化。",
+      "文本增量不是完整文本快照：TEXT_MESSAGE_CONTENT 的 delta 被追加到 existingContent 后面，工具调用参数也是字符串累积；状态则可由 STATE_SNAPSHOT 整体替换或 STATE_DELTA 用 JSON Patch 增量修改。",
+      "管道顺序是正确性的一部分：enforceEvents 必须先于 chunk 展开，verifyEvents 必须晚于展开；发送前还要在 fetch thunk 内做最终出站清洗，防止 middleware 或订阅者写入非法 null。",
+      "订阅者不能原地改共享 messages/state；返回值 mutation 加 stopPropagation 是唯一受控通道，dev/test 的 deepFreeze 只是暴露误写的辅助手段。"
+    ],
+    "gaps": [
+      "resolveOrCreateAssistantMessage 的函数体未包含在已读片段中（symbol bodyIncluded=false），无法逐行说明 parentMessageId 与已有非 assistant 消息冲突时如何回退到 toolCallId；只能从调用点和测试观察行为。",
+      "parseProtoStream 的实现未读，无法解释 protobuf 分支如何解码二进制帧以及与 SSE 分支共享哪些校验。",
+      "stripUnknown 的内部遍历算法未读，无法说明它如何递归处理嵌套 union、数组和未知对象键。",
+      "CompatibilityBoundary 和具体 middlewares 的实现未读，无法说明旧版本事件翻译和 THINKING_* 等兼容逻辑的细节。"
+    ]
+  }
+}

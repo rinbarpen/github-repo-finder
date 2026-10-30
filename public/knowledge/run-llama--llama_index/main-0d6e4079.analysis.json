@@ -1,0 +1,796 @@
+{
+  "version": 3,
+  "repo": "run-llama/llama_index",
+  "ref": "main",
+  "sha": "619d74664e8404612038bc15a1a40c686037277c",
+  "analysis": {
+    "version": 3,
+    "kind": "architecture",
+    "requestedModel": "deepseek-flash",
+    "actualModel": "deepseek-flash",
+    "filesRead": 24,
+    "charactersRead": 254080,
+    "modules": 5,
+    "flowSteps": 9,
+    "mechanisms": 4,
+    "decisions": 5,
+    "readingStrategy": "model-and-profile",
+    "structuralChecks": "passed",
+    "usage": {
+      "prompt_tokens": 97182,
+      "completion_tokens": 19591
+    },
+    "notes": [
+      "已统一 4 个图表内部 ID，模块与连线含义未变"
+    ]
+  },
+  "plan": {
+    "scenario": "多轮对话消息先写入 SQLAlchemyChatStore 的 ACTIVE 队列；当活跃队列 token 超过 token_limit*chat_history_token_ratio 时，Memory._manage_queue 按 FIFO 把最旧消息归档（archive_oldest_messages）并 waterfall 到各 memory block（VectorMemoryBlock 写入向量库、FactMemoryBlock 抽取事实）。下次 Memory.aget 读取 ACTIVE 消息、并发调用各 block 的 aget 取回内容、按 token 预算截断、用 memory_blocks_template 格式化后按 insert_method 插入 system/user 消息，最终返回给 LLM 的 ChatMessage 列表。向量检索只是可选块，不是默认长期记忆。",
+    "files": [
+      {
+        "path": "llama-index-core/llama_index/core/memory/memory.py",
+        "focus": [
+          "Memory.aput",
+          "Memory._manage_queue",
+          "Memory.aget",
+          "Memory._insert_memory_content",
+          "Memory._estimate_token_count",
+          "Memory._get_memory_blocks_content",
+          "Memory._truncate_memory_blocks",
+          "Memory._format_memory_blocks"
+        ],
+        "reason": "核心实现：定义 BaseMemoryBlock 抽象与 Memory 主类。aput 写 ACTIVE 队列并触发 _manage_queue；_manage_queue 是 token 预算触发转存/裁剪的主算法（waterfall、保持完整对话轮次、archive + 并发 block.aput）；aget 是公开读取入口，串起 _get_memory_blocks_content、_truncate_memory_blocks、_format_memory_blocks、_insert_memory_content。这些方法位于文件后半段，需完整读取。"
+      },
+      {
+        "path": "llama-index-core/llama_index/core/memory/memory_blocks/vector.py",
+        "focus": [
+          "VectorMemoryBlock._aget",
+          "VectorMemoryBlock._aput",
+          "VectorMemoryBlock._get_text_from_messages",
+          "VectorMemoryBlock.validate_vector_store"
+        ],
+        "reason": "具体存储/检索适配器：_aput 把被 flush 的消息批次嵌入并写入 vector_store（带 session_id 元数据）；_aget 用最近 retrieval_context_window 条消息构造查询、按 session_id 过滤、aquery 后经 postprocessor 与 format_template 返回文本。说明向量块是可选的已配置块。"
+      },
+      {
+        "path": "llama-index-core/llama_index/core/memory/memory_blocks/fact.py",
+        "focus": [
+          "FactMemoryBlock._aget",
+          "FactMemoryBlock._aput",
+          "FactMemoryBlock.atruncate"
+        ],
+        "reason": "另一类 memory block 实现，展示事实抽取与维护路径，与向量检索形成对比（RAG 找资料 vs 记忆维护事实）。需读取其 _aput/_aget/atruncate 以确认实际被 Memory 调用的实现。"
+      },
+      {
+        "path": "llama-index-core/llama_index/core/memory/types.py",
+        "focus": [
+          "BaseMemory"
+        ],
+        "reason": "Memory 的抽象基类/协议，界定 aget/aput 契约，帮助确认公开入口与实现边界（类型文件，计入两个类型文件之一）。"
+      },
+      {
+        "path": "llama-index-core/llama_index/core/storage/chat_store/sql.py",
+        "focus": [
+          "SQLAlchemyChatStore.add_message",
+          "SQLAlchemyChatStore.get_messages",
+          "SQLAlchemyChatStore.archive_oldest_messages",
+          "MessageStatus"
+        ],
+        "reason": "Memory 实际使用的短期存储适配器：ACTIVE/ARCHIVED 状态、add_message、get_messages(status=ACTIVE)、archive_oldest_messages 是 _manage_queue 转存的具体落点，需确认其语义。"
+      },
+      {
+        "path": "llama-index-core/llama_index/core/storage/chat_store/base_db.py",
+        "focus": [
+          "AsyncDBChatStore"
+        ],
+        "reason": "SQLAlchemyChatStore 的抽象基类，界定 add_message/get_messages/archive_oldest_messages 契约，确认 Memory 依赖的是接口而非具体实现（类型文件，计入两个类型文件之一）。"
+      },
+      {
+        "path": "llama-index-core/llama_index/core/memory/memory_blocks/static.py",
+        "focus": [
+          "StaticMemoryBlock._aget",
+          "StaticMemoryBlock._aput"
+        ],
+        "reason": "最简单的 block 实现，用于对照理解 BaseMemoryBlock 的 aget/aput 默认行为与 Memory 的并发调用方式。"
+      },
+      {
+        "path": "llama-index-core/llama_index/core/memory/simple_composable_memory.py",
+        "focus": [
+          "SimpleComposableMemory"
+        ],
+        "reason": "组合式 memory 的另一种实现，展示 Memory 之外的多 memory 组合路径，帮助界定项目边界与设计取舍。"
+      },
+      {
+        "path": "llama-index-core/llama_index/core/memory/chat_memory_buffer.py",
+        "focus": [
+          "ChatMemoryBuffer"
+        ],
+        "reason": "传统短期缓冲实现，作为对照说明 Memory 的 token 预算/waterfall 设计取舍（旧实现 vs 新 Memory）。"
+      },
+      {
+        "path": "llama-index-core/llama_index/core/indices/vector_store/retrievers/retriever.py",
+        "focus": [
+          "VectorIndexRetriever._aretrieve",
+          "VectorIndexRetriever._aget_nodes_with_embeddings",
+          "VectorIndexRetriever._build_vector_store_query"
+        ],
+        "reason": "RAG 检索路径的实际实现，用于对比 VectorMemoryBlock 的向量检索：前者面向文档索引，后者面向对话记忆块，说明两者差异。"
+      },
+      {
+        "path": "llama-index-core/llama_index/core/query_engine/retriever_query_engine.py",
+        "focus": [
+          "RetrieverQueryEngine._aquery",
+          "RetrieverQueryEngine.aretrieve"
+        ],
+        "reason": "RAG 端到端入口，展示检索结果如何进入 response synthesizer 组装上下文，与 Memory.aget 的上下文组装形成对照。"
+      },
+      {
+        "path": "llama-index-core/llama_index/core/vector_stores/simple.py",
+        "focus": [
+          "SimpleVectorStore.aquery",
+          "SimpleVectorStore.async_add"
+        ],
+        "reason": "VectorMemoryBlock 默认可用的具体向量存储适配器，确认 aquery/async_add 的实际实现与相似度计算。"
+      },
+      {
+        "path": "llama-index-core/llama_index/core/memory/__init__.py",
+        "focus": [],
+        "reason": "导出清单，确认 Memory/VectorMemoryBlock/FactMemoryBlock 的公开入口与模块边界。"
+      },
+      {
+        "path": "docs/src/content/docs/framework/getting_started/concepts.mdx",
+        "focus": [],
+        "reason": "示例/文档：说明 RAG 与 agent memory 的高层概念差异，作为理解设计取舍的示例材料（测试/示例至少一个）。"
+      }
+    ]
+  },
+  "report": {
+    "overview": {
+      "plainLanguage": "把多轮对话先放进有 token 预算的短期队列，超限时把旧消息转入可插拔的长期块，读取时再把块内容拼回消息列表。",
+      "problem": "上下文窗口有限，全量历史不能每次送给模型；直接按 token 截断又会丢掉较早的对话或事实。",
+      "scenarioInput": "假设 Memory(token_limit=1000, chat_history_token_ratio=0.7, token_flush_size=100)，并配置 VectorMemoryBlock 与 FactExtractionMemoryBlock。ACTIVE 队列已有若干 user/assistant 消息，估算共 760 tokens；此时又写入一条消息。",
+      "scenarioOutput": "预期：ACTIVE 队列因超过 700 tokens 触发转存，最旧的完整对话轮次被标为 ARCHIVED 并分发给各块；下次 aget 读取剩余 ACTIVE 消息，按 priority 取回块内容，若总 token 超限则从低优先级块截断，最后返回 active 历史。若块有内容，默认把 <memory> 文本前置到 system message；否则只返回 active 历史。具体向量召回和事实抽取结果取决于外部向量库与 LLM，不能预先断言。"
+    },
+    "modules": [
+      {
+        "id": "entry",
+        "name": "Memory 编排器",
+        "role": "维护短期队列与块列表，负责写入后的转存检测、读取时的块取回、截断和最终消息组装。",
+        "input": "ChatMessage、可选查询 input、session_id 和 memory_blocks 配置。",
+        "output": "按插入策略组装后的 List[ChatMessage]。",
+        "state": "session_id、token 预算参数、memory_blocks、sql_store；不直接拥有块内部事实或向量。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 188,
+            "endLine": 258
+          },
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 624,
+            "endLine": 670
+          }
+        ]
+      },
+      {
+        "id": "atlas_1",
+        "name": "SQL 短期消息队列",
+        "role": "用 ACTIVE/ARCHIVED 状态保存消息，提供按时间排序读取、归档最旧消息和批量写入。",
+        "input": "session key、ChatMessage、目标状态。",
+        "output": "ACTIVE 消息列表或已归档消息列表。",
+        "state": "数据库表中的 key、timestamp、role、status、data。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/storage/chat_store/sql.py",
+            "startLine": 35,
+            "endLine": 45
+          },
+          {
+            "path": "llama-index-core/llama_index/core/storage/chat_store/sql.py",
+            "startLine": 173,
+            "endLine": 204
+          },
+          {
+            "path": "llama-index-core/llama_index/core/storage/chat_store/sql.py",
+            "startLine": 372,
+            "endLine": 406
+          }
+        ]
+      },
+      {
+        "id": "atlas_2",
+        "name": "记忆块契约",
+        "role": "规定块如何接收短期消息、如何返回内容、如何按 priority 被截断；Memory 只依赖这个契约。",
+        "input": "消息列表、session_id、截断 token 提示。",
+        "output": "str、List[ContentBlock] 或 List[ChatMessage]，或截断后的内容。",
+        "state": "name、priority、accept_short_term_memory 等块级状态。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 103,
+            "endLine": 187
+          }
+        ]
+      },
+      {
+        "id": "atlas_3",
+        "name": "向量记忆块",
+        "role": "可选的长期消息块：把被转存的消息批次写成带 session_id 的向量节点，查询时按最近上下文检索相关旧消息。",
+        "input": "转存消息或当前查询上下文。",
+        "output": "格式化后的检索文本；没有结果时返回空字符串。",
+        "state": "外部 vector_store 中的 TextNode 及 metadata.session_id。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory_blocks/vector.py",
+            "startLine": 29,
+            "endLine": 65
+          },
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory_blocks/vector.py",
+            "startLine": 100,
+            "endLine": 168
+          },
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory_blocks/vector.py",
+            "startLine": 170,
+            "endLine": 202
+          }
+        ]
+      },
+      {
+        "id": "atlas_4",
+        "name": "事实抽取记忆块",
+        "role": "可选的长期事实块：用 LLM 从转存消息中抽取离散事实，超过上限时再让 LLM 合并压缩。",
+        "input": "被转存的消息列表。",
+        "output": "由 <fact> 标签拼接的事实文本。",
+        "state": "facts 列表和 max_facts。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory_blocks/fact.py",
+            "startLine": 67,
+            "endLine": 97
+          },
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory_blocks/fact.py",
+            "startLine": 110,
+            "endLine": 183
+          }
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "from": "entry",
+        "to": "atlas_1",
+        "label": "aput/aget 以 ACTIVE 状态读写；_manage_queue 调 archive_oldest_messages"
+      },
+      {
+        "from": "entry",
+        "to": "atlas_2",
+        "label": "按 memory_blocks 列表调用 aput/aget/atruncate"
+      },
+      {
+        "from": "atlas_2",
+        "to": "atlas_3",
+        "label": "VectorMemoryBlock 实现具体 _aget/_aput"
+      },
+      {
+        "from": "atlas_2",
+        "to": "atlas_4",
+        "label": "FactExtractionMemoryBlock 实现具体 _aget/_aput"
+      },
+      {
+        "from": "atlas_1",
+        "to": "entry",
+        "label": "返回 ACTIVE 消息供预算判断与最终组装"
+      }
+    ],
+    "flow": [
+      {
+        "title": "装配 Memory 与默认短期库",
+        "phase": "初始化",
+        "condition": "创建 Memory 时；若未传 chat_store，则创建默认 SQLAlchemyChatStore",
+        "symbol": "Memory.from_defaults / Memory.validate_memory",
+        "owner": "project",
+        "input": "token_limit、ratio、flush size、memory_blocks、可选 chat_history。",
+        "action": "生成 session_id，创建或接收 chat store；若传入 chat_history 则 set_messages；校验 token_limit、flush size 和块名唯一。",
+        "stateChange": "Memory 持有 sql_store、session_id 和 memory_blocks。",
+        "output": "可写入、可读取的 Memory 实例。",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 288,
+            "endLine": 342
+          },
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 266,
+            "endLine": 286
+          }
+        ]
+      },
+      {
+        "title": "写入一条消息到 ACTIVE 队列",
+        "phase": "写入",
+        "condition": "每次 aput 必经",
+        "symbol": "Memory.aput",
+        "owner": "project",
+        "input": "一条 ChatMessage。",
+        "action": "先调用 sql_store.add_message 写入 ACTIVE，再调用 _manage_queue。",
+        "stateChange": "数据库新增一行 ACTIVE 消息。",
+        "output": "活跃队列多一条消息。",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 811,
+            "endLine": 819
+          }
+        ]
+      },
+      {
+        "title": "估算 ACTIVE token 并判断是否越线",
+        "phase": "写入后检测",
+        "condition": "aput 后必经；只有 tokens_in_current_queue > token_limit*chat_history_token_ratio 才进入转存",
+        "symbol": "Memory._manage_queue",
+        "owner": "project",
+        "input": "当前 session 的 ACTIVE 消息。",
+        "action": "读取 ACTIVE 消息，用 _estimate_token_count 汇总 token，和比例阈值比较；空队列直接返回。",
+        "stateChange": "未越线时无状态变化。",
+        "output": "越线则进入最旧消息选择；否则 aput 结束。",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 672,
+            "endLine": 697
+          }
+        ]
+      },
+      {
+        "title": "按 flush 大小取最旧消息并保留完整轮次",
+        "phase": "写入后检测/转存",
+        "condition": "第 3 步已超过阈值",
+        "symbol": "Memory._manage_queue",
+        "owner": "project",
+        "input": "ACTIVE 队列和 tokens_to_remove。",
+        "action": "把队列反转为 newest-first，从尾部弹出最旧消息，直到达到 token_flush_size；至少保留一条，并调整边界使剩余队列尽量从 user 消息开始；必要时把最近完整对话轮次放回队列。",
+        "stateChange": "只在内存中移动消息列表。",
+        "output": "messages_to_flush 和调整后的 reversed_queue。",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 699,
+            "endLine": 779
+          }
+        ]
+      },
+      {
+        "title": "归档旧消息并并发分发给各块",
+        "phase": "转存",
+        "condition": "第 4 步得到非空 messages_to_flush",
+        "symbol": "Memory._manage_queue / SQLAlchemyChatStore.archive_oldest_messages / BaseMemoryBlock.aput",
+        "owner": "project",
+        "input": "待转存消息列表。",
+        "action": "先按最旧顺序把对应 ACTIVE 行更新为 ARCHIVED；再用 asyncio.gather 并发调用各 block.aput，传入 from_short_term_memory=True 和 session_id。",
+        "stateChange": "数据库状态由 ACTIVE 变为 ARCHIVED；各块内部状态更新，例如向量库新增节点或事实列表新增事实。",
+        "output": "块侧长期内容；循环重新计算剩余队列 token。",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 781,
+            "endLine": 809
+          },
+          {
+            "path": "llama-index-core/llama_index/core/storage/chat_store/sql.py",
+            "startLine": 372,
+            "endLine": 406
+          },
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 151,
+            "endLine": 166
+          }
+        ]
+      },
+      {
+        "title": "aget 读取 ACTIVE 历史并计 token",
+        "phase": "查询",
+        "condition": "每次 aget 必经",
+        "symbol": "Memory.aget",
+        "owner": "project",
+        "input": "可选 input 和 block_kwargs。",
+        "action": "从 sql_store 读取 ACTIVE 消息，并逐条估算 chat_history_tokens。",
+        "stateChange": "无。",
+        "output": "chat_history 与 chat_history_tokens。",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 624,
+            "endLine": 635
+          }
+        ]
+      },
+      {
+        "title": "按 priority 降序逐个取块内容",
+        "phase": "查询/可选块",
+        "condition": "aget 必经；未配置 memory_blocks 时直接得到空字典",
+        "symbol": "Memory._get_memory_blocks_content / BaseMemoryBlock.aget",
+        "owner": "project",
+        "input": "chat_history，可选 input。",
+        "action": "若 input 是字符串，先把它追加成临时 user 消息；按 priority 从高到低排序块，逐个 await block.aget，收集非空的 str/list 内容。注意这里是顺序 await，不是 gather。",
+        "stateChange": "块通常在读取时只读；向量块会构造查询但不在块外暴露排序结果。",
+        "output": "content_per_memory_block：块名到内容的字典。",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 446,
+            "endLine": 479
+          },
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 132,
+            "endLine": 145
+          }
+        ]
+      },
+      {
+        "title": "合并 token 超限时按低优先级截断",
+        "phase": "查询/可选分支",
+        "condition": "仅当 chat_history_tokens + memory_blocks_tokens > token_limit",
+        "symbol": "Memory._truncate_memory_blocks / BaseMemoryBlock.atruncate",
+        "owner": "project",
+        "input": "块内容字典和两侧 token 数。",
+        "action": "计算超出量；按 priority 从低到高尝试 atruncate，priority 0 永不截断；用截断前后估算 token 差扣减待截量；若仍超出，再从低优先级开始移除整块。",
+        "stateChange": "只修改本地 truncated_content 字典，不回写块状态。",
+        "output": "截断后的块内容字典。",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 481,
+            "endLine": 544
+          },
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 167,
+            "endLine": 185
+          }
+        ]
+      },
+      {
+        "title": "格式化 memory 模板并插入消息列表",
+        "phase": "查询/组装",
+        "condition": "aget 必经",
+        "symbol": "Memory._format_memory_blocks / Memory._insert_memory_content",
+        "owner": "project",
+        "input": "截断后的块内容和 ACTIVE 历史。",
+        "action": "把返回 ChatMessage 的块内容单独收集；其余块内容交给 memory_blocks_template.format_messages 生成 <memory> 文本。随后按 insert_method 把模板内容前置到已有 system message 或最新 user message；ChatMessage 型块内容直接前置到结果开头。",
+        "stateChange": "无持久状态变化；返回新列表。",
+        "output": "最终交给 LLM 的 List[ChatMessage]。",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 546,
+            "endLine": 622
+          },
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 652,
+            "endLine": 670
+          }
+        ]
+      }
+    ],
+    "technologies": [
+      {
+        "name": "带 token 预算的 FIFO 队列瀑布",
+        "problem": "短期对话不能无限增长，但直接删除会丢失仍需长期保存的旧消息。",
+        "mechanism": "读取 ACTIVE 队列并估算 token；超过 token_limit*ratio 后从最旧消息开始按 flush size 选取，保持完整轮次，把选中行标为 ARCHIVED，再并发交给各块。",
+        "pseudocode": "active = store.get_messages(session, ACTIVE)\ntokens = sum(estimate(m) for m in active)\nlimit = token_limit * ratio\nwhile tokens > limit and len(active) > 1:\n  batch = pop_oldest_until(flush_size)\n  keep_complete_turn(batch, active)\n  store.archive_oldest_messages(session, len(batch))\n  parallel for block in blocks: block.aput(batch)\n  active = store.get_messages(session, ACTIVE)\n  tokens = sum(estimate(m) for m in active)",
+        "dataStructures": "按 timestamp,id 排序的消息行；status=ACTIVE/ARCHIVED；队列不变量是尽量保留至少一条且保留完整对话轮次。",
+        "projectCode": "Memory._manage_queue 选择消息并调用块；SQLAlchemyChatStore.archive_oldest_messages 更新状态并返回被归档消息。",
+        "externalDependency": "SQLAlchemy 异步引擎和具体数据库负责事务与行更新；tokenizer 由外部配置的 tokenizer_fn 决定。",
+        "tradeoff": "保留完整轮次可能让剩余队列略高于比例阈值；token 只是估算；归档表会持续增长。",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 672,
+            "endLine": 724
+          },
+          {
+            "path": "llama-index-core/llama_index/core/storage/chat_store/sql.py",
+            "startLine": 372,
+            "endLine": 406
+          }
+        ]
+      },
+      {
+        "name": "按 priority 截断的块契约",
+        "problem": "Memory 不知道向量块、事实块或静态块内部如何表示数据，却需要统一控制上下文预算。",
+        "mechanism": "块实现 aget/aput/atruncate；Memory 取回内容后按块 priority 决定截断顺序，priority 0 受保护，低优先级先被截断或移除。",
+        "pseudocode": "contents = {}\nfor block in blocks sorted by -priority:\n  c = await block.aget(messages)\n  if c: contents[block.name] = c\nif tokens(contents) + tokens(chat) > token_limit:\n  excess = tokens(contents) + tokens(chat) - token_limit\n  for block in blocks sorted by priority:\n    if block.priority == 0: continue\n    c2 = await block.atruncate(contents[block.name], excess)\n    excess -= tokens(c1) - tokens(c2)\nreturn contents",
+        "dataStructures": "字典 block.name -> str/List[ContentBlock]/List[ChatMessage]；priority 0 表示不截断；块名必须唯一。",
+        "projectCode": "BaseMemoryBlock 定义 aget/aput/atruncate；Memory._truncate_memory_blocks 执行预算分配。",
+        "externalDependency": "无外部框架参与截断决策；块内部可选择默认整块删除或自定义截断。",
+        "tradeoff": "契约简单但截断粒度由块决定；默认 atruncate 返回 None 会整块移除，可能损失较多内容。",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 103,
+            "endLine": 187
+          },
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 481,
+            "endLine": 544
+          }
+        ]
+      },
+      {
+        "name": "向量记忆块的查询、过滤与批量写入",
+        "problem": "被转存的旧消息需要按当前对话语义取回，同时不能跨会话混用。",
+        "mechanism": "查询时取最近 retrieval_context_window 条消息的 TextBlock 拼成 query_text，加入 session_id 过滤，生成 query embedding，调用 vector_store.aquery(top_k)，再经 postprocessor 和 format_template；写入时把一个消息批次写成一个 TextNode，metadata 带 session_id。",
+        "pseudocode": "ctx = messages[-retrieval_context_window:]\ntext = join_text_blocks(ctx)\nqvec = embed(text)\nfilters = session_id_filter(session_id)\nres = vector_store.aquery(qvec, top_k, filters)\nnodes = postprocess(res.nodes)\nreturn format_template.format(text=join(node.content))\n# 写入\nnode = TextNode(text=join(role_tagged_messages), metadata={session_id})\nnode.embedding = embed(node.text)\nvector_store.async_add([node])",
+        "dataStructures": "TextNode；metadata.session_id；VectorStoreQuery 的 similarity_top_k 和 filters。",
+        "projectCode": "VectorMemoryBlock 负责拼查询文本、构造过滤、调用 embedding 和 vector_store、格式化结果；项目不实现具体向量数据库。",
+        "externalDependency": "embed_model 和 vector_store 的具体实现由外部集成提供；VectorMemoryBlock 还要求 vector_store.stores_text 为真才能作为记忆块使用。",
+        "tradeoff": "召回质量取决于外部向量库和 embedding；每个消息批次只写一个节点，检索粒度较粗；它是可选块，不是所有 Memory 的默认长期记忆。",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory_blocks/vector.py",
+            "startLine": 100,
+            "endLine": 168
+          },
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory_blocks/vector.py",
+            "startLine": 170,
+            "endLine": 202
+          },
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory_blocks/vector.py",
+            "startLine": 67,
+            "endLine": 76
+          }
+        ]
+      },
+      {
+        "name": "LLM 事实抽取与压缩",
+        "problem": "长期记忆不只要保存原消息，还要维护离散事实，并限制事实数量。",
+        "mechanism": "把已有事实和转存消息交给 LLM，解析返回的 <fact> 标签；只追加非完全重复事实；事实数超过 max_facts 时再让 LLM 压缩，且只有解析出非空结果才替换原列表。",
+        "pseudocode": "existing = render_facts(facts)\nprompt = extract_template.format(existing_facts=existing)\nresp = llm.achat(messages + prompt)\nnew = parse_facts_xml(resp.content)\nfor f in new:\n  if f not in facts: facts.append(f)\nif len(facts) > max_facts:\n  resp = llm.achat(condense_prompt(facts, max_facts))\n  condensed = parse_facts_xml(resp.content)\n  if condensed: facts = condensed",
+        "dataStructures": "facts: List[str]；XML <fact> 标签；max_facts 上限；去重只做 exact-match。",
+        "projectCode": "FactExtractionMemoryBlock 负责 prompt、XML 解析、去重和压缩替换保护。",
+        "externalDependency": "LLM 负责生成事实和压缩结果；本项目不能保证模型一定抽出某条事实或一定返回可解析 XML。",
+        "tradeoff": "额外 LLM 调用有成本且结果不确定；exact-match 去重不能消除语义重复，需要压缩提示词兜底。",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory_blocks/fact.py",
+            "startLine": 119,
+            "endLine": 167
+          },
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory_blocks/fact.py",
+            "startLine": 168,
+            "endLine": 183
+          }
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "decision": "短期队列不直接删除移出的消息，而是把状态改为 ARCHIVED",
+        "constraint": "需要同时支持 active 读取、归档返回和完整历史保留。",
+        "alternative": "调用 delete_oldest_messages 直接删除最旧消息。",
+        "why": "示例中转存旧消息后，下次 aget 只读 ACTIVE，不会重复注入；但归档仍可通过 aget_all 查询，且 archive_oldest_messages 能返回同批消息交给块。直接删除会让历史不可恢复。",
+        "cost": "归档行长期保留，表会增长；需要按 status 过滤查询。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/storage/chat_store/sql.py",
+            "startLine": 323,
+            "endLine": 337
+          },
+          {
+            "path": "llama-index-core/llama_index/core/storage/chat_store/sql.py",
+            "startLine": 338,
+            "endLine": 406
+          }
+        ]
+      },
+      {
+        "decision": "触发转存的阈值是 token_limit*chat_history_token_ratio，而不是整个 token_limit",
+        "constraint": "要为 memory blocks 和模型输出预留 token 空间。",
+        "alternative": "等 ACTIVE 历史达到总 token_limit 再转存。",
+        "why": "如果 active 历史独占全部预算，aget 时块内容再加入就会立刻超限，只能大量截断块；默认 ratio=0.7 让短期历史最多占七成左右，剩余预算留给长期块。",
+        "cost": "活跃历史更短，最近对话可能更早被转存；比例是估算值。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 213,
+            "endLine": 216
+          },
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 695,
+            "endLine": 697
+          }
+        ]
+      },
+      {
+        "decision": "转存时保持完整对话轮次，而不是严格按 token 精确切掉最旧消息",
+        "constraint": "活跃队列如果以 assistant/tool 消息开头，会破坏模型对对话结构的预期。",
+        "alternative": "只按 flush size 从最旧消息开始切，直到 token 低于阈值。",
+        "why": "代码会继续弹出剩余队列开头的非 user 消息，并把最近完整 turn 放回；这样下次 aget 的活跃历史更可能从 user 开始，避免孤立的 assistant 或 tool 消息。",
+        "cost": "剩余队列可能暂时高于比例阈值；逻辑更复杂。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "We need to maintain conversation integrity",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 727,
+            "endLine": 779
+          }
+        ]
+      },
+      {
+        "decision": "VectorMemoryBlock 作为可选块时强制 stores_text，并用 metadata.session_id 过滤查询",
+        "constraint": "块需要返回可读文本，且多会话共用向量库时不能把别的会话消息召回进来。",
+        "alternative": "允许不存文本的向量库，或全局检索后再在应用层过滤。",
+        "why": "校验阶段拒绝 stores_text=False 的库；查询阶段若传入 session_id，就构造 MetadataFilter(key='session_id', value=session_id) 并放入 VectorStoreQuery。这样同一向量库可承载多个 session，而 aget 只取当前会话相关节点。",
+        "cost": "需要支持文本存储和 metadata 过滤的向量库；具体过滤执行由外部向量库负责。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory_blocks/vector.py",
+            "startLine": 67,
+            "endLine": 76
+          },
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory_blocks/vector.py",
+            "startLine": 123,
+            "endLine": 152
+          }
+        ]
+      },
+      {
+        "decision": "事实压缩只有在解析出非空事实时才整体替换原 facts",
+        "constraint": "压缩提示要求模型返回完整快照，但模型可能返回空或不可解析 XML。",
+        "alternative": "无条件把解析结果赋给 self.facts。",
+        "why": "如果模型返回空列表，无条件替换会把已有事实全部清空；代码先检查 condensed_facts 非空，再执行 self.facts = condensed_facts。",
+        "cost": "模型返回空时旧事实可能超过 max_facts，但至少不会丢失。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "The condensed response replaces the fact list wholesale",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory_blocks/fact.py",
+            "startLine": 149,
+            "endLine": 166
+          }
+        ]
+      }
+    ],
+    "codeWalkthroughs": [
+      {
+        "title": "转存触发与块分发",
+        "explanation": "先读取 ACTIVE 队列并逐条估算 token；只有超过 token_limit*chat_history_token_ratio 才进入转存。随后把队列反转，从尾部弹出最旧消息，按 token_flush_size 组成批次，并至少保留一条消息。真正落库时调用 archive_oldest_messages 把最旧 ACTIVE 行改成 ARCHIVED，再用 asyncio.gather 并发调用每个块的 aput。也就是说：归档和块写入只发生在超预算分支，块写入是并发的。",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 691,
+            "endLine": 721
+          },
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 781,
+            "endLine": 797
+          }
+        ]
+      },
+      {
+        "title": "aget 如何把块内容拼回消息列表",
+        "explanation": "aget 先读 ACTIVE 历史并计算 chat_history_tokens；_get_memory_blocks_content 按 priority 降序逐个 await 块，把非空 str/list 收集到字典。之后把 chat 和块 token 相加，只有超过 token_limit 才调用 _truncate_memory_blocks。_format_memory_blocks 把返回 ChatMessage 的内容与模板内容分开；模板生成一个 <memory> 内容块，_insert_memory_content 按 InsertMethod.SYSTEM 把它放到已有 system message 前，若没有 system 就新建；USER 模式则放到最新 user message 前。ChatMessage 型块内容会直接前置到整个结果开头。",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 624,
+            "endLine": 670
+          },
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 589,
+            "endLine": 620
+          }
+        ]
+      },
+      {
+        "title": "向量块如何检索和写入",
+        "explanation": "VectorMemoryBlock 取最近 retrieval_context_window 条消息，只拼接 TextBlock 文本作为 query_text；如果传入 session_id，就把它加进 MetadataFilters。然后生成 query embedding，调用 vector_store.aquery，按 similarity_top_k 取节点，运行 postprocessor，最后把节点内容拼成文本交给 format_template。写入侧把一个消息批次拼成一个 TextNode，metadata 写 session_id，计算 embedding 后 async_add；因此检索粒度是批次节点，不是每条消息一个节点。",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory_blocks/vector.py",
+            "startLine": 100,
+            "endLine": 125
+          },
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory_blocks/vector.py",
+            "startLine": 143,
+            "endLine": 168
+          },
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory_blocks/vector.py",
+            "startLine": 170,
+            "endLine": 202
+          }
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "question": "短期队列超过比例阈值后，旧消息是否真的从 ACTIVE 转为 ARCHIVED 并只分发给配置的块？",
+        "change": "把 token_limit 调小、chat_history_token_ratio 调低，并设置较小的 token_flush_size；连续 aput 多轮 user/assistant 消息，然后检查 AGET_ALL 和块状态。",
+        "expected": "应观察到至少一次 archive_oldest_messages 效果：部分旧行 status 变为 ARCHIVED，ACTIVE 只保留较新的完整轮次；配置的块收到 from_short_term_memory=True 的 aput。由于完整轮次保护，ACTIVE token 未必精确等于阈值。",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 691,
+            "endLine": 797
+          },
+          {
+            "path": "llama-index-core/llama_index/core/storage/chat_store/sql.py",
+            "startLine": 372,
+            "endLine": 406
+          }
+        ]
+      },
+      {
+        "question": "不配置 memory_blocks 时，aget 是否只返回 ACTIVE 历史而不生成 memory 模板？",
+        "change": "创建 Memory 时不传 memory_blocks，写入若干消息后调用 aget。",
+        "expected": "_get_memory_blocks_content 得到空字典，_format_memory_blocks 不产生模板数据，_insert_memory_content 没有 memory_content 可插入；返回值应只有 ACTIVE 历史，不出现 <memory> 系统块，也不会调用向量或事实块。",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 446,
+            "endLine": 479
+          },
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory.py",
+            "startLine": 624,
+            "endLine": 670
+          }
+        ]
+      },
+      {
+        "question": "事实压缩返回空或不可解析时，已有 facts 会不会被清空？",
+        "change": "配置 FactExtractionMemoryBlock，使 facts 超过 max_facts，并让压缩提示对应的 LLM 返回空 <facts></facts> 或非 XML 文本。",
+        "expected": "由于代码只在 condensed_facts 非空时替换 self.facts，已有事实应保留，不会被空结果覆盖。",
+        "evidence": [
+          {
+            "path": "llama-index-core/llama_index/core/memory/memory_blocks/fact.py",
+            "startLine": 149,
+            "endLine": 166
+          }
+        ]
+      }
+    ],
+    "takeaways": [
+      "短期队列与长期块是两层：ACTIVE/ARCHIVED 队列负责近期对话，memory_blocks 负责可选长期内容；向量检索不是默认长期记忆，只有显式配置 VectorMemoryBlock 才参与。",
+      "token 预算有两道闸门：写入时按 chat_history_token_ratio 触发瀑布转存，读取时按 token_limit 对块内容做 priority 截断；priority 0 受保护。",
+      "转存用 archive_oldest_messages 保留行并改状态，块写入用 asyncio.gather 并发；读取块内容时则是按 priority 降序逐个 await，不能把 aget 的块取回描述成并发。",
+      "RAG 的 RetrieverQueryEngine/VectorIndexRetriever 是文档检索回答链；Memory 的 VectorMemoryBlock 直接查询 vector_store 并维护 session 过滤，二者共享向量检索语义但不在同一条默认调用链上。",
+      "事实记忆依赖 LLM 抽取和 XML 解析，去重只做完全匹配；压缩替换有防清空保护，但仍不能保证模型一定产出某条事实。"
+    ],
+    "gaps": [
+      "已读代码中 SimpleVectorStore 的 stores_text=False，而 VectorMemoryBlock 要求 vector_store.stores_text 为真；具体生产向量库如何满足该要求、aquery 如何返回 nodes，未在已读文件中确认。",
+      "无法从代码确认某次 LLM 事实抽取会得到哪些事实，也无法预测向量检索的排名；这些取决于外部模型、embedding 和向量库数据。",
+      "_truncate_memory_blocks 的第二个循环会对非零 priority 的块名执行 pop；若某个非零 priority 块在之前返回空且未进入 content_per_memory_block，是否安全未读到测试验证。",
+      "未读到 Memory 与 RetrieverQueryEngine/VectorIndexRetriever 的直接调用关系；因此不能把 RAG query engine 画进 Memory.aget 的必经调用链。",
+      "已读代码没有展示并发写入同一 session 时的数据库竞态测试；timestamp 和 id 排序在同一进程批量写入下可用，但跨并发请求的精确排序边界未验证。"
+    ]
+  }
+}

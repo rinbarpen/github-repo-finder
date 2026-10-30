@@ -1,0 +1,714 @@
+{
+  "version": 3,
+  "repo": "mem0ai/mem0",
+  "ref": "ts-v3.3.1",
+  "sha": "94c3fe9f238f3dbf29c9ce98643bd71eb13077cd",
+  "analysis": {
+    "version": 3,
+    "kind": "architecture",
+    "requestedModel": "deepseek-flash",
+    "actualModel": "deepseek-flash",
+    "filesRead": 24,
+    "charactersRead": 314086,
+    "modules": 7,
+    "flowSteps": 9,
+    "mechanisms": 4,
+    "decisions": 5,
+    "readingStrategy": "profile-and-imports",
+    "structuralChecks": "passed",
+    "usage": {
+      "prompt_tokens": 115795,
+      "completion_tokens": 9519
+    },
+    "notes": [
+      "Reading planner fallback: Reading plan requested an unavailable file: tests/memory/test_main.py",
+      "decisions[0] 无法逐字核对作者说明，已标为工程推断"
+    ]
+  },
+  "plan": {
+    "scenario": "Python OSS Memory.add 收到“我不吃辣，喜欢川菜”，先提取记忆再写入；下一次 search 查询“给我推荐晚餐”如何检索。必须读当前算法，不沿用旧版本 UPDATE/DELETE 的印象。",
+    "files": []
+  },
+  "report": {
+    "overview": {
+      "plainLanguage": "把对话中值得长期记住的偏好先抽取成短句，再用语义和关键词信号在需要时找回来。",
+      "problem": "聊天里说过的饮食偏好很容易丢失；直接存原始对话又会让后续检索充满噪声。项目用一次 LLM 抽取生成自包含记忆，再写入向量库，查询时混合语义、BM25 关键词和实体信号返回候选。",
+      "scenarioInput": "add(\"我不吃辣，喜欢川菜\", user_id=\"u1\")；随后 search(query=\"给我推荐晚餐\", filters={\"user_id\":\"u1\"}, top_k=20)。",
+      "scenarioOutput": "推演：add 可能返回若干条 event=ADD 的记忆，例如“用户不吃辣”“用户喜欢川菜”；search 可能返回包含川菜偏好的条目。具体抽取文本、分数和排名取决于实际 LLM、embedding、Qdrant 数据与实体抽取，不能由源码预测。"
+    },
+    "modules": [
+      {
+        "id": "entry",
+        "name": "Memory 编排层",
+        "role": "对外暴露 add/search，并决定何时调用抽取、向量库、历史库和实体链接。",
+        "input": "用户消息、user_id 等 scope、搜索 query 与 filters。",
+        "output": "add 返回 results 列表；search 返回带 score 的 MemoryItem 字典。",
+        "state": "持有 embedding_model、vector_store、llm、SQLiteManager、collection_name 等实例。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 487,
+            "endLine": 554
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 760,
+            "endLine": 880
+          }
+        ]
+      },
+      {
+        "id": "assembly",
+        "name": "配置与工厂装配",
+        "role": "按配置创建 LLM、embedding 和向量库实现，把 provider 名称映射到具体类。",
+        "input": "MemoryConfig 中的 provider 与 config。",
+        "output": "可调用的 llm、embedding_model、vector_store 实例。",
+        "state": "工厂类映射表与具体客户端连接。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "mem0/utils/factory.py",
+            "startLine": 152,
+            "endLine": 225
+          }
+        ]
+      },
+      {
+        "id": "extraction",
+        "name": "ADD-only 抽取提示",
+        "role": "把已有记忆、新消息和最近消息拼成一次 LLM 请求，要求只输出 ADD 型 memory 数组。",
+        "input": "parsed_messages、existing_memories、last_k_messages、custom_instructions。",
+        "output": "JSON 中的 memory 数组，每项含 text 等字段。",
+        "state": "无持久状态，仅构造提示和解析响应。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "mem0/configs/prompts.py",
+            "startLine": 1016,
+            "endLine": 1063
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 942,
+            "endLine": 986
+          }
+        ]
+      },
+      {
+        "id": "vector",
+        "name": "Qdrant 向量库适配",
+        "role": "执行 dense 向量插入/搜索、BM25 稀疏向量插入/搜索和 payload 过滤。",
+        "input": "vectors、ids、payloads、filters、query。",
+        "output": "Point 列表或 None（keyword 不支持时）。",
+        "state": "Qdrant collection 中的 dense 与 bm25 命名向量及 payload。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "mem0/vector_stores/qdrant.py",
+            "startLine": 186,
+            "endLine": 246
+          },
+          {
+            "path": "mem0/vector_stores/qdrant.py",
+            "startLine": 415,
+            "endLine": 485
+          }
+        ]
+      },
+      {
+        "id": "scoring",
+        "name": "混合评分",
+        "role": "把语义分、归一化 BM25 分和实体 boost 相加并按可用信号归一化，再用语义阈值门控。",
+        "input": "semantic_results、bm25_scores、entity_boosts、threshold、top_k。",
+        "output": "按 combined score 降序的候选。",
+        "state": "无持久状态。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "mem0/utils/scoring.py",
+            "startLine": 60,
+            "endLine": 139
+          }
+        ]
+      },
+      {
+        "id": "history",
+        "name": "SQLite 历史与消息窗口",
+        "role": "记录 ADD 历史，保存最近对话消息，供下次 add 取 last_messages。",
+        "input": "memory_id、old/new text、event、messages、session_scope。",
+        "output": "history 行与最近 10 条 messages。",
+        "state": "SQLite 的 history 和 messages 表。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "mem0/memory/storage.py",
+            "startLine": 150,
+            "endLine": 256
+          },
+          {
+            "path": "mem0/memory/storage.py",
+            "startLine": 257,
+            "endLine": 324
+          }
+        ]
+      },
+      {
+        "id": "entities",
+        "name": "实体抽取与链接",
+        "role": "从记忆文本抽取 PROPER/QUOTED/TOPIC/IDENTIFIER 实体，用于写入实体存储和检索 boost。",
+        "input": "记忆文本或查询文本。",
+        "output": "(entity_type, entity_text) 元组列表。",
+        "state": "实体存储中 linked_memory_ids 与实体向量。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "mem0/utils/entity_extraction.py",
+            "startLine": 731,
+            "endLine": 773
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1100,
+            "endLine": 1204
+          }
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "from": "entry",
+        "to": "assembly",
+        "label": "初始化时创建 LLM、embedding、vector store"
+      },
+      {
+        "from": "entry",
+        "to": "extraction",
+        "label": "add 时构造并请求 LLM 抽取"
+      },
+      {
+        "from": "entry",
+        "to": "vector",
+        "label": "add 插入；search 做语义与关键词检索"
+      },
+      {
+        "from": "vector",
+        "to": "scoring",
+        "label": "返回候选和分数给混合排序"
+      },
+      {
+        "from": "entry",
+        "to": "history",
+        "label": "写入历史并保存最近消息"
+      },
+      {
+        "from": "entry",
+        "to": "entities",
+        "label": "add 后批量抽取实体并链接记忆"
+      }
+    ],
+    "flow": [
+      {
+        "title": "构造 Memory 并装配依赖",
+        "phase": "初始化",
+        "condition": "构造 Memory 时必经",
+        "symbol": "Memory.__init__ / EmbedderFactory.create / VectorStoreFactory.create / LlmFactory.create",
+        "owner": "project",
+        "input": "MemoryConfig，默认 provider 配置。",
+        "action": "分别创建 embedding、vector_store、llm，并创建 SQLiteManager；若配置了 reranker 再创建。",
+        "stateChange": "Memory 实例持有各依赖；SQLiteManager 建表并执行历史表迁移。",
+        "output": "可执行 add/search 的 Memory 对象。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 488,
+            "endLine": 514
+          },
+          {
+            "path": "mem0/utils/factory.py",
+            "startLine": 168,
+            "endLine": 179
+          },
+          {
+            "path": "mem0/utils/factory.py",
+            "startLine": 210,
+            "endLine": 218
+          }
+        ]
+      },
+      {
+        "title": "add 规范化输入与 scope",
+        "phase": "写入准备",
+        "condition": "调用 add 且不是 procedural memory 分支时",
+        "symbol": "Memory.add",
+        "owner": "project",
+        "input": "字符串“我不吃辣，喜欢川菜”和 user_id。",
+        "action": "拒绝 OSS 不支持的 timestamp；把字符串包装成 [{\"role\":\"user\",\"content\":...}]；构建 metadata 与 effective_filters。",
+        "stateChange": "messages 被统一为列表；processed_metadata 含 scope 与可选 expiration_date。",
+        "output": "messages、processed_metadata、effective_filters 进入 _add_to_vector_store。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 817,
+            "endLine": 871
+          }
+        ]
+      },
+      {
+        "title": "抽取前先检索已有记忆",
+        "phase": "写入",
+        "condition": "infer=True 默认路径",
+        "symbol": "Memory._add_to_vector_store",
+        "owner": "project",
+        "input": "parsed_messages 与 user_id 过滤条件。",
+        "action": "取 last_messages；对 parsed_messages 生成 search embedding；用 vector_store.search 取 top_k=10 已有记忆；把 UUID 映射为顺序 id，形成 existing_memories。",
+        "stateChange": "无持久写入；只是构造 LLM 去重/链接参考。",
+        "output": "existing_memories 和 last_messages。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 920,
+            "endLine": 940
+          }
+        ]
+      },
+      {
+        "title": "一次 LLM 生成 ADD 型抽取结果",
+        "phase": "写入",
+        "condition": "infer=True 且 LLM 调用成功",
+        "symbol": "Memory._add_to_vector_store / generate_additive_extraction_prompt",
+        "owner": "project",
+        "input": "ADDITIVE_EXTRACTION_PROMPT、existing_memories、new_messages、last_k_messages。",
+        "action": "拼出用户侧 prompt，调用 llm.generate_response(response_format=json_object)，去掉代码块并解析 JSON 的 memory 数组。",
+        "stateChange": "无持久状态；得到 extracted_memories。",
+        "output": "可能包含多条待写入记忆文本的列表。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 942,
+            "endLine": 986
+          },
+          {
+            "path": "mem0/configs/prompts.py",
+            "startLine": 1016,
+            "endLine": 1063
+          }
+        ]
+      },
+      {
+        "title": "批量 embedding 与 hash 去重",
+        "phase": "写入",
+        "condition": "extracted_memories 非空时",
+        "symbol": "Memory._add_to_vector_store",
+        "owner": "project",
+        "input": "extracted_memories 的 text 列表。",
+        "action": "对文本批量 embed；对每条文本算 md5；跳过与已检索 existing hash 相同或本批 seen_hashes 相同的条目；保留者构造 memory_id、data、text_lemmatized、hash、created_at。",
+        "stateChange": "形成 records，但尚未写向量库。",
+        "output": "待批量插入的 records。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 993,
+            "endLine": 1041
+          }
+        ]
+      },
+      {
+        "title": "批量持久化、历史与实体链接",
+        "phase": "写入",
+        "condition": "records 非空；insert 成功或逐条 fallback 成功",
+        "symbol": "Memory._add_to_vector_store / extract_entities_batch",
+        "owner": "project",
+        "input": "records 的 vectors、ids、payloads。",
+        "action": "批量 insert 向量；批量写 history 的 ADD 记录；对文本抽取实体，合并同实体 linked_memory_ids，更新或插入实体存储；最后 save_messages。",
+        "stateChange": "Qdrant collection 新增点；SQLite history 新增 ADD；实体存储新增/更新链接。",
+        "output": "returned_memories，每项 event=ADD。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1047,
+            "endLine": 1220
+          },
+          {
+            "path": "mem0/utils/entity_extraction.py",
+            "startLine": 761,
+            "endLine": 773
+          }
+        ]
+      },
+      {
+        "title": "search 预处理与语义过取",
+        "phase": "查询",
+        "condition": "调用 search 且 filters 至少含 user_id/agent_id/run_id",
+        "symbol": "Memory.search / Memory._search_vector_store",
+        "owner": "project",
+        "input": "query“给我推荐晚餐”，filters={user_id:u1}，top_k=20。",
+        "action": "校验参数；对 query 做 BM25 词形处理并抽取实体；embed query；以 internal_limit=max(limit*4,60) 做向量搜索。",
+        "stateChange": "无持久状态；得到 semantic_results 候选池。",
+        "output": "semantic_results、query_lemmatized、query_entities。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1446,
+            "endLine": 1510
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1642,
+            "endLine": 1658
+          }
+        ]
+      },
+      {
+        "title": "关键词与实体信号补充",
+        "phase": "查询可选分支",
+        "condition": "vector store 支持 keyword_search；query_entities 非空时计算 entity boost",
+        "symbol": "Memory._search_vector_store / Qdrant.keyword_search / score_and_rank",
+        "owner": "project",
+        "input": "query_lemmatized、filters、semantic_results。",
+        "action": "Qdrant 用 bm25 稀疏向量检索；对 raw BM25 用 sigmoid 归一化；有查询实体则查实体存储得 boost；score_and_rank 先按 semantic threshold 过滤，再 combined=(semantic+bm25+entity)/max_possible。",
+        "stateChange": "无持久状态；候选被重新排序。",
+        "output": "top_k 个 scored 结果。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1660,
+            "endLine": 1701
+          },
+          {
+            "path": "mem0/vector_stores/qdrant.py",
+            "startLine": 454,
+            "endLine": 485
+          },
+          {
+            "path": "mem0/utils/scoring.py",
+            "startLine": 94,
+            "endLine": 139
+          }
+        ]
+      },
+      {
+        "title": "格式化返回",
+        "phase": "查询",
+        "condition": "scored_results 中 payload.data 非空",
+        "symbol": "Memory._search_vector_store",
+        "owner": "project",
+        "input": "scored 结果及其 payload。",
+        "action": "过滤过期 payload；构造 MemoryItem，把 data 映射为 memory，score 写入 score；提升 user_id、agent_id、run_id 等键，其余 payload 放入 metadata；explain 时附 score_details。",
+        "stateChange": "无持久状态。",
+        "output": "{\"results\":[...]}。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1703,
+            "endLine": 1745
+          }
+        ]
+      }
+    ],
+    "technologies": [
+      {
+        "name": "单次 ADD-only LLM 抽取",
+        "problem": "需要把一句自然语言偏好变成自包含、可检索的记忆，同时避免旧式 UPDATE/DELETE 决策覆盖已有信息。",
+        "mechanism": "把新消息、最近消息和 top10 已有记忆放入提示；LLM 只输出 memory 数组；项目解析 text，后续统一加 hash、embedding、payload。",
+        "pseudocode": "existing = vector_search(embed(parsed_messages), top_k=10)\nprompt = build(existing_memories=existing, new_messages=parsed_messages, last_k=last_messages)\nresp = llm.generate(prompt, response_format=json_object)\nitems = json.loads(resp).get('memory', [])\nfor item in items:\n  text = item['text']\n  vec = embed_batch([text])\n  records.append((uuid4(), text, vec, payload(text)))\n",
+        "dataStructures": "existing_memories=[{id:str(idx),text:payload.data}]；extracted_memories=[{text,...}]；records=(id,text,embedding,payload)。",
+        "projectCode": "Memory._add_to_vector_store 负责检索已有记忆、构造提示、解析 JSON、去重、写库；prompts.generate_additive_extraction_prompt 负责拼接章节。",
+        "externalDependency": "LLM 负责真正抽取哪些事实；embedding 模型负责把文本变向量；源码不保证一定抽出“不吃辣”或“喜欢川菜”。",
+        "tradeoff": "写入只追加，冲突不会自动消解；但避免一次错误 UPDATE/DELETE 抹掉旧偏好，检索需要靠时间和分数融合处理新旧共存。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 925,
+            "endLine": 986
+          },
+          {
+            "path": "mem0/configs/prompts.py",
+            "startLine": 1016,
+            "endLine": 1063
+          }
+        ]
+      },
+      {
+        "name": "混合检索与加性评分",
+        "problem": "只靠语义向量会漏掉专名/关键词，只靠关键词又不懂同义表达。",
+        "mechanism": "语义搜索先过取候选；BM25 稀疏搜索得到关键词候选；BM25 原始分用查询长度自适应 sigmoid 归一到 [0,1]；实体 boost 加入；最终按 semantic threshold 门控后相加并除以 max_possible。",
+        "pseudocode": "semantic = vector_store.search(query_vec, top_k=max(4*k,60))\nkeyword = vector_store.keyword_search(lemmatized_query, top_k=internal)\nfor hit in keyword:\n  bm25[hit.id] = sigmoid(steepness*(raw-midpoint))\nif query_entities:\n  entity_boosts = compute_entity_boosts(query_entities)\nfor c in semantic:\n  if c.score < threshold: skip\n  combined = (c.score + bm25[c.id] + entity_boosts[c.id]) / max_possible\nreturn top_k(sorted by combined)\n",
+        "dataStructures": "bm25_scores: {memory_id: normalized_score}；entity_boosts: {memory_id: boost}；candidate: {id,score,payload}。",
+        "projectCode": "scoring.py 实现 BM25 参数、sigmoid 归一化和 score_and_rank；main.py 组织三路信号并格式化 MemoryItem。",
+        "externalDependency": "Qdrant 执行 dense query_points 和 bm25 稀疏 query_points；fastembed 生成 BM25 稀疏向量。",
+        "tradeoff": "多信号提升召回，但排名依赖外部 embedding/BM25/实体抽取结果；分数不是概率，不能从代码推导具体名次。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1647,
+            "endLine": 1701
+          },
+          {
+            "path": "mem0/utils/scoring.py",
+            "startLine": 16,
+            "endLine": 54
+          },
+          {
+            "path": "mem0/utils/scoring.py",
+            "startLine": 94,
+            "endLine": 139
+          }
+        ]
+      },
+      {
+        "name": "MD5 hash 精确去重",
+        "problem": "同一批抽取或最近已有记忆可能产生完全相同的文本，重复插入浪费空间并污染检索。",
+        "mechanism": "对每条抽取文本计算 md5；与 Phase1 返回的 existing payload.hash 集合比较，并与本批 seen_hashes 比较；命中则跳过。",
+        "pseudocode": "existing_hashes = {m.payload['hash'] for m in existing_results if m.payload.hash}\nseen = set()\nfor item in extracted:\n  h = md5(item.text)\n  if h in existing_hashes or h in seen: continue\n  seen.add(h)\n  records.append(make_record(item.text, h))\n",
+        "dataStructures": "existing_hashes:set[str]；seen_hashes:set[str]；payload.hash 保存 md5。",
+        "projectCode": "Memory._add_to_vector_store 自己计算和比较 hash；SQLiteManager 记录 ADD 历史。",
+        "externalDependency": "向量库只负责按 id 插入，不负责语义去重。",
+        "tradeoff": "只挡住完全同文和本次 top10 内同 hash 的重复；不是全库幂等，换一种说法或 Phase1 未召回时仍可能新增。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1007,
+            "endLine": 1041
+          }
+        ]
+      },
+      {
+        "name": "实体抽取与链接增强",
+        "problem": "查询“晚餐”时，用户偏好里的“川菜”实体可以帮助把相关记忆排前。",
+        "mechanism": "spaCy 文档经 NER、专名跨度、引号、主题短语多路候选，按优先级和重叠规则去重，输出 (type,text)；写入时把实体与 memory_id 关联，查询时对查询实体查实体存储产生 boost。",
+        "pseudocode": "doc = nlp(text)\ncandidates = NER(doc) + identifiers(tokens) + proper_spans(tokens) + quoted(doc.text) + topic_phrases(doc)\naccepted = resolve_by_priority_and_overlap(candidates)\nreturn [(type, text)]\n# add 侧：extract_entities_batch(texts) -> linked_memory_ids\n# search 侧：extract_entities(query) -> entity_boosts\n",
+        "dataStructures": "_EntityCandidate(type,text,start,end,confidence,priority)；global_entities: normalized_key -> [type,text,{memory_ids}]。",
+        "projectCode": "entity_extraction.py 负责候选生成与去重；main.py 在 add Phase7 批量合并、查询实体存储并更新 linked_memory_ids。",
+        "externalDependency": "spaCy 提供分词、词性、依存和 NER；fastembed/embedding 模型为实体文本生成向量。",
+        "tradeoff": "实体链接能增强专名召回，但实体抽取有误差；boost 方法体未读完，不能确认其内部加权细节。",
+        "evidence": [
+          {
+            "path": "mem0/utils/entity_extraction.py",
+            "startLine": 731,
+            "endLine": 773
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1100,
+            "endLine": 1204
+          }
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "decision": "当前写入算法采用单次 ADD-only 抽取，不再让 LLM 对已有记忆做 UPDATE/DELETE 决策。",
+        "constraint": "要保留用户历史偏好的完整轨迹，避免一次抽取错误覆盖旧信息。",
+        "alternative": "旧式做法是把已有记忆和新事实交给 LLM，让它输出 ADD/UPDATE/DELETE/NONE。",
+        "why": "在“我不吃辣，喜欢川菜”场景中，ADD-only 会把偏好作为新记忆追加；如果后来用户说“现在能吃辣了”，旧记忆仍在，检索层可通过时间和分数处理共存，而不是让一次 LLM 决策直接删掉旧偏好。",
+        "cost": "冲突不会自动消解，重复和过时偏好可能同时存在；需要下游检索、时间或应用层策略融合。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "README.md",
+            "startLine": 56,
+            "endLine": 61
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 942,
+            "endLine": 986
+          }
+        ]
+      },
+      {
+        "decision": "语义阈值在混合评分之前门控候选。",
+        "constraint": "BM25 或实体 boost 可能给语义不相关条目加分，需要先保证候选与查询有基本语义相关性。",
+        "alternative": "先把 semantic、bm25、entity 相加，再对最终分设阈值。",
+        "why": "查询“给我推荐晚餐”时，如果某条记忆只有“川菜”关键词重合但语义完全不相关，先卡 semantic_score 可避免它仅靠关键词被拉回；通过门控的川菜偏好仍可获得 BM25/实体增强。",
+        "cost": "语义分数偏低但关键词极准的条目可能被漏掉；阈值 0.1 是默认值，实际效果依赖 embedding。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "mem0/utils/scoring.py",
+            "startLine": 105,
+            "endLine": 119
+          }
+        ]
+      },
+      {
+        "decision": "写入去重只比较 Phase1 召回的已有 hash 和本批 seen_hashes，而不是全库扫描。",
+        "constraint": "add 路径要控制延迟，不能为了去重对全库逐条比较。",
+        "alternative": "每次 add 前对全库做 hash 查询或向量相似度去重。",
+        "why": "同一批抽取中的重复文本会被 seen_hashes 挡住；最近 top10 中完全相同的文本也会被挡住。但“喜欢川菜”和“爱吃川菜”这种不同文本不会被 hash 去重，说明去重范围有限。",
+        "cost": "不是全库幂等；相似但不同文或未被 top10 召回的同文仍可能重复写入。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1009,
+            "endLine": 1026
+          }
+        ]
+      },
+      {
+        "decision": "已有记忆只作为抽取参考和链接目标，不作为 UPDATE/DELETE 的修改对象。",
+        "constraint": "保持 ADD-only 语义，同时让新记忆能关联到旧记忆。",
+        "alternative": "把 existing_memories 直接交给更新提示，由 LLM 选择覆盖旧 id。",
+        "why": "场景中已有“喜欢川菜”，新句“我不吃辣，喜欢川菜”应新增偏好并可能 linked_memory_ids 指向川菜旧记忆，而不是改写或删除旧条目；这样保留上下文。",
+        "cost": "旧偏好不会被自动修正，实体链接也只建立关系，不解决事实冲突。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "mem0/configs/prompts.py",
+            "startLine": 506,
+            "endLine": 513
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 925,
+            "endLine": 955
+          }
+        ]
+      },
+      {
+        "decision": "SQLite 消息表只保留每个 session_scope 最近 10 条消息，并单独记录 history。",
+        "constraint": "last_k_messages 只需近期上下文，不能无限增长。",
+        "alternative": "永久保存完整对话并每次全量传入抽取提示。",
+        "why": "add 时 get_last_messages(limit=10) 只取最近消息辅助代词消解；save_messages 后删除超出 10 条的旧消息，控制提示长度和本地库大小。",
+        "cost": "更早的对话上下文不会出现在 last_k_messages；依赖长期记忆条目和已有记忆检索补回。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 920,
+            "endLine": 923
+          },
+          {
+            "path": "mem0/memory/storage.py",
+            "startLine": 279,
+            "endLine": 291
+          }
+        ]
+      }
+    ],
+    "codeWalkthroughs": [
+      {
+        "title": "add：先召回已有记忆，再让 LLM 只产出 ADD 文本",
+        "explanation": "Phase1 对解析后的新消息做 embedding，并只取 user_id/agent_id/run_id 这些 scope 过滤，向量检索 top10；结果不直接修改，只映射成 existing_memories 给 LLM 做去重和 linking。Phase2 把 ADDITIVE_EXTRACTION_PROMPT 和生成的用户提示发给 LLM，解析 memory 数组。Phase3/5 对每条 text 批量 embed，并用 md5 与本批和已有 hash 比较；通过后才构造 payload，其中 data 是实际记忆文本，text_lemmatized 供 BM25，hash 供精确去重。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 925,
+            "endLine": 940
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 942,
+            "endLine": 986
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 993,
+            "endLine": 1034
+          }
+        ]
+      },
+      {
+        "title": "search：三路信号如何汇合",
+        "explanation": "查询先做 lemmatize 和实体抽取，再 embed。语义搜索用 internal_limit=max(limit*4,60) 过取候选池。keyword_search 用 bm25 稀疏向量；只有返回非 None 时才把 raw score 经 get_bm25_params 选择的 midpoint/steepness 做 sigmoid 归一化。query_entities 非空时计算 entity_boosts。最后 score_and_rank 只从 semantic_results 建候选，所以 BM25 和实体 boost 是给语义候选加分，不是独立产生新候选。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1647,
+            "endLine": 1701
+          }
+        ]
+      },
+      {
+        "title": "scoring：阈值门控与自适应分母",
+        "explanation": "max_possible 根据实际信号存在性变化：只有语义为 1.0；有 BM25 加 1.0；有实体再加 0.5。每个候选先检查 semantic_score < threshold，低于阈值直接跳过；因此关键词和实体不能把语义不相关条目救回来。combined=(semantic+bm25+entity)/max_possible 并截断到 1.0，最后降序取 top_k。BM25 归一化使用 logistic sigmoid，使不同查询长度下的 raw BM25 可比。",
+        "evidence": [
+          {
+            "path": "mem0/utils/scoring.py",
+            "startLine": 16,
+            "endLine": 54
+          },
+          {
+            "path": "mem0/utils/scoring.py",
+            "startLine": 94,
+            "endLine": 139
+          }
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "question": "infer=False 时是否还经过 LLM 抽取和 hash 去重？",
+        "change": "对同一句“我不吃辣，喜欢川菜”调用 memory.add(..., infer=False)。",
+        "expected": "应跳过 Phase2 的 LLM 抽取和 Phase5 的 extracted hash 去重，直接对每条非 system 消息 embed，并调用 _create_memory 写向量库和 history ADD；返回 event=ADD。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 882,
+            "endLine": 916
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1975,
+            "endLine": 2005
+          }
+        ]
+      },
+      {
+        "question": "向量库不支持 keyword_search 时混合评分如何退化？",
+        "change": "换一个未 override keyword_search 的 vector store，或用没有 bm25 slot 的 Qdrant collection，然后执行同一 search。",
+        "expected": "keyword_search 返回 None，bm25_scores 为空；score_and_rank 的 has_bm25=False，max_possible 从 1.0 起算；排名只由 semantic 与可能存在的 entity boost 决定。",
+        "evidence": [
+          {
+            "path": "mem0/vector_stores/base.py",
+            "startLine": 68,
+            "endLine": 83
+          },
+          {
+            "path": "mem0/utils/scoring.py",
+            "startLine": 94,
+            "endLine": 101
+          }
+        ]
+      },
+      {
+        "question": "重复 add 完全相同文本是否一定不新增？",
+        "change": "先 add 一次，再对同一 user_id 重复 add 完全相同的文本，保持 infer=True。",
+        "expected": "若 Phase1 top10 检索返回了同 hash 的已有记忆，则被跳过；若该已有记忆未被 top10 召回，则代码没有全库 hash 检查，仍可能插入。因此实验应观察“去重范围”而不是假设全局幂等。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 925,
+            "endLine": 933
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1009,
+            "endLine": 1026
+          }
+        ]
+      }
+    ],
+    "takeaways": [
+      "add 当前是单次 ADD-only 抽取：已有记忆用于去重参考和 linking，不是 UPDATE/DELETE 的目标。",
+      "search 不是单一向量检索：语义候选池先过阈值，再由 BM25 和实体 boost 加性重排。",
+      "hash 去重只覆盖 Phase1 top10 已有 hash 与本批 seen_hashes，不能把整个系统理解为全局幂等。",
+      "LLM、embedding、Qdrant 和 spaCy 各自负责抽取、向量化、检索和实体候选；具体排名不能由源码静态预测。",
+      "历史库记录 ADD 审计，消息窗口只保留最近 10 条，长期上下文主要靠记忆条目本身。"
+    ],
+    "gaps": [
+      "Memory._compute_entity_boosts 和 _search_entity 的方法体未在已读范围，无法确认实体 boost 的具体数值计算和实体存储查询细节。",
+      "_build_filters_and_metadata 的方法体未读，无法逐步验证 metadata 与 user_id/agent_id/run_id 的合并细节。",
+      "Memory.entity_store 的初始化与底层实体存储实现未读，无法确认实体存储使用哪个向量集合及失败回退细节。",
+      "Qdrant BM25 的实际 IDF、稀疏向量编码和命中分数由 fastembed 与 Qdrant 决定，未运行无法预测“给我推荐晚餐”最终排名。"
+    ],
+    "sourceEvidence": []
+  }
+}

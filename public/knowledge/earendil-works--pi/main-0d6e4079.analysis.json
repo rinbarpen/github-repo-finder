@@ -1,0 +1,855 @@
+{
+  "version": 3,
+  "repo": "earendil-works/pi",
+  "ref": "main",
+  "sha": "f09d01b85e0384647fcab6779d35ab9dabe04be3",
+  "analysis": {
+    "version": 3,
+    "kind": "architecture",
+    "requestedModel": "deepseek-flash",
+    "actualModel": "deepseek-flash",
+    "filesRead": 24,
+    "charactersRead": 347608,
+    "modules": 6,
+    "flowSteps": 9,
+    "mechanisms": 4,
+    "decisions": 5,
+    "readingStrategy": "model-and-profile",
+    "structuralChecks": "passed",
+    "usage": {
+      "prompt_tokens": 173901,
+      "completion_tokens": 13297
+    },
+    "notes": []
+  },
+  "plan": {
+    "scenario": "用户让编码 Agent 读取文件再修改：提示经 coding-agent 会话层进入 pi-agent-core 的 runAgentLoop，循环把 AgentMessage 转成 LLM Message 交给 streamFn，消费流式事件，执行工具调用（串行/并行），把工具结果写回上下文并继续循环，直到无工具调用且无 steering/follow-up 消息。",
+    "files": [
+      {
+        "path": "packages/agent/src/agent-loop.ts",
+        "focus": [
+          "runAgentLoop",
+          "runLoop",
+          "streamAssistantResponse",
+          "executeToolCalls",
+          "executeToolCallsSequential",
+          "executeToolCallsParallel"
+        ],
+        "reason": "核心循环实现：runAgentLoop 初始化上下文并 emit 起始事件；runLoop 是主状态机，处理 steering、follow-up、prepareNextTurn/prepareRequest、工具批次与终止；streamAssistantResponse 在 LLM 边界做 AgentMessage→Message 转换并消费流事件；executeToolCalls 依据 executionMode 选择串行或并行实现。"
+      },
+      {
+        "path": "packages/agent/src/agent.ts",
+        "focus": [
+          "Agent.createLoopConfig",
+          "Agent.runWithLifecycle",
+          "Agent.processEvents",
+          "Agent.createContextSnapshot",
+          "Agent.steer",
+          "Agent.followUp"
+        ],
+        "reason": "Agent 类把状态、队列和事件桥接到 runAgentLoop：createLoopConfig 注入 getSteeringMessages/getFollowUpMessages/prepareNextTurn 等回调，runWithLifecycle 调用 runAgentLoop，processEvents 把循环事件写回状态并通知订阅者。"
+      },
+      {
+        "path": "packages/agent/src/types.ts",
+        "focus": [
+          "AgentLoopConfig",
+          "AgentContext",
+          "AgentEvent",
+          "AgentTool",
+          "AgentToolResult"
+        ],
+        "reason": "核心数据结构定义：AgentContext（messages/tools/systemPrompt）、AgentLoopConfig（model、toolExecution、回调）、AgentEvent 事件联合、AgentTool 与结果类型，是理解循环契约的类型来源（类型文件，计入两个上限之一）。"
+      },
+      {
+        "path": "packages/agent/src/stream-fn.ts",
+        "focus": [
+          "getDefaultStreamFn"
+        ],
+        "reason": "默认 StreamFn 适配器，说明循环如何取得实际模型流实现（pi-ai 的 stream 函数），是模型抽象与循环之间的具体传输入口。"
+      },
+      {
+        "path": "packages/agent/src/index.ts",
+        "focus": [],
+        "reason": "包公开入口，确认 runAgentLoop/Agent 等对外导出边界，区分核心实现与 SDK 包装。"
+      },
+      {
+        "path": "packages/coding-agent/src/core/agent-session.ts",
+        "focus": [
+          "AgentSession.prompt",
+          "AgentSession.runAgent",
+          "AgentSession.handleAgentEvent"
+        ],
+        "reason": "会话层真实请求入口：接收用户提示、构造 Agent 上下文与工具集、调用 Agent/runAgentLoop，并把事件持久化为会话记录；体现核心循环与会话分离的设计取舍。"
+      },
+      {
+        "path": "packages/coding-agent/src/core/agent-session-runtime.ts",
+        "focus": [
+          "AgentSessionRuntime"
+        ],
+        "reason": "运行时装配：把模型、工具、扩展与会话连接起来，说明上层如何向核心循环提供 config 与 streamFn。"
+      },
+      {
+        "path": "packages/coding-agent/src/core/compaction/compaction.ts",
+        "focus": [
+          "compact"
+        ],
+        "reason": "压缩实现，被 prepareNextTurn 类回调在长会话中调用，展示核心循环把上下文管理复杂度交给上层的取舍。"
+      },
+      {
+        "path": "packages/coding-agent/src/core/tools/read.ts",
+        "focus": [
+          "readTool"
+        ],
+        "reason": "具体工具实现示例：Agent 读取文件时工具如何校验参数、访问文件系统并返回 ToolResult，是工具适配器的真实实现。"
+      },
+      {
+        "path": "packages/coding-agent/src/core/tools/edit.ts",
+        "focus": [
+          "editTool"
+        ],
+        "reason": "修改文件工具实现，与 read 配对覆盖“读取再修改”场景，展示工具结果如何回传循环。"
+      },
+      {
+        "path": "packages/coding-agent/src/core/tools/index.ts",
+        "focus": [],
+        "reason": "工具注册与组装，说明工具集如何注入 AgentContext.tools 并决定 executionMode。"
+      },
+      {
+        "path": "packages/agent/test/agent-loop.test.ts",
+        "focus": [
+          "runAgentLoop",
+          "runLoop"
+        ],
+        "reason": "核心循环的测试/示例，覆盖工具串行并行、steering、follow-up、取消与终止行为，验证主方法语义（测试至少一个）。"
+      },
+      {
+        "path": "packages/coding-agent/examples/sdk/01-minimal.ts",
+        "focus": [],
+        "reason": "最小 SDK 示例，展示一次真实请求从创建 Agent 到 prompt 的公开入口调用链。"
+      },
+      {
+        "path": "packages/ai/src/api/anthropic-messages.ts",
+        "focus": [
+          "stream"
+        ],
+        "reason": "实际被调用的模型传输适配器之一，说明 streamFn 最终落到具体 provider 的流式实现（作为传输适配器代表，不深入协议细节）。"
+      }
+    ]
+  },
+  "report": {
+    "overview": {
+      "plainLanguage": "一个反复请模型决定下一步、执行工具、把结果写回对话的运行器；外层保存会话和界面，内层只把模型响应与工具结果接成可继续的对话。",
+      "problem": "编码 Agent 同时要处理模型流式输出、工具调用、用户中途插话、取消、后续消息和长会话压缩。如果核心循环还负责 provider 格式、会话持久化和 TUI，调度状态会被外围细节淹没。",
+      "scenarioInput": "用户输入“读取 packages/agent/src/agent-loop.ts，然后把其中一段注释改清楚”。会话层先处理命令/模板和认证，把用户消息交给 Agent；模型第一轮返回 read 工具调用，第二轮根据读到的内容返回 edit 工具调用，第三轮返回完成文本。",
+      "scenarioOutput": "推演 transcript：user → assistant(toolCall read) → toolResult(read) → assistant(toolCall edit) → toolResult(edit) → assistant(最终文本)。流式过程中上下文里只有一条可替换的 assistant 消息；工具结果按 assistant 源顺序写入；无新工具调用且无 steering/follow-up 后发出 agent_end。"
+    },
+    "modules": [
+      {
+        "id": "session",
+        "name": "编码会话层",
+        "role": "接收用户输入，处理扩展命令、压缩中拒绝、输入拦截、技能/模板展开；流式时按 steer/followUp 排队，非流式时校验模型和认证后进入运行阶段。持久化、模型目录、认证和压缩等复杂度留在这一层。",
+        "input": "用户文本、图片、PromptOptions；流式状态下还包含 streamingBehavior。",
+        "output": "进入会话运行阶段；在核心侧最终表现为 Agent 的 prompt 消息或队列消息。_startRun 内部装配在已读范围外。",
+        "state": "会话消息、steering/follow-up 队列、压缩状态、模型与认证状态、会话文件。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "packages/coding-agent/src/core/agent-session.ts",
+            "startLine": 2113,
+            "endLine": 2196
+          }
+        ]
+      },
+      {
+        "id": "agent",
+        "name": "Agent 状态与生命周期",
+        "role": "有状态包装层，拥有 transcript、监听器、steering/follow-up 队列和当前 activeRun；把上下文快照与 loop 配置交给核心循环，并把循环事件归约为 AgentState。",
+        "input": "AgentMessage 或 continuation 请求；内部还接收核心循环发出的 AgentEvent。",
+        "output": "runAgentLoop/runAgentLoopContinue 所需的 AgentContext、AgentLoopConfig 和事件回调。",
+        "state": "AgentState.messages、tools、model、thinkingLevel、isStreaming、streamingMessage、pendingToolCalls、errorMessage；两个 PendingMessageQueue；activeRun 的 AbortController。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "packages/agent/src/agent.ts",
+            "startLine": 194,
+            "endLine": 263
+          },
+          {
+            "path": "packages/agent/src/agent.ts",
+            "startLine": 441,
+            "endLine": 455
+          },
+          {
+            "path": "packages/agent/src/agent.ts",
+            "startLine": 476,
+            "endLine": 515
+          },
+          {
+            "path": "packages/agent/src/agent.ts",
+            "startLine": 575,
+            "endLine": 622
+          }
+        ]
+      },
+      {
+        "id": "loop",
+        "name": "核心 Agent 循环",
+        "role": "调度一轮轮 turn：声明工具变化、注入 steering/prepared 消息、调用模型流、执行工具、写回结果，再根据 finishTurn、steering、follow-up 决定继续或结束。它只处理 AgentMessage 和 AgentEvent。",
+        "input": "prompts、AgentContext、AgentLoopConfig、AbortSignal、StreamFn。",
+        "output": "AgentEvent 流和本次运行新增的 AgentMessage[]。",
+        "state": "currentContext、newMessages、lastCompletedTurn、pendingMessages、explicitContinuation，以及工具批次内的 finalizedCalls。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 111,
+            "endLine": 135
+          },
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 172,
+            "endLine": 330
+          }
+        ]
+      },
+      {
+        "id": "stream",
+        "name": "模型流抽象",
+        "role": "把 provider 无关的 StreamFn 作为核心循环与模型实现之间的边界；宿主可注入默认 stream 函数，核心不依赖 provider catalog。",
+        "input": "Model、归一化后的 TranscriptContext、SimpleStreamOptions/AbortSignal。",
+        "output": "AssistantMessageEventStream，包含 start、text/thinking/toolcall 增量、done/error 事件。",
+        "state": "模块级 defaultStreamFn 可选；未配置时 getDefaultStreamFn 抛错。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "packages/agent/src/stream-fn.ts",
+            "startLine": 1,
+            "endLine": 20
+          },
+          {
+            "path": "packages/agent/src/types.ts",
+            "startLine": 19,
+            "endLine": 37
+          }
+        ]
+      },
+      {
+        "id": "tools",
+        "name": "编码工具定义",
+        "role": "read/edit 等工具在 coding-agent 中定义参数 schema、执行逻辑和渲染；核心循环只通过 AgentTool.execute 调用，并通过 beforeToolCall/afterToolCall 插入策略。",
+        "input": "工具参数、toolCallId、AbortSignal、onUpdate、ExtensionContext。",
+        "output": "AgentToolResult，包含 content、details、可选 structuredContent/usage/isError/terminate。",
+        "state": "文件系统副作用；edit 通过 withFileMutationQueue 限制同一路径的并发写。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "packages/coding-agent/src/core/tools/read.ts",
+            "startLine": 86,
+            "endLine": 102
+          },
+          {
+            "path": "packages/coding-agent/src/core/tools/edit.ts",
+            "startLine": 143,
+            "endLine": 159
+          },
+          {
+            "path": "packages/coding-agent/src/core/tools/edit.ts",
+            "startLine": 163,
+            "endLine": 198
+          },
+          {
+            "path": "packages/coding-agent/src/core/tools/index.ts",
+            "startLine": 164,
+            "endLine": 171
+          }
+        ]
+      },
+      {
+        "id": "compaction",
+        "name": "会话压缩",
+        "role": "长会话的上层复杂度：估计上下文 token、找保留最近消息的切点、生成或更新摘要、记录读写文件。compaction.ts 是纯函数，session manager 负责 I/O 和重载；核心 runLoop 不直接实现压缩。",
+        "input": "SessionEntry[]、AgentMessage[]、Model、摘要选项和 CompactionSettings。",
+        "output": "CompactionPreparation 或 CompactionResult（summary、firstKeptEntryId、tokensBefore、usage、details）。",
+        "state": "摘要文本、保留起点、文件操作集合；不直接改变核心循环的 currentContext。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "packages/coding-agent/src/core/compaction/compaction.ts",
+            "startLine": 1,
+            "endLine": 6
+          },
+          {
+            "path": "packages/coding-agent/src/core/compaction/compaction.ts",
+            "startLine": 196,
+            "endLine": 224
+          },
+          {
+            "path": "packages/coding-agent/src/core/compaction/compaction.ts",
+            "startLine": 446,
+            "endLine": 501
+          },
+          {
+            "path": "packages/coding-agent/src/core/compaction/compaction.ts",
+            "startLine": 859,
+            "endLine": 923
+          }
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "from": "session",
+        "to": "agent",
+        "label": "提交提示"
+      },
+      {
+        "from": "agent",
+        "to": "loop",
+        "label": "调用 runAgentLoop"
+      },
+      {
+        "from": "loop",
+        "to": "stream",
+        "label": "获取事件流"
+      },
+      {
+        "from": "loop",
+        "to": "tools",
+        "label": "调用 execute"
+      },
+      {
+        "from": "tools",
+        "to": "loop",
+        "label": "返回 toolResult"
+      }
+    ],
+    "flow": [
+      {
+        "title": "会话层先拦截、排队或校验用户输入",
+        "phase": "预处理与校验",
+        "condition": "每次 AgentSession.prompt 调用；若正在流式且有 streamingBehavior，则走排队分支；若压缩中则直接拒绝。",
+        "symbol": "AgentSession.prompt",
+        "owner": "project",
+        "input": "用户文本 text、PromptOptions（images、streamingBehavior、expandPromptTemplates 等）。",
+        "action": "先尝试执行以 / 开头的扩展命令；若 compactionAbortController 存在则抛错；运行输入处理器，必要时展开 skill 和 prompt template；流式时按 followUp/steer 入队并返回；否则校验 model 和认证，然后调用 _startRun。",
+        "stateChange": "可能向 steering/follow-up 队列追加消息；可能设置 preflightResult；不在这里修改核心 transcript。",
+        "output": "非流式且校验通过后进入会话运行阶段；_startRun 内部装配在本仓库已读范围外。",
+        "evidence": [
+          {
+            "path": "packages/coding-agent/src/core/agent-session.ts",
+            "startLine": 2113,
+            "endLine": 2196
+          }
+        ]
+      },
+      {
+        "title": "Agent 规范化提示并建立一次 run 的生命周期",
+        "phase": "装配与写入",
+        "condition": "运行阶段调用 Agent.prompt 或继续逻辑时。",
+        "symbol": "Agent.prompt / Agent.runPromptMessages / Agent.runWithLifecycle",
+        "owner": "project",
+        "input": "字符串、单条 AgentMessage 或 AgentMessage[]，可选图片。",
+        "action": "Agent.prompt 先用 normalizePromptInput 变成 AgentMessage[]；runWithLifecycle 创建 AbortController 和 activeRun，设置 isStreaming=true；runPromptMessages 在生命周期内调用 runAgentLoop，传入 createContextSnapshot、createLoopConfig、processEvents 回调和 streamFunction。",
+        "stateChange": "activeRun 被设置；isStreaming=true；streamingMessage 和 errorMessage 清空。",
+        "output": "runAgentLoop 收到 prompts、上下文快照、配置、emit 回调和 signal。",
+        "evidence": [
+          {
+            "path": "packages/agent/src/agent.ts",
+            "startLine": 382,
+            "endLine": 390
+          },
+          {
+            "path": "packages/agent/src/agent.ts",
+            "startLine": 441,
+            "endLine": 455
+          },
+          {
+            "path": "packages/agent/src/agent.ts",
+            "startLine": 517,
+            "endLine": 540
+          }
+        ]
+      },
+      {
+        "title": "runAgentLoop 初始化工具声明并发出运行开始事件",
+        "phase": "初始化",
+        "condition": "每次新 prompt 运行必经。",
+        "symbol": "runAgentLoop / declareToolChanges",
+        "owner": "project",
+        "input": "prompts、AgentContext、AgentLoopConfig、emit、signal、streamFn。",
+        "action": "declareToolChanges 比较 transcript 中的系统消息工具声明与 context.tools 的可执行集合，生成 toolsAdded/toolsRemoved 系统消息；把初始消息复制进 newMessages 和 currentContext.messages；发出 agent_start、turn_start，以及每条初始消息的 message_start/message_end；调用 runLoop。",
+        "stateChange": "currentContext.messages 增加初始提示及可能的工具变更系统消息；newMessages 同步记录；事件被 emit。",
+        "output": "runLoop 收到 currentContext、newMessages、config、signal、emit、streamFunction。",
+        "evidence": [
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 111,
+            "endLine": 135
+          },
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 342,
+            "endLine": 372
+          }
+        ]
+      },
+      {
+        "title": "runLoop 注入 steering/prepared 消息并准备请求",
+        "phase": "写入与查询",
+        "condition": "进入内层 while；若已有 lastCompletedTurn，则先调用 prepareNextTurn；每次请求前调用 prepareRequest。",
+        "symbol": "runLoop",
+        "owner": "project",
+        "input": "currentContext、config、pendingMessages、lastCompletedTurn。",
+        "action": "初始 pendingMessages 来自 getSteeringMessages；lastCompletedTurn 存在时 prepareNextTurn 可替换 context/model/thinkingLevel 并返回要追加的消息；随后对 prepared+pending 消息走 declareToolChanges、发 message_start/message_end、push 到 currentContext 和 newMessages；prepareRequest 可在请求前再次替换 context/model/thinkingLevel。",
+        "stateChange": "currentContext.messages 追加 prepared 和 steering 消息；config 的 model/reasoning 可能被替换；pendingMessages 清空。",
+        "output": "准备好进入 streamAssistantResponse 的上下文和请求配置。",
+        "evidence": [
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 184,
+            "endLine": 248
+          }
+        ]
+      },
+      {
+        "title": "streamAssistantResponse 转换上下文并消费流事件",
+        "phase": "查询与流式写入",
+        "condition": "每次请求模型时必经。",
+        "symbol": "streamAssistantResponse",
+        "owner": "project",
+        "input": "currentContext.messages、config.model、config.transformContext、config.convertToLlm、streamFunction、signal。",
+        "action": "先可选 transformContext，再调用 config.convertToLlm 把 AgentMessage[] 转成 Message[]（该转换函数由调用方提供）；normalizeContext 只保留 messages 作为 TranscriptContext；解析 API key 后调用 streamFunction。遍历 start/delta/done/error 事件，把流式 partial 写入 context，并把事件 emit 给上层。",
+        "stateChange": "context.messages 中一条 assistant 消息被流式 partial 反复替换；done 时用 result() 的最终消息替换并 emit message_end。",
+        "output": "最终 AssistantMessage 返回给 runLoop，并被 push 到 newMessages。",
+        "evidence": [
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 390,
+            "endLine": 417
+          },
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 419,
+            "endLine": 465
+          }
+        ]
+      },
+      {
+        "title": "runLoop 判断硬退出或提取工具调用",
+        "phase": "分支判断",
+        "condition": "assistant 消息完成后；若 stopReason 为 error/aborted 则硬退出；若为 length 则不执行工具；否则提取 content 中的 toolCall。",
+        "symbol": "runLoop / failToolCallsFromTruncatedMessage",
+        "owner": "project",
+        "input": "finalMessage、currentContext、config。",
+        "action": "error/aborted 时记录 lastCompletedTurn，调用 finishTurn，发 turn_end 和 agent_end 后返回；正常消息过滤出 toolCalls；stopReason 为 length 时 failToolCallsFromTruncatedMessage 为每个调用生成错误结果并不执行；否则调用 executeToolCalls。",
+        "stateChange": "可能追加一组 toolResult 消息；截断路径生成 error toolResult 并继续下一轮让模型重发。",
+        "output": "executedToolBatch 的 messages 和 terminate 标志，或硬退出。",
+        "evidence": [
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 250,
+            "endLine": 287
+          },
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 488,
+            "endLine": 513
+          }
+        ]
+      },
+      {
+        "title": "executeToolCalls 选择串行或并行",
+        "phase": "调度决策",
+        "condition": "assistant 消息包含工具调用且不是 length 截断时。",
+        "symbol": "executeToolCalls",
+        "owner": "project",
+        "input": "currentContext、assistantMessage、config、signal、emit。",
+        "action": "过滤出 toolCalls，并检查是否有工具声明 executionMode=sequential。如果 config.toolExecution 为 sequential 或任一工具要求 sequential，则调用 executeToolCallsSequential；否则调用 executeToolCallsParallel。",
+        "stateChange": "无；只产生分支决定。",
+        "output": "调用串行或并行执行函数。",
+        "evidence": [
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 518,
+            "endLine": 533
+          }
+        ]
+      },
+      {
+        "title": "串行或并行执行工具并形成结果消息",
+        "phase": "执行与并发",
+        "condition": "由 executeToolCalls 选择；并行路径先准备再并发执行。",
+        "symbol": "executeToolCallsSequential / executeToolCallsParallel",
+        "owner": "project",
+        "input": "currentContext、assistantMessage、toolCalls、config、signal、emit。",
+        "action": "两条路径都逐个 emit tool_execution_start 并调用 prepareToolCall：查工具、prepareArguments、schema 校验、beforeToolCall；immediate 结果直接形成错误/阻止结果。串行路径逐个执行并 finalize；并行路径把已准备调用包装成闭包，Promise.all 并发执行，最后按源顺序 createToolResultMessage。",
+        "stateChange": "串行路径按源顺序累积 finalizedCalls；并行路径 tool_execution_end 可能按完成顺序发出，但 toolResult 消息按 assistant 源顺序形成。",
+        "output": "返回 messages 和 shouldTerminateToolBatch(finalizedCalls) 的 terminate 标志。",
+        "evidence": [
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 540,
+            "endLine": 594
+          },
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 596,
+            "endLine": 670
+          },
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 700,
+            "endLine": 702
+          }
+        ]
+      },
+      {
+        "title": "runLoop 写回工具结果并决定继续或结束",
+        "phase": "写入与轮询",
+        "condition": "每批工具执行后；若 finishTurn 返回 end 则立即退出。",
+        "symbol": "runLoop",
+        "owner": "project",
+        "input": "toolResults、lastCompletedTurn、config.finishTurn、steering/follow-up 队列。",
+        "action": "把 toolResults push 到 currentContext.messages 和 newMessages；记录 lastCompletedTurn；调用 finishTurn 得到 decision，emit turn_end；decision 为 end 则 emit agent_end 返回；否则轮询 getSteeringMessages，若有工具结果或 steering 则继续内层；内层结束再取 follow-up，若存在则设为 pending 继续；显式 continue 在没有自然请求时做一次 context-only turn；否则 emit agent_end 并 break。",
+        "stateChange": "currentContext/newMessages 增加 toolResult；队列被 drain；AgentState 随事件更新。",
+        "output": "继续下一轮请求，或发出 agent_end 结束本次运行。",
+        "evidence": [
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 283,
+            "endLine": 330
+          }
+        ]
+      }
+    ],
+    "technologies": [
+      {
+        "name": "AgentMessage 到 LLM 消息的请求边界",
+        "problem": "会话中要保留自定义消息、工具变更系统消息和 UI 通知，但 provider 只接受有限消息类型。",
+        "mechanism": "每次请求前先可选 transformContext 处理 AgentMessage；再调用调用方提供的 convertToLlm 映射/过滤成 Message[]；normalizeContext 只保留 messages 形成 provider transcript；系统消息在 transcript 中承载 prompt 和工具声明。",
+        "pseudocode": "messages = context.messages\nif config.transformContext:\n  messages = await config.transformContext(messages)\nllmMessages = await config.convertToLlm(messages)\ntranscript = normalizeContext({ messages: llmMessages })\nresponse = streamFn(model, transcript, options)\nreturn response",
+        "dataStructures": "AgentMessage 是 Message 与自定义消息的联合；AgentContext 只持有 messages 和可执行 tools；StreamFn 接收 TranscriptContext，其中 messages 是唯一顶层字段。",
+        "projectCode": "streamAssistantResponse 按顺序调用 transformContext、convertToLlm、normalizeContext，并把 config 传给 streamFunction。",
+        "externalDependency": "pi-ai 的 normalizeContext、TranscriptContext 和具体 provider 消息格式；本项目只保证传入归一化 transcript。",
+        "tradeoff": "核心循环与 provider 解耦，UI 自定义消息不必进入 provider；代价是每次请求都要转换，且 convertToLlm 契约要求不抛异常。",
+        "evidence": [
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 390,
+            "endLine": 417
+          },
+          {
+            "path": "packages/agent/src/types.ts",
+            "startLine": 19,
+            "endLine": 37
+          }
+        ]
+      },
+      {
+        "name": "流式 assistant 消息按累计快照替换",
+        "problem": "模型流先给 start，再给多个 text/thinking/toolcall 事件；如果每个事件都追加一条消息，transcript 会膨胀，toolResult 关联也会错乱。",
+        "mechanism": "start 时把 event.partial 作为一条消息 push；后续增量事件把 context 最后一条替换为 event.partial——partial 是当前累计快照，不是要追加的 delta；done/error 时调用 response.result() 得到最终完整消息并替换最后一条。",
+        "pseudocode": "addedPartial = false\nfor event in response:\n  if event.type == start:\n    context.messages.push(event.partial)\n    addedPartial = true\n  elif event.type in deltaEvents:\n    context.messages[last] = event.partial\n  elif event.type in doneOrError:\n    final = await response.result()\n    if addedPartial: context.messages[last] = final\n    else: context.messages.push(final)\n    emit message_end\n    return final",
+        "dataStructures": "partialMessage 是 AssistantMessage 的当前快照；context.messages 中始终只有一条正在演进的 assistant 消息；最终消息包含 usage、stopReason 等完整字段。",
+        "projectCode": "streamAssistantResponse 的事件 switch、partialMessage 替换逻辑、result() 取最终消息。",
+        "externalDependency": "pi-ai 的 AssistantMessageEventStream 负责把 provider SSE 聚合成带 partial 的事件；本项目消费这些事件并写回上下文。",
+        "tradeoff": "UI 能实时看到增量，transcript 又不会膨胀；代价是核心假设 event.partial 是累计快照，streamFn 实现必须遵守该事件契约。",
+        "evidence": [
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 419,
+            "endLine": 465
+          }
+        ]
+      },
+      {
+        "name": "工具批次准备/执行分离与顺序策略",
+        "problem": "同一 assistant 消息可能包含多个工具调用；读文件可以并行降低延迟，但编辑同一文件或需要前置策略的工具必须有序，且错误参数不能进入执行阶段。",
+        "mechanism": "先按 toolCalls 顺序逐个 prepareToolCall：查工具、prepareArguments、schema 校验、beforeToolCall；immediate 结果直接形成错误/阻止结果。串行模式逐个执行并 finalize；并行模式把已准备调用包装成闭包，Promise.all 并发执行，最后按源顺序 createToolResultMessage。shouldTerminateToolBatch 要求本批所有结果都 terminate=true 才终止。",
+        "pseudocode": "toolCalls = assistantMessage.content.filter(toolCall)\nif globalSequential or anyToolSequential:\n  for call in toolCalls:\n    prep = prepare(call)\n    if prep.immediate: finalize(prep.result)\n    else: execute(prep); afterHook(prep)\nelse:\n  for call in toolCalls:\n    prep = prepare(call)\n    if prep.immediate: push(immediate)\n    else: push(closure(() => execute(prep)))\n  ordered = await Promise.all(entries)\n  for finalized in ordered: emit toolResultMessage",
+        "dataStructures": "finalizedCalls 在串行路径按源顺序累积；并行路径先存 immediate 结果或闭包，再 Promise.all 得到 orderedFinalizedCalls；AgentToolResult.terminate 是批次终止提示。",
+        "projectCode": "executeToolCalls、executeToolCallsSequential、executeToolCallsParallel、prepareToolCall、shouldTerminateToolBatch。",
+        "externalDependency": "工具自身的 execute 实现由 coding-agent 或扩展提供；核心只负责调用和结果消息化。",
+        "tradeoff": "并行减少等待，串行保证副作用顺序；代价是并行工具会同时产生外部副作用，因此工具需要用 executionMode 声明顺序要求，且 before/after hook 仍在准备阶段顺序执行。",
+        "evidence": [
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 518,
+            "endLine": 533
+          },
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 596,
+            "endLine": 670
+          },
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 700,
+            "endLine": 702
+          }
+        ]
+      },
+      {
+        "name": "steering/follow-up 双队列与 turn 调度",
+        "problem": "用户可能在 Agent 工作时补充修正，也可能想等 Agent 完成当前任务后再追加任务；两者如果都按“下一次请求前注入”处理，会打断本应完成的当前任务。",
+        "mechanism": "PendingMessageQueue 保存消息，mode 为 all 或 one-at-a-time；Agent.steer 入 steeringQueue，Agent.followUp 入 followUpQueue。runLoop 在每轮工具结果后轮询 steering；只有在没有工具调用且没有 steering、agent 本来要停止时才轮询 follow-up。finishTurn 可以返回 end 立即结束，或 continue 在没有自然请求时让循环做一次 context-only turn。",
+        "pseudocode": "pending = await getSteeringMessages()\nwhile hasMoreToolCalls or pending.length:\n  ... run assistant and tools ...\n  decision = await finishTurn(turn)\n  if decision.action == end: break\n  pending = await getSteeringMessages()\nfollowUps = await getFollowUpMessages()\nif followUps.length: pending = followUps; continue\nif explicitContinuation: explicitContinuation = false; continue\nbreak",
+        "dataStructures": "PendingMessageQueue.messages、mode；runLoop 的 pendingMessages、lastCompletedTurn、explicitContinuation。",
+        "projectCode": "Agent 的 steer/followUp/队列方法、createLoopConfig 中的 getSteeringMessages/getFollowUpMessages、runLoop 的双层循环。",
+        "externalDependency": "无；队列和调度完全在本项目内实现。",
+        "tradeoff": "调度更贴近用户意图，但状态机更复杂；one-at-a-time 默认避免一次注入过多消息，代价是后续消息要等下一个 drain 点。",
+        "evidence": [
+          {
+            "path": "packages/agent/src/agent.ts",
+            "startLine": 149,
+            "endLine": 180
+          },
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 298,
+            "endLine": 326
+          },
+          {
+            "path": "packages/agent/src/types.ts",
+            "startLine": 282,
+            "endLine": 306
+          }
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "decision": "核心循环全程使用 AgentMessage，只在调用 LLM 的边界转换成 Message[]。",
+        "constraint": "会话层需要保留自定义消息、工具变更系统消息和 UI 事件，而 provider 只接受有限的 LLM 消息类型。",
+        "alternative": "在 runLoop 内直接维护 provider Message[]，并让上层也使用 provider 格式。",
+        "why": "本次“读取再修改”场景中，工具变更系统消息、read/edit 的 toolResult 和可能的 UI 通知需要同时存在于 transcript；如果在循环里直接使用 provider 格式，自定义消息和工具声明差异很难表达。把转换限制在 streamAssistantResponse，核心调度就只关心 AgentMessage 和工具结果。",
+        "cost": "每次请求都要执行 transformContext/convertToLlm；convertToLlm 契约要求不抛异常，否则会破坏正常事件序列。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "Agent loop that works with AgentMessage throughout.\n * Transforms to Message[] only at the LLM call boundary.",
+        "evidence": [
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 1,
+            "endLine": 4
+          },
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 390,
+            "endLine": 404
+          }
+        ]
+      },
+      {
+        "decision": "工具默认可以并行执行，但准备、校验和前后 hook 按顺序进行；任一工具声明 executionMode=sequential 或全局配置 sequential 时整批退化为串行。",
+        "constraint": "同一批工具调用可能同时包含独立读操作和同一文件的写操作；参数错误和策略阻止不应该在并发执行后才暴露。",
+        "alternative": "所有工具一律串行执行，或者所有工具无条件并行执行。",
+        "why": "“读取再修改”中 read 可以与其他读并行，edit 需要顺序和文件 mutation queue；把 prepareToolCall 放在并发执行之前，能先校验所有参数并运行 beforeToolCall，避免坏参数进入执行阶段。逐工具 executionMode 比全局串行更细，允许只对需要顺序的工具降级。",
+        "cost": "并行执行仍可能产生外部副作用竞争，工具作者必须正确声明 executionMode；并行时 tool_execution_end 按完成顺序发出，而 toolResult 消息按源顺序生成，事件消费者需要理解两者不同。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "packages/agent/src/types.ts",
+            "startLine": 39,
+            "endLine": 47
+          },
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 526,
+            "endLine": 532
+          },
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 656,
+            "endLine": 664
+          }
+        ]
+      },
+      {
+        "decision": "steering 与 follow-up 使用两个独立队列，并设置不同的轮询时机。",
+        "constraint": "用户可能在 Agent 执行工具时追加修正，也可能想等当前任务结束后再追加新任务；两类消息的语义不同。",
+        "alternative": "所有用户追加消息都进入同一个队列，在下一次模型请求前统一注入。",
+        "why": "如果 follow-up 也按 steering 注入，Agent 可能在本应完成当前工具批次前就转向新任务；分开后，steering 在工具结果写回后、下一次请求前注入，follow-up 只在 Agent 没有工具调用且没有 steering、本来要停止时才注入。",
+        "cost": "调度状态更多；默认 one-at-a-time 会让后续消息多等几个 drain 点。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "Called when the agent has no more tool calls and no steering messages.",
+        "evidence": [
+          {
+            "path": "packages/agent/src/types.ts",
+            "startLine": 282,
+            "endLine": 306
+          },
+          {
+            "path": "packages/agent/src/agent.ts",
+            "startLine": 149,
+            "endLine": 180
+          },
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 298,
+            "endLine": 326
+          }
+        ]
+      },
+      {
+        "decision": "核心循环通过 StreamFn 接收模型能力，不直接依赖 provider catalog 或默认模型运行时。",
+        "constraint": "coding-agent 需要模型目录、认证、重试和多种 provider，但 pi-agent-core 也要能被其他宿主复用和独立测试。",
+        "alternative": "在 runLoop 内直接创建 provider 客户端并解析模型/认证。",
+        "why": "把 streamFunction 作为参数传入，并在 Agent 构造时允许注入，核心就只看到 Model、TranscriptContext 和事件流；coding-agent 可以在自己的模型运行时里安装默认 streamFn，而核心不需要知道 Anthropic/OpenAI 的差异。",
+        "cost": "调用者必须提供 streamFn，或在宿主中调用 setDefaultStreamFn；否则 getDefaultStreamFn 抛错。核心也无法单独完成 provider 特定的重试和认证。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "Hosts that provide a default model runtime can install its stream function here\n * without making pi-agent-core depend on a provider catalog or compatibility layer.",
+        "evidence": [
+          {
+            "path": "packages/agent/src/stream-fn.ts",
+            "startLine": 5,
+            "endLine": 20
+          },
+          {
+            "path": "packages/agent/src/types.ts",
+            "startLine": 19,
+            "endLine": 37
+          }
+        ]
+      },
+      {
+        "decision": "上下文压缩不放进 runLoop，而由 coding-agent 的会话/压缩层承担，核心只提供 prepareRequest/prepareNextTurn 等替换上下文和模型的钩子。",
+        "constraint": "压缩需要 session entries、摘要模型调用、API key、文件操作追踪和会话重载，这些都不属于纯循环调度。",
+        "alternative": "在 runLoop 每次请求前自动检测 token 并压缩上下文。",
+        "why": "compaction.ts 被设计成纯函数，session manager 负责 I/O 和重载；runLoop 已经允许 prepareNextTurn 返回 replacement context，prepareRequest 返回 replacement model/context。把压缩放在上层，核心循环就不必知道摘要提示、切点和文件信息。",
+        "cost": "如果上层没有安装压缩钩子，核心不会自动压缩；压缩触发和重载的精确调用顺序需要看未读的 AgentSession 方法体。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "packages/coding-agent/src/core/compaction/compaction.ts",
+            "startLine": 1,
+            "endLine": 6
+          },
+          {
+            "path": "packages/coding-agent/src/core/compaction/compaction.ts",
+            "startLine": 859,
+            "endLine": 923
+          },
+          {
+            "path": "packages/agent/src/types.ts",
+            "startLine": 266,
+            "endLine": 280
+          }
+        ]
+      }
+    ],
+    "codeWalkthroughs": [
+      {
+        "title": "runAgentLoop 如何把工具声明差异变成系统消息并进入 runLoop",
+        "explanation": "runAgentLoop 先调用 declareToolChanges(context, prompts)。declareToolChanges 从 pendingMessages 中找最后一条 system 消息，用 getCurrentTools 计算已提交 transcript 与 context.tools 可执行集合的差异；若没有变化则原样返回，若有变化则在第一条非 system 消息前插入或替换一条只带 toolsAdded/toolsRemoved 的系统消息。随后 runAgentLoop 复制初始消息到 newMessages 和 currentContext.messages，发出 agent_start/turn_start，并对每条初始消息发 message_start/message_end，最后把 currentContext 交给 runLoop。关键不变量是：模型看到的工具清单由 transcript 系统消息重放，而不是旁路 context.tools。",
+        "evidence": [
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 111,
+            "endLine": 135
+          },
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 342,
+            "endLine": 372
+          }
+        ]
+      },
+      {
+        "title": "streamAssistantResponse 如何用累计 partial 替换而不是追加 assistant 消息",
+        "explanation": "先对 context.messages 做可选 transformContext，再调用 config.convertToLlm 成 LLM 消息，normalizeContext 只保留 messages，解析 API key 后调用 streamFunction。遍历响应事件时，start 分支把 event.partial push 到 context 并标记 addedPartial；text/thinking/toolcall 分支把 context 最后一条直接赋值为 event.partial，并发 message_update；done/error 分支调用 result() 得到最终 AssistantMessage，若已有 partial 就替换最后一条，否则追加并补发 message_start，最后发 message_end 并返回最终消息。因此 context 中不会为每个 delta 新增消息，最终消息包含完整 usage 和 stopReason。",
+        "evidence": [
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 390,
+            "endLine": 417
+          },
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 419,
+            "endLine": 465
+          }
+        ]
+      },
+      {
+        "title": "工具批次如何先选择模式、再准备/执行、最后按源顺序生成 toolResult",
+        "explanation": "executeToolCalls 先过滤出 toolCalls，并检查是否有工具声明 executionMode=sequential；如果全局 sequential 或任一工具要求 sequential，就走串行路径，否则并行。并行路径 executeToolCallsParallel 仍按 toolCalls 顺序 emit tool_execution_start 并 prepareToolCall：未知工具、参数校验失败或 beforeToolCall 阻止会形成 immediate 结果；准备好的调用被包装成闭包放进 finalizedCalls。随后 Promise.all 执行所有闭包，得到 orderedFinalizedCalls；最后按这个源顺序 createToolResultMessage 并 emit message_start/message_end。shouldTerminateToolBatch 只有在本批 finalizedCalls 非空且每个 result.terminate=true 时才返回 true，因此一个工具想终止批次不足以让整批提前结束。",
+        "evidence": [
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 518,
+            "endLine": 533
+          },
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 596,
+            "endLine": 670
+          },
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 700,
+            "endLine": 702
+          }
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "question": "把全局 toolExecution 改成 sequential，或让一个工具声明 executionMode=sequential，是否会让本批工具不再并发执行，同时 toolResult 仍按 assistant 源顺序写入？",
+        "change": "在 AgentLoopConfig 中设置 toolExecution: \"sequential\"，或把其中一个工具的 executionMode 设为 \"sequential\"；其余配置保持并行默认。",
+        "expected": "executeToolCalls 会走 executeToolCallsSequential；第二个工具不会在第一个工具 execute 完成前开始；messages 中的 toolResult 顺序仍与 assistant 消息里的 toolCall 顺序一致。若只让一个工具 sequential，则整批都走串行路径，因为 executeToolCalls 检查 hasSequentialToolCall。",
+        "evidence": [
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 518,
+            "endLine": 533
+          },
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 540,
+            "endLine": 594
+          }
+        ]
+      },
+      {
+        "question": "流式过程中 context 里的 assistant 消息是每个 delta 追加一条，还是始终只有一条被累计快照替换？",
+        "change": "用 mock streamFn 先 push start(partial=A)，再 push 一个 text_delta 事件并让 event.partial 表示累计后的 A+B，最后 push done 且 response.result() 返回最终消息；运行后检查 messages 中 assistant 消息数量。",
+        "expected": "按 streamAssistantResponse，start 时 push 一条 partial，后续 delta 把 context 最后一条替换为 event.partial，done 时用 result() 的最终消息替换同一条；因此 assistant 消息数量为 1，最终内容等于 done 返回的完整消息，而不是 A、A+B 两条。",
+        "evidence": [
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 424,
+            "endLine": 465
+          }
+        ]
+      },
+      {
+        "question": "finishTurn 返回 end 时，是否会跳过 steering/follow-up 轮询并立即结束？",
+        "change": "让 finishTurn 返回 { action: \"end\" }，同时让 getSteeringMessages 和 getFollowUpMessages 返回非空消息；观察是否还会发起下一次模型请求。",
+        "expected": "runLoop 在 decision?.action === \"end\" 时直接 emit agent_end 并 return，不再执行 pendingMessages = getSteeringMessages 和 follow-up 分支；因此队列消息保留但不会被本次运行消费。",
+        "evidence": [
+          {
+            "path": "packages/agent/src/agent-loop.ts",
+            "startLine": 295,
+            "endLine": 326
+          }
+        ]
+      }
+    ],
+    "takeaways": [
+      "核心循环只维护 AgentMessage transcript；provider Message 转换集中在 streamAssistantResponse，工具声明通过 transcript 系统消息重放。",
+      "流式增量事件里的 partial 是累计快照，必须替换 context 中同一条 assistant 消息；done 时再用 result() 的最终消息收口。",
+      "工具执行把准备/校验/前后 hook 与真正 execute 分离：并行只并发执行阶段，最终 toolResult 仍按 assistant 源顺序写入，批次终止要求所有结果都 terminate=true。",
+      "steering 与 follow-up 是不同调度时机：steering 在工具结果后注入，follow-up 在 Agent 本来要停止时才注入；finishTurn 是上层干预是否继续的钩子。",
+      "编码会话层承担模型选择、认证、压缩、持久化和 TUI 交互；核心通过 StreamFn、AgentTool 和 prepareRequest/prepareNextTurn 钩子接收能力，保持调度逻辑可复用。"
+    ],
+    "gaps": [
+      "AgentSession._startRun、_prepareRun、_installAgentRequestProjection 等方法体在已读范围内没有包含，因此无法确认会话层具体如何把 prompt 装配到 Agent、如何安装 prepareRequest/prepareNextTurn 钩子，以及压缩在请求前触发的精确顺序。",
+      "AgentSession.constructor 的方法体未读，无法确认 Agent 的 streamFn、convertToLlm、工具集合和事件监听器在构造时如何注入。",
+      "AgentSession._handleAgentEvent 和 subscribe 的方法体未读，无法确认会话持久化、扩展事件和 TUI 刷新如何消费 AgentEvent。",
+      "compaction.ts 的 prepareCompaction/compact 是纯函数，但 AgentSession 中自动压缩的触发条件和重载路径（_runAutoCompaction、_checkCompaction 等）方法体未读，不能断言每轮请求前一定会压缩。",
+      "TUI 渲染层和 interactive 模式的调用路径未读，无法确认 message_update、tool_execution_update 等事件在界面上的具体呈现方式。"
+    ]
+  }
+}

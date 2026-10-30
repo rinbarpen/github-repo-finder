@@ -1,5 +1,13 @@
 {
-  "generatedAt": "2026-10-29T02:55:26.686Z",
-  "repositories": 9,
-  "errors": []
+  "generatedAt": "2026-10-30T05:33:11.336Z",
+  "repositories": 19,
+  "errors": [
+    "anthropics/claude-agent-sdk-python@main: architecture analysis rejected: terminated",
+    "volcengine/OpenViking@main: architecture analysis rejected: Architecture quality gate failed: 架构连线引用了不存在的模块或过长标签",
+    "volcengine/OpenViking@main: Architecture quality gate failed: 架构连线引用了不存在的模块或过长标签",
+    "volcengine/OpenViking: No tracked branch was successfully analyzed",
+    "MemTensor/MemOS@main: architecture analysis rejected: Architecture quality gate failed: codeWalkthroughs[2] 必须指向 1–3 个精确片段",
+    "MemTensor/MemOS@main: Architecture quality gate failed: codeWalkthroughs[2] 必须指向 1–3 个精确片段",
+    "MemTensor/MemOS: No tracked branch was successfully analyzed"
+  ]
 }

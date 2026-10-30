@@ -1,0 +1,1036 @@
+{
+  "version": 3,
+  "repo": "bytedance/deer-flow",
+  "ref": "main",
+  "sha": "c50cdc5161779c8b32cda6a0cb575303195f5e65",
+  "analysis": {
+    "version": 3,
+    "kind": "architecture",
+    "requestedModel": "deepseek-flash",
+    "actualModel": "deepseek-flash",
+    "filesRead": 11,
+    "charactersRead": 349824,
+    "modules": 7,
+    "flowSteps": 9,
+    "mechanisms": 4,
+    "decisions": 5,
+    "readingStrategy": "model-and-profile",
+    "structuralChecks": "passed",
+    "usage": {
+      "prompt_tokens": 125347,
+      "completion_tokens": 17718
+    },
+    "notes": [
+      "decisions[2] 无法逐字核对作者说明，已标为工程推断"
+    ]
+  },
+  "plan": {
+    "scenario": "主 Agent 收到一次调研并生成文件的请求：请求经 Gateway 进入 run worker，由 make_lead_agent/assemble_lead_agent 组装 lead graph（模型、工具、中间件、sandbox、子代理、memory），执行循环由 LangChain create_agent 提供；lead 在循环中调用 task 工具委派子任务，SubagentExecutor 在隔离事件循环中构建子代理图并执行，子代理通过 sandbox 工具在沙箱中读写文件，结果与产物回收到 lead，最终由 lead 汇总并输出文件。",
+    "files": [
+      {
+        "path": "backend/packages/harness/deerflow/agents/lead_agent/agent.py",
+        "focus": [
+          "make_lead_agent",
+          "assemble_lead_agent",
+          "_assemble_lead_agent",
+          "build_middlewares",
+          "_complete_assembly"
+        ],
+        "reason": "当前运行栈的唯一装配入口：make_lead_agent 是 LangGraph Server ABI，assemble_lead_agent 冻结 checkpoint 模式并返回 LeadAgentAssembly，_assemble_lead_agent（文件后半段）解析用户/模型/子代理并发上限/技能授权，构建工具与中间件链，最终调用 create_agent 生成执行循环；build_middlewares 决定 sandbox、summarization、loop detection 等中间件顺序。"
+      },
+      {
+        "path": "backend/packages/harness/deerflow/agents/factory.py",
+        "focus": [
+          "create_agent",
+          "build_agent"
+        ],
+        "reason": "lead 与子代理共用的图工厂，把模型、工具、中间件和 state schema 编译成可执行 agent；确认执行循环不是自研 DAG 而是 LangChain create_agent 的 tool-calling 循环。"
+      },
+      {
+        "path": "backend/packages/harness/deerflow/tools/builtins/task_tool.py",
+        "focus": [
+          "task",
+          "_arun",
+          "_run"
+        ],
+        "reason": "lead 委派子任务的真实工具入口：解析 description/subagent_type、做并发与总量限制、调用 SubagentExecutor，并把子代理结果作为 ToolMessage 返回给 lead 循环。"
+      },
+      {
+        "path": "backend/packages/harness/deerflow/subagents/executor.py",
+        "focus": [
+          "SubagentExecutor.__init__",
+          "SubagentExecutor._create_agent",
+          "SubagentExecutor._build_initial_state",
+          "SubagentExecutor._aexecute_admitted",
+          "SubagentExecutor.execute_async",
+          "SubagentResult.try_set_terminal"
+        ],
+        "reason": "子任务执行核心：_create_agent 用 create_agent 构建子代理图，_build_initial_state 分配上下文快照与工具集，_aexecute_admitted（后半段）驱动流式执行、收集 token/receipts/bash 证据，try_set_terminal 保证终态只写一次；execute_async 提供后台任务与超时。"
+      },
+      {
+        "path": "backend/packages/harness/deerflow/subagents/runtime.py",
+        "focus": [
+          "run_subagent",
+          "execute_subagent"
+        ],
+        "reason": "子代理运行时门面，连接 task 工具与 executor，明确同步/异步调用路径与取消语义。"
+      },
+      {
+        "path": "backend/packages/harness/deerflow/subagents/context_snapshot.py",
+        "focus": [
+          "ParentContextSnapshot",
+          "build_snapshot"
+        ],
+        "reason": "子任务上下文分配策略：父上下文如何裁剪成快照注入子代理，避免整段历史复制，是并发与 token 预算的设计取舍点。"
+      },
+      {
+        "path": "backend/packages/harness/deerflow/subagents/capacity.py",
+        "focus": [
+          "SubagentExecutionCapacity",
+          "get_subagent_execution_capacity"
+        ],
+        "reason": "并发与容量限制的真实实现，被 lead 装配与 executor 共同使用，解释 max_concurrent_subagents 如何生效。"
+      },
+      {
+        "path": "backend/packages/harness/deerflow/sandbox/middleware.py",
+        "focus": [
+          "SandboxMiddleware.before_agent",
+          "SandboxMiddleware.wrap_tool_call",
+          "SandboxMiddleware.after_agent"
+        ],
+        "reason": "sandbox 生命周期挂载点：在 agent 开始/结束与每次工具调用前后获取、复用、释放沙箱，决定长任务恢复时沙箱是否重建。"
+      },
+      {
+        "path": "backend/packages/harness/deerflow/sandbox/tools.py",
+        "focus": [
+          "bash",
+          "read_file",
+          "write_file",
+          "ls",
+          "str_replace"
+        ],
+        "reason": "实际被调用的沙箱工具实现（文件最大、后半段为具体执行逻辑），展示工具如何经 provider 拿到沙箱并执行命令/文件操作，是“生成文件”落地的真实路径。"
+      },
+      {
+        "path": "backend/packages/harness/deerflow/sandbox/lease.py",
+        "focus": [
+          "SandboxLease",
+          "acquire",
+          "release",
+          "renew"
+        ],
+        "reason": "沙箱租约与所有权：解释跨请求/长任务恢复时沙箱如何被认领、续租与回收，以及并发访问的互斥设计。"
+      },
+      {
+        "path": "backend/packages/harness/deerflow/sandbox/sandbox_provider.py",
+        "focus": [
+          "SandboxProvider.acquire",
+          "SandboxProvider.release",
+          "get_sandbox_provider"
+        ],
+        "reason": "存储/传输适配器边界：provider 抽象与具体后端（local/aio/e2b）的切换点，区分装配与真正执行。"
+      },
+      {
+        "path": "backend/packages/harness/deerflow/agents/middlewares/loop_detection_middleware.py",
+        "focus": [
+          "LoopDetectionMiddleware.before_model",
+          "LoopDetectionMiddleware.wrap_tool_call",
+          "_detect"
+        ],
+        "reason": "长任务保护：检测重复工具调用/循环并注入纠正或终止，影响执行循环的收敛与恢复行为。"
+      },
+      {
+        "path": "backend/packages/harness/deerflow/agents/middlewares/summarization_middleware.py",
+        "focus": [
+          "SummarizationMiddleware.before_model",
+          "_summarize",
+          "_should_summarize"
+        ],
+        "reason": "上下文压缩实现：在模型调用前按 token 预算压缩历史，决定长任务能否继续以及压缩后工具证据是否保留。"
+      },
+      {
+        "path": "backend/packages/harness/deerflow/agents/middlewares/subagent_limit_middleware.py",
+        "focus": [
+          "SubagentLimitMiddleware.wrap_tool_call"
+        ],
+        "reason": "在工具层对 task 调用做并发/总量闸门，与 capacity 配合，是“限制并发”的实际拦截点。"
+      },
+      {
+        "path": "backend/packages/harness/deerflow/agents/middlewares/memory_middleware.py",
+        "focus": [
+          "MemoryMiddleware.before_agent",
+          "MemoryMiddleware.after_agent"
+        ],
+        "reason": "可选 memory backend 的接入点，明确 memory 是装配期可选组件而非执行循环核心，避免把 memory 当主链路。"
+      },
+      {
+        "path": "backend/packages/harness/deerflow/runtime/runs/worker.py",
+        "focus": [
+          "RunWorker._execute",
+          "RunWorker._stream"
+        ],
+        "reason": "真实请求的公开入口侧：run worker 如何用 config 调用 lead graph、流式消费事件并落盘，串起输入到输出的外层循环。"
+      },
+      {
+        "path": "backend/app/gateway/routers/thread_runs.py",
+        "focus": [
+          "create_run",
+          "stream_run"
+        ],
+        "reason": "HTTP 公开入口：一次调研请求如何进入 run 创建与 SSE 流，是“真实请求”的起点。"
+      },
+      {
+        "path": "backend/packages/harness/deerflow/agents/thread_state.py",
+        "focus": [
+          "ThreadState",
+          "SandboxState",
+          "ThreadDataState"
+        ],
+        "reason": "核心数据结构：lead/子代理共享的图状态字段（messages、sandbox、artifacts、todo），解释产物与沙箱信息如何随状态传递。"
+      }
+    ]
+  },
+  "report": {
+    "overview": {
+      "plainLanguage": "把一次用户请求交给一个会自己决定调用工具或分派子任务的主代理，子代理在受限环境里做完并把结果交回，主代理汇总后输出。",
+      "problem": "当前 DeerFlow 2.0 harness 不是早期固定 research DAG，而是通用 agent 循环；难点是按每次请求组装模型、工具、中间件、沙箱和子代理能力，并让长任务在超时、取消、并发使用沙箱时安全收尾。",
+      "scenarioInput": "用户请求：调研 2026 年 AI Agent 框架，把结论写入 /mnt/user-data/outputs/report.md，并附 3 个来源。主代理可能直接搜索，也可能用 task 工具把某一段调研委派给 general-purpose 子代理。",
+      "scenarioOutput": "推演输出可能为：lead 汇总子代理返回的 ToolMessage，并在沙箱输出目录生成或更新 report.md；若子代理触发循环上限，结果可能带 stop_reason=loop_capped，而不是伪装成完全正常完成。"
+    },
+    "modules": [
+      {
+        "id": "lead_entry",
+        "name": "Lead Agent 工厂",
+        "role": "按 RunnableConfig 解析模型、子代理开关、技能白名单、工具与中间件，调用 create_agent 编译当前运行栈；它只负责装配，不实现模型循环。",
+        "input": "RunnableConfig，含模型名、agent 名、thread/user 上下文和运行策略。",
+        "output": "LeadAgentAssembly，内含编译后的 graph 和装配描述。",
+        "state": "config 的 metadata/callbacks、checkpoint mode、解析后的模型与子代理策略。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/agents/lead_agent/agent.py",
+            "startLine": 834,
+            "endLine": 877
+          },
+          {
+            "path": "backend/packages/harness/deerflow/agents/lead_agent/agent.py",
+            "startLine": 963,
+            "endLine": 1005
+          }
+        ]
+      },
+      {
+        "id": "middleware_stack",
+        "name": "中间件链",
+        "role": "把沙箱、上下文压缩、子代理限流、循环检测、澄清等横切逻辑按固定顺序插入图；顺序本身就是行为契约。",
+        "input": "config、模型名、skill 集合、deferred 工具等。",
+        "output": "有序 AgentMiddleware 列表，交给 create_agent。",
+        "state": "各中间件自己的运行态，例如 pending warning、sandbox lease 上下文。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/agents/lead_agent/agent.py",
+            "startLine": 485,
+            "endLine": 541
+          },
+          {
+            "path": "backend/packages/harness/deerflow/agents/lead_agent/agent.py",
+            "startLine": 707,
+            "endLine": 778
+          }
+        ]
+      },
+      {
+        "id": "agent_loop",
+        "name": "LangChain Agent 执行循环",
+        "role": "提供模型调用、工具调用、中间件钩子调度和 graph 状态推进；项目代码只装配图和中间件。",
+        "input": "模型、工具、middleware、系统提示和 state schema。",
+        "output": "AIMessage、tool calls 或最终回答，并驱动图状态。",
+        "state": "LangGraph/AgentState 中的 messages 等通道。",
+        "kind": "dependency",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/agents/lead_agent/agent.py",
+            "startLine": 1405,
+            "endLine": 1412
+          },
+          {
+            "path": "backend/packages/harness/deerflow/agents/factory.py",
+            "startLine": 189,
+            "endLine": 197
+          }
+        ]
+      },
+      {
+        "id": "task_delegation",
+        "name": "任务委派工具",
+        "role": "校验子代理类型和委派策略，构建子代理工具与 SubagentExecutor，后台执行并轮询，最终把结果包成 ToolMessage/Command 回给 lead。",
+        "input": "prompt、subagent_type、acceptance_criteria、runtime state/context。",
+        "output": "Command 中的 ToolMessage，或失败/超时结果。",
+        "state": "后台任务注册表、轮询状态、token usage 上报。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/tools/builtins/task_tool.py",
+            "startLine": 1045,
+            "endLine": 1102
+          },
+          {
+            "path": "backend/packages/harness/deerflow/tools/builtins/task_tool.py",
+            "startLine": 1129,
+            "endLine": 1204
+          }
+        ]
+      },
+      {
+        "id": "subagent_executor",
+        "name": "子代理执行器",
+        "role": "在隔离事件循环中创建子图、构建初始状态、astream 执行、收集 token/receipts/ai messages，并以一次性终态写回收结果。",
+        "input": "任务文本、父状态快照、工具、沙箱状态、运行上下文。",
+        "output": "SubagentResult，含 status/result/error/stop_reason/token usage。",
+        "state": "SubagentResult.status、ai_messages、tool_receipts、bash_executions。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/subagents/executor.py",
+            "startLine": 1679,
+            "endLine": 1747
+          },
+          {
+            "path": "backend/packages/harness/deerflow/subagents/executor.py",
+            "startLine": 1838,
+            "endLine": 1932
+          },
+          {
+            "path": "backend/packages/harness/deerflow/subagents/executor.py",
+            "startLine": 2111,
+            "endLine": 2152
+          }
+        ]
+      },
+      {
+        "id": "sandbox_runtime",
+        "name": "沙箱与执行租约",
+        "role": "延迟或按策略获取沙箱，把执行 owner 绑定到 sandbox_id，并在最后一个使用者退出时释放；文件工具通过虚拟路径映射访问线程目录。",
+        "input": "thread_id、user_id、runtime context、虚拟路径。",
+        "output": "sandbox_id、路径解析结果或工具输出。",
+        "state": "owner 到 lease binding、sandbox 到 owners 集合、release pending 标记。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/middleware.py",
+            "startLine": 231,
+            "endLine": 317
+          },
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/lease.py",
+            "startLine": 515,
+            "endLine": 539
+          },
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/tools.py",
+            "startLine": 754,
+            "endLine": 785
+          }
+        ]
+      },
+      {
+        "id": "loop_guard",
+        "name": "循环检测守卫",
+        "role": "在模型响应后检查重复工具调用或同工具高频调用，先注入警告，达到硬上限时剥离 tool_calls 并记录 stop_reason=loop_capped。",
+        "input": "最后一条 AIMessage 的 tool_calls 和 runtime 上下文。",
+        "output": "警告消息、被剥离工具调用的 AIMessage 或 stop_reason。",
+        "state": "按 thread/run 维护的 hash 窗口、工具频率窗口、pending warnings、stop_reason。",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/agents/middlewares/loop_detection_middleware.py",
+            "startLine": 563,
+            "endLine": 662
+          },
+          {
+            "path": "backend/packages/harness/deerflow/agents/middlewares/loop_detection_middleware.py",
+            "startLine": 802,
+            "endLine": 852
+          }
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "from": "lead_entry",
+        "to": "middleware_stack",
+        "label": "构建并传入中间件链"
+      },
+      {
+        "from": "lead_entry",
+        "to": "agent_loop",
+        "label": "调用 create_agent 编译并返回图"
+      },
+      {
+        "from": "agent_loop",
+        "to": "task_delegation",
+        "label": "模型发出 task 工具调用时进入"
+      },
+      {
+        "from": "task_delegation",
+        "to": "subagent_executor",
+        "label": "创建执行器并 execute_async"
+      },
+      {
+        "from": "subagent_executor",
+        "to": "sandbox_runtime",
+        "label": "子代理工具首次触达沙箱时获取/复用租约"
+      },
+      {
+        "from": "subagent_executor",
+        "to": "loop_guard",
+        "label": "每次模型响应后进入 after_model 检查"
+      },
+      {
+        "from": "task_delegation",
+        "to": "agent_loop",
+        "label": "把终态结果作为 ToolMessage 返回 lead 循环"
+      }
+    ],
+    "flow": [
+      {
+        "title": "按请求组装 lead graph",
+        "phase": "装配",
+        "condition": "必经，run worker 进入 lead 工厂时",
+        "symbol": "make_lead_agent / assemble_lead_agent / _assemble_lead_agent",
+        "owner": "project",
+        "input": "RunnableConfig，包含用户请求所属 thread、模型选择和运行开关",
+        "action": "解析 app_config、用户身份、subagent_enabled、模型和技能白名单；调用 get_available_tools 获取工具；构建 middlewares；最后 create_agent 编译",
+        "stateChange": "写入 config.metadata、checkpoint mode、subagent_enabled；生成 graph 和 LeadAgentAssembly",
+        "output": "可被 stream/invoke 的 lead graph",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/agents/lead_agent/agent.py",
+            "startLine": 831,
+            "endLine": 879
+          },
+          {
+            "path": "backend/packages/harness/deerflow/agents/lead_agent/agent.py",
+            "startLine": 963,
+            "endLine": 1005
+          },
+          {
+            "path": "backend/packages/harness/deerflow/agents/lead_agent/agent.py",
+            "startLine": 1321,
+            "endLine": 1330
+          },
+          {
+            "path": "backend/packages/harness/deerflow/agents/lead_agent/agent.py",
+            "startLine": 1405,
+            "endLine": 1412
+          }
+        ]
+      },
+      {
+        "title": "模型选择 task 工具并进入委派",
+        "phase": "调用",
+        "condition": "仅当 lead 模型返回名为 task 的工具调用，且 subagent 能力开启",
+        "symbol": "task_tool",
+        "owner": "project",
+        "input": "prompt、subagent_type、tool_call_id、可选 acceptance_criteria/context_mode/model_name",
+        "action": "校验 subagent_type 和 bash 策略；读取父 sandbox_state/thread_data/uploaded_files；按父 tool_groups 获取子代理工具，并强制 subagent_enabled=False 防止嵌套；创建 SubagentExecutor",
+        "stateChange": "构造 executor_kwargs，携带父用户、租户、trace、extension 和授权属性",
+        "output": "SubagentExecutor 实例，准备异步执行",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/tools/builtins/task_tool.py",
+            "startLine": 873,
+            "endLine": 895
+          },
+          {
+            "path": "backend/packages/harness/deerflow/tools/builtins/task_tool.py",
+            "startLine": 921,
+            "endLine": 942
+          },
+          {
+            "path": "backend/packages/harness/deerflow/tools/builtins/task_tool.py",
+            "startLine": 1028,
+            "endLine": 1102
+          }
+        ]
+      },
+      {
+        "title": "后台登记并提交到隔离事件循环",
+        "phase": "并发/后台",
+        "condition": "task_tool 成功创建 executor 后",
+        "symbol": "SubagentExecutor.execute_async / SubagentExecutor.run_with_timeout",
+        "owner": "project",
+        "input": "任务 prompt 和外部 tool_call_id",
+        "action": "创建 PENDING 的 SubagentResult，生成 execution_id 并加入后台注册表；复制父 context；把 run_with_timeout 提交到持久隔离循环；run_with_timeout 创建 _aexecute 任务并等待超时",
+        "stateChange": "_background_tasks 新增 execution_id；结果对象初始 status=PENDING；超时分支 try_set_terminal(TIMED_OUT) 并取消子任务",
+        "output": "execution_id，供 task_tool 轮询",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/subagents/executor.py",
+            "startLine": 2226,
+            "endLine": 2297
+          },
+          {
+            "path": "backend/packages/harness/deerflow/subagents/executor.py",
+            "startLine": 2330,
+            "endLine": 2343
+          }
+        ]
+      },
+      {
+        "title": "子代理构建初始状态并创建子图",
+        "phase": "构建",
+        "condition": "子任务被准入并开始执行",
+        "symbol": "SubagentExecutor._aexecute_admitted / SubagentExecutor._build_initial_state / SubagentExecutor._create_agent",
+        "owner": "project",
+        "input": "任务文本、父 sandbox_state/thread_data、子代理配置",
+        "action": "加载技能并组装 deferred 工具；把系统提示与任务拼成 SystemMessage/HumanMessage；把父 sandbox/thread_data/uploaded_files 作为新容器写入子状态；create_agent 创建子图，checkpointer=False",
+        "stateChange": "子图 state 获得 messages、sandbox、thread_data、uploaded_files；executor 记录 _available_skill_names、_recursion_limit、_stop_reason_middlewares",
+        "output": "可 astream 的子 agent 和有界 run_config",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/subagents/executor.py",
+            "startLine": 1475,
+            "endLine": 1540
+          },
+          {
+            "path": "backend/packages/harness/deerflow/subagents/executor.py",
+            "startLine": 1605,
+            "endLine": 1642
+          },
+          {
+            "path": "backend/packages/harness/deerflow/subagents/executor.py",
+            "startLine": 1784,
+            "endLine": 1807
+          },
+          {
+            "path": "backend/packages/harness/deerflow/subagents/executor.py",
+            "startLine": 1900,
+            "endLine": 1932
+          }
+        ]
+      },
+      {
+        "title": "沙箱在 before_agent 的 eager 分支获取或复用租约",
+        "phase": "获取/并发",
+        "condition": "before_agent/abefore_agent 触发；默认 lazy_init=True 且技能投影为 None 时此钩子直接跳过，实际首次工具获取在 ensure_sandbox_initialized（方法体未读），不在此步断言",
+        "symbol": "SandboxMiddleware.before_agent / SandboxMiddleware.abefore_agent / SandboxLeaseManager.acquire / SandboxLeaseManager.reuse_or_acquire_async",
+        "owner": "project",
+        "input": "thread_id、user_id、runtime.context 中的 owner_id、checkpoint 中的 sandbox_id",
+        "action": "若 lazy 且无投影则调 super 返回；否则在 existing_sandbox_id 为 None 或投影非空时先 authorize_sandbox_execution，再 _acquire_sandbox；已有 sandbox_id 且无投影时走 _retain_existing_sandbox，最终调用 lease manager 的 acquire 或 reuse_or_acquire_async",
+        "stateChange": "runtime.context 写入 sandbox_id；lease manager 建立 owner->binding 和 sandbox->owners；图状态返回 sandbox 或 Overwrite",
+        "output": "工具可用的 sandbox_id，或此钩子跳过",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/middleware.py",
+            "startLine": 231,
+            "endLine": 317
+          },
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/middleware.py",
+            "startLine": 354,
+            "endLine": 430
+          },
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/lease.py",
+            "startLine": 515,
+            "endLine": 539
+          },
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/lease.py",
+            "startLine": 611,
+            "endLine": 649
+          }
+        ]
+      },
+      {
+        "title": "文件类工具解析虚拟路径并校验允许范围",
+        "phase": "查询/写入",
+        "condition": "仅当工具请求包含路径，例如 /mnt/user-data/outputs/report.md",
+        "symbol": "replace_virtual_path / validate_local_tool_path",
+        "owner": "project",
+        "input": "虚拟路径和 thread_data 中的 workspace/uploads/outputs 实际路径",
+        "action": "validate_local_tool_path 拒绝路径穿越，限定 /mnt/user-data、只读 skills、只读 ACP 和配置挂载；replace_virtual_path 按最长前缀把虚拟前缀映射为线程实际路径",
+        "stateChange": "路径映射为线程输出目录下的实际路径；文件写入造成的数据变化由具体工具执行",
+        "output": "经校验的实际路径或工具错误",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/tools.py",
+            "startLine": 754,
+            "endLine": 785
+          },
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/tools.py",
+            "startLine": 1019,
+            "endLine": 1077
+          }
+        ]
+      },
+      {
+        "title": "模型响应后执行循环检测",
+        "phase": "检查/可选分支",
+        "condition": "每个 AIMessage 带 tool_calls 时由 after_model 触发；未触发阈值则不改变状态",
+        "symbol": "LoopDetectionMiddleware._track_and_check / LoopDetectionMiddleware._apply",
+        "owner": "project",
+        "input": "最后一条 AIMessage 的 tool_calls 和当前 thread/run 上下文",
+        "action": "把工具名和稳定参数键排序后哈希，维护滑动窗口计数；同时按工具名维护窗口频率；达到 warn 阈值则排队警告，下一次 wrap_model_call 以 HumanMessage 注入；达到 hard 阈值则剥离 tool_calls 并写 stop_reason",
+        "stateChange": "_history/_warned/_tool_name_history/_tool_name_counter/_pending_warnings 更新；硬停时 _stop_reason[run_id]=loop_capped",
+        "output": "继续循环、注入警告，或强制最终回答",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/agents/middlewares/loop_detection_middleware.py",
+            "startLine": 563,
+            "endLine": 662
+          },
+          {
+            "path": "backend/packages/harness/deerflow/agents/middlewares/loop_detection_middleware.py",
+            "startLine": 663,
+            "endLine": 748
+          },
+          {
+            "path": "backend/packages/harness/deerflow/agents/middlewares/loop_detection_middleware.py",
+            "startLine": 802,
+            "endLine": 852
+          }
+        ]
+      },
+      {
+        "title": "子代理收尾并释放执行租约",
+        "phase": "回收/终态",
+        "condition": "子代理 astream 结束、异常、取消或超时清理时",
+        "symbol": "SubagentExecutor._aexecute_admitted / SubagentResult.try_set_terminal / release_sandbox_execution_lease_async",
+        "owner": "project",
+        "input": "final_state、collector 的 token 记录、可能已触发的 guard stop_reason",
+        "action": "提取最终结果或 LLM 错误；消费 guard 的 stop_reason；用 try_set_terminal 一次性写 COMPLETED/FAILED/CANCELLED/TIMED_OUT；finally 中关闭 stream、上报 usage、释放 sandbox lease",
+        "stateChange": "SubagentResult 进入终态；token_usage_records、tool_receipts、stop_reason 写回；sandbox owners 移除，最后一个 owner 才触发 provider.release",
+        "output": "供 task_tool 轮询的终态 SubagentResult",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/subagents/executor.py",
+            "startLine": 1973,
+            "endLine": 2024
+          },
+          {
+            "path": "backend/packages/harness/deerflow/subagents/executor.py",
+            "startLine": 2111,
+            "endLine": 2152
+          },
+          {
+            "path": "backend/packages/harness/deerflow/subagents/executor.py",
+            "startLine": 264,
+            "endLine": 305
+          },
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/lease.py",
+            "startLine": 806,
+            "endLine": 826
+          }
+        ]
+      },
+      {
+        "title": "task_tool 轮询终态并返回 ToolMessage",
+        "phase": "查询/写入",
+        "condition": "task_tool 的轮询循环看到 COMPLETED/FAILED/CANCELLED/TIMED_OUT 或轮询超时",
+        "symbol": "task_tool / _task_result_command",
+        "owner": "project",
+        "input": "execution_id 和后台任务结果",
+        "action": "COMPLETED 时上报 usage，校验 citation receipts 和 acceptance checklist，清理后台注册表，用 _task_result_command 把文本、artifacts、token usage、stop_reason 包成 ToolMessage；lead 收到后继续自己的循环并最终汇总",
+        "stateChange": "后台注册表移除 execution_id；graph messages 追加 task ToolMessage",
+        "output": "lead 可见的 ToolMessage/Command，驱动最终回答或文件交付",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/tools/builtins/task_tool.py",
+            "startLine": 1129,
+            "endLine": 1204
+          },
+          {
+            "path": "backend/packages/harness/deerflow/tools/builtins/task_tool.py",
+            "startLine": 1222,
+            "endLine": 1234
+          },
+          {
+            "path": "backend/packages/harness/deerflow/tools/builtins/task_tool.py",
+            "startLine": 697,
+            "endLine": 749
+          }
+        ]
+      }
+    ],
+    "technologies": [
+      {
+        "name": "中间件驱动的 Agent 图装配",
+        "problem": "同一套 lead 代码要按请求启用不同模型、工具、沙箱、子代理、压缩和权限策略。",
+        "mechanism": "先解析配置和身份，再获取可用工具并做授权过滤，然后按固定顺序构建 middleware，最后交给 create_agent 编译；图运行时由 LangChain 调各钩子。",
+        "pseudocode": "cfg = resolve(config)\ntools = get_available_tools(model, groups, subagent_enabled)\ntools = authorize(tools, context)\nmiddlewares = build_middlewares(config, model, skills, tools)\nmiddlewares = compose_extensions(middlewares)\ngraph = create_agent(model, tools, middlewares, prompt, state_schema)\nreturn graph",
+        "dataStructures": "tools: list[BaseTool]；middleware chain: list[AgentMiddleware]；deferred_names: frozenset；effective_policies: dict。",
+        "projectCode": "_assemble_lead_agent 负责解析、取工具、授权、构建 middlewares 和调用 create_agent；build_middlewares 负责顺序。",
+        "externalDependency": "LangChain create_agent 负责编译图、调度模型/工具循环和中间件钩子；本项目不实现通用循环。",
+        "tradeoff": "顺序成为行为契约，插错位置会改变 provider 看到的请求；换来策略集中和可观测。",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/agents/lead_agent/agent.py",
+            "startLine": 956,
+            "endLine": 1005
+          },
+          {
+            "path": "backend/packages/harness/deerflow/agents/lead_agent/agent.py",
+            "startLine": 1321,
+            "endLine": 1412
+          },
+          {
+            "path": "backend/packages/harness/deerflow/agents/factory.py",
+            "startLine": 248,
+            "endLine": 259
+          }
+        ]
+      },
+      {
+        "name": "子代理隔离事件循环与后台登记",
+        "problem": "子代理可能运行很久，不能阻塞 lead 的请求循环；同时超时、取消和执行完成会竞争同一结果对象。",
+        "mechanism": "execute_async 先创建结果并登记 execution_id，再把 run_with_timeout 提交到持久隔离循环；run_with_timeout 创建 _aexecute 任务并等待 timeout；终态写入由 try_set_terminal 加锁，只允许第一次成功。",
+        "pseudocode": "result = SubagentResult(status=PENDING)\nregister(execution_id, result)\nctx = copy_parent_context()\nsubmit_isolated(run_with_timeout)\nrun_with_timeout:\n  task = create_task(_aexecute(task, result))\n  wait(task, timeout)\n  if timeout: result.try_set_terminal(TIMED_OUT); task.cancel()\n  return result",
+        "dataStructures": "_background_tasks: dict[execution_id, SubagentResult]；SubagentResult._state_lock；status/result/error/stop_reason。",
+        "projectCode": "SubagentExecutor.execute_async 和 run_with_timeout 负责登记、超时、取消、监督清理；try_set_terminal 负责终态唯一性。",
+        "externalDependency": "asyncio 提供隔离事件循环和 Future；LangGraph astream 提供子图流式执行。",
+        "tradeoff": "需要跨循环传递只读上下文、代理 recorder、清理 deferred 任务；换来 lead 不被长任务阻塞和超时后仍可回收。",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/subagents/executor.py",
+            "startLine": 2226,
+            "endLine": 2297
+          },
+          {
+            "path": "backend/packages/harness/deerflow/subagents/executor.py",
+            "startLine": 2330,
+            "endLine": 2343
+          },
+          {
+            "path": "backend/packages/harness/deerflow/subagents/executor.py",
+            "startLine": 264,
+            "endLine": 305
+          }
+        ]
+      },
+      {
+        "name": "沙箱执行租约的引用式释放",
+        "problem": "lead 和多个子代理可能同时使用同一 thread 的 sandbox；任何一个先结束都不能把仍在使用的远端 sandbox 释放掉。",
+        "mechanism": "每个执行用 owner_id 绑定 sandbox_id；manager 维护 sandbox 到 owners 的集合；获取时幂等复用当前 owner 的 binding；释放时只移除自己的 owner，仅当 owners 为空且有 release pending 时才调用 provider.release。",
+        "pseudocode": "acquire(owner, thread, user):\n  if active_binding(owner) exists: return its sandbox_id\n  sandbox_id = provider.acquire(thread)\n  bind owner -> sandbox_id; owners[sandbox_id].add(owner)\n  return sandbox_id\nrelease(owner):\n  remove owner from owners[binding.sandbox_id]\n  if owners empty and release_pending: provider.release(sandbox_id)",
+        "dataStructures": "_bindings_by_owner: dict[owner_id, _LeaseBinding]；_owners_by_sandbox: dict[sandbox_id, set[owner_id]]；_release_pending_by_sandbox: set[sandbox_id]。",
+        "projectCode": "SandboxLeaseManager 负责绑定、复用、释放和 teardown 预留；SandboxMiddleware 负责在 before_agent/工具调用边界获取和释放。",
+        "externalDependency": "SandboxProvider 负责真正创建、保存和释放远端/本地沙箱。",
+        "tradeoff": "租约和清理状态复杂，但避免并发执行互相踩踏或提前释放 warm sandbox。",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/lease.py",
+            "startLine": 175,
+            "endLine": 194
+          },
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/lease.py",
+            "startLine": 225,
+            "endLine": 263
+          },
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/lease.py",
+            "startLine": 651,
+            "endLine": 675
+          },
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/middleware.py",
+            "startLine": 231,
+            "endLine": 317
+          }
+        ]
+      },
+      {
+        "name": "双层循环检测",
+        "problem": "模型可能重复同一工具调用，也可能用不同参数高频调用同一工具，最终耗尽轮次或预算。",
+        "mechanism": "Layer 1 把工具名和稳定参数键排序后做 md5 短哈希，在滑动窗口里计数相同调用集；Layer 2 维护按工具名的窗口计数和 Counter。达到 warn 阈值排队警告，达到 hard 阈值剥离 tool_calls 并记录 loop_capped。",
+        "pseudocode": "key = hash(sorted(name + stable_args(tool_calls)))\nhistory[scope].append(key)\nif count(history, key) >= hard_limit: hard_stop()\nfor name in tool_names:\n  freq_window.append(name); counter[name] += 1\n  trim freq_window and counter\n  if counter[name] >= hard_limit: hard_stop()\n  elif counter[name] >= warn: queue_warning()",
+        "dataStructures": "_history: OrderedDict[run_scope, list[hash]]；_tool_name_history: deque；_tool_name_counter: Counter；_pending_warnings。",
+        "projectCode": "LoopDetectionMiddleware 负责 normalize、hash、窗口计数、警告注入和硬停；executor 读取 stop_reason。",
+        "externalDependency": "LangChain 的 after_model 触发检测，wrap_model_call 负责在真正模型请求前注入警告。",
+        "tradeoff": "硬停能阻止无限循环，但可能截断仍有进展的长任务；项目用 warn 先提示并允许有限保存/读取动作。",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/agents/middlewares/loop_detection_middleware.py",
+            "startLine": 180,
+            "endLine": 227
+          },
+          {
+            "path": "backend/packages/harness/deerflow/agents/middlewares/loop_detection_middleware.py",
+            "startLine": 563,
+            "endLine": 662
+          },
+          {
+            "path": "backend/packages/harness/deerflow/agents/middlewares/loop_detection_middleware.py",
+            "startLine": 663,
+            "endLine": 748
+          },
+          {
+            "path": "backend/packages/harness/deerflow/agents/middlewares/loop_detection_middleware.py",
+            "startLine": 802,
+            "endLine": 852
+          }
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "decision": "沙箱默认 lazy_init，首次工具调用才获取",
+        "constraint": "很多运行只需回答或调用非沙箱工具，提前启动容器会浪费资源。",
+        "alternative": "before_agent 一律提前获取沙箱",
+        "why": "在本次调研场景里，lead 可能只做汇总，子代理也可能只读上下文；懒初始化避免为没有 sandbox 工具的运行创建租约。只有技能 projection 非空或显式 lazy_init=False 才走 eager。",
+        "cost": "第一次 sandbox 工具调用会多一次启动延迟；需要 prewarm 和工具内初始化兜底。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "Default is True for optimal performance.",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/middleware.py",
+            "startLine": 58,
+            "endLine": 90
+          },
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/middleware.py",
+            "startLine": 240,
+            "endLine": 248
+          },
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/middleware.py",
+            "startLine": 440,
+            "endLine": 446
+          }
+        ]
+      },
+      {
+        "decision": "子代理通过后台注册表和隔离事件循环执行，task_tool 轮询后转成 ToolMessage",
+        "constraint": "子代理可能长时间运行，lead 需要继续流式事件、处理超时和取消。",
+        "alternative": "在 task_tool 内直接 await 子代理完成",
+        "why": "直接 await 会把 lead 的工具节点占住，超时/取消也更难与子代理清理解耦。当前做法先登记 execution_id，再提交隔离循环，task_tool 可每 5 秒轮询并把 task_started/task_running/task_completed 事件写给前端。",
+        "cost": "跨循环上下文复制、后台注册表清理、usage 迟到上报都更复杂。",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/tools/builtins/task_tool.py",
+            "startLine": 1045,
+            "endLine": 1102
+          },
+          {
+            "path": "backend/packages/harness/deerflow/tools/builtins/task_tool.py",
+            "startLine": 1129,
+            "endLine": 1179
+          },
+          {
+            "path": "backend/packages/harness/deerflow/subagents/executor.py",
+            "startLine": 2226,
+            "endLine": 2297
+          }
+        ]
+      },
+      {
+        "decision": "循环硬停剥离 tool_calls，而不是抛异常结束",
+        "constraint": "provider 要求 assistant tool_calls 后紧跟 ToolMessage；直接插入中间消息或抛错会破坏消息配对。",
+        "alternative": "达到上限直接抛递归错误或终止图",
+        "why": "剥离 tool_calls 后模型还能基于已有结果产出最终回答，executor 也能把它标成 completed + loop_capped，让 lead 区分“被限流”与“子代理崩溃”。",
+        "cost": "硬停后不会再调用工具，可能阻断尚未完成的文件保存；代码用提示词和有限保存步骤缓解。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "the loop hard stop does NOT raise — it strips ``tool_calls`` so the agent loop terminates naturally with a final answer.",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/agents/middlewares/loop_detection_middleware.py",
+            "startLine": 50,
+            "endLine": 59
+          },
+          {
+            "path": "backend/packages/harness/deerflow/agents/middlewares/loop_detection_middleware.py",
+            "startLine": 812,
+            "endLine": 839
+          },
+          {
+            "path": "backend/packages/harness/deerflow/subagents/executor.py",
+            "startLine": 2017,
+            "endLine": 2024
+          }
+        ]
+      },
+      {
+        "decision": "SubagentResult 终态只允许第一次写入成功",
+        "constraint": "后台超时/取消和实际执行 worker 可能竞争同一个结果对象。",
+        "alternative": "每个路径各自覆盖 status/result",
+        "why": "如果超时先写 TIMED_OUT，执行线程随后又写 COMPLETED，lead 会看到互相矛盾的 status/result。try_set_terminal 用 _state_lock 检查已有终态，第一次成功后后续写入返回 False。",
+        "cost": "后到的错误信息或结果片段会被丢弃，需要调用方接受“终态即事实”。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "The first terminal transition wins; late terminal writes must not change status or payload fields.",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/subagents/executor.py",
+            "startLine": 276,
+            "endLine": 305
+          }
+        ]
+      },
+      {
+        "decision": "授权过滤先于 deferred 工具目录组装",
+        "constraint": "被拒绝的工具不能出现在模型可见的 deferred tool catalog 里，否则 tool_search 可能把禁用工具暴露给模型。",
+        "alternative": "先组装全部 deferred 工具，再在调用时做授权",
+        "why": "当前子代理路径先对 _base_tools 和 describe_skill_tool 做 apply_tool_authorization，形成 configured_tools，再调用 assemble_deferred_tools；这样 catalog 从已授权列表构建，运行时授权只作为第二层。",
+        "cost": "组装顺序被固定，后续新增工具类别必须接入同一授权漏斗。",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "Apply authorization Layer 1: filter tools before deferred assembly so denied tools can never enter the DeferredToolCatalog.",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/subagents/executor.py",
+            "startLine": 1512,
+            "endLine": 1555
+          },
+          {
+            "path": "backend/packages/harness/deerflow/agents/lead_agent/agent.py",
+            "startLine": 1341,
+            "endLine": 1358
+          }
+        ]
+      }
+    ],
+    "codeWalkthroughs": [
+      {
+        "title": "lead 工厂如何把配置变成可执行图",
+        "explanation": "这一段先解析 subagent_enabled，防止请求开关绕过服务端 allowed_subagents=[] 的硬拒绝；随后按模型和工具组获取工具；再构建 middlewares；最后 create_agent 把模型、工具、中间件和状态 schema 编译成图。关键点是工厂不执行调研，它只决定本次运行拥有哪些能力。",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/agents/lead_agent/agent.py",
+            "startLine": 977,
+            "endLine": 1005
+          },
+          {
+            "path": "backend/packages/harness/deerflow/agents/lead_agent/agent.py",
+            "startLine": 1321,
+            "endLine": 1330
+          },
+          {
+            "path": "backend/packages/harness/deerflow/agents/lead_agent/agent.py",
+            "startLine": 1405,
+            "endLine": 1412
+          }
+        ]
+      },
+      {
+        "title": "task_tool 如何把委派变成后台任务并回收",
+        "explanation": "task_tool 先构造 executor_kwargs，把父状态、用户身份和授权属性交给 SubagentExecutor；然后调用 execute_async 拿到 execution_id；轮询循环看到 COMPLETED 后上报 usage、校验 citation receipts 与 acceptance checklist，最后 _task_result_command 把结果包成 ToolMessage。这样 lead 看到的不是子代理内部流，而是一条可继续消费的工具结果。",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/tools/builtins/task_tool.py",
+            "startLine": 1045,
+            "endLine": 1071
+          },
+          {
+            "path": "backend/packages/harness/deerflow/tools/builtins/task_tool.py",
+            "startLine": 1098,
+            "endLine": 1104
+          },
+          {
+            "path": "backend/packages/harness/deerflow/tools/builtins/task_tool.py",
+            "startLine": 1179,
+            "endLine": 1234
+          }
+        ]
+      },
+      {
+        "title": "沙箱租约如何按 owner 引用释放，以及路径校验如何拒绝越界",
+        "explanation": "acquire 先检查当前 owner 是否已有活的 binding，有则直接返回，避免同一执行重复获取；release 在锁内移除 owner，只有 owners 集合为空且 release_pending 时才真正 provider.release。文件路径侧，validate_local_tool_path 先拒绝路径穿越，并限定允许的虚拟路径族和只读挂载。",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/lease.py",
+            "startLine": 515,
+            "endLine": 539
+          },
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/lease.py",
+            "startLine": 651,
+            "endLine": 675
+          },
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/tools.py",
+            "startLine": 1019,
+            "endLine": 1077
+          }
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "question": "关闭 subagent 后，lead 是否还会被提供 task 工具？",
+        "change": "在请求 configurable 中设置 subagent_enabled=False，保持同一个 agent 配置和模型。",
+        "expected": "_assemble_lead_agent 解析出的 subagent_enabled 为 False，并把它写入 configurable/context；get_available_tools 收到 subagent_enabled=False。预期 lead 的工具列表不再暴露 task，模型只能直接使用沙箱/搜索等工具。",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/agents/lead_agent/agent.py",
+            "startLine": 1004,
+            "endLine": 1005
+          },
+          {
+            "path": "backend/packages/harness/deerflow/agents/lead_agent/agent.py",
+            "startLine": 1321,
+            "endLine": 1330
+          }
+        ]
+      },
+      {
+        "question": "连续相同 read_file 调用是否会触发循环硬停并带 loop_capped？",
+        "change": "开启 loop_detection，设置 warn_threshold=3、hard_limit=5，让模型连续 5 次调用 read_file 同一路径同一行范围。",
+        "expected": "第三次后 after_model 排队警告，下一次 wrap_model_call 注入 HumanMessage；第五次命中 Layer 1 hard_limit，_apply 记录 stop_reason=loop_capped 并剥离 tool_calls。子代理 executor 读取 guard stop_reason 后把 COMPLETED 结果标为 loop_capped。",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/agents/middlewares/loop_detection_middleware.py",
+            "startLine": 618,
+            "endLine": 636
+          },
+          {
+            "path": "backend/packages/harness/deerflow/agents/middlewares/loop_detection_middleware.py",
+            "startLine": 812,
+            "endLine": 839
+          },
+          {
+            "path": "backend/packages/harness/deerflow/subagents/executor.py",
+            "startLine": 2017,
+            "endLine": 2024
+          }
+        ]
+      },
+      {
+        "question": "lazy_init=False 或技能 projection 非空时，沙箱是否在 before_agent 提前获取？",
+        "change": "把 SandboxMiddleware 的 lazy_init 设为 False，或给 lead 配置一个受限技能集合使 _prepare_agent_skill_projection 返回非 None。",
+        "expected": "before_agent/abefore_agent 不再走 lazy 跳过分支；它先做 sandbox:execute 授权，再 acquire 或 reuse_or_acquire，并把 sandbox_id 写入 runtime.context 和图状态。这样后续第一个工具调用不会等到 lazy 初始化才创建沙箱。",
+        "evidence": [
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/middleware.py",
+            "startLine": 243,
+            "endLine": 305
+          },
+          {
+            "path": "backend/packages/harness/deerflow/sandbox/middleware.py",
+            "startLine": 367,
+            "endLine": 418
+          }
+        ]
+      }
+    ],
+    "takeaways": [
+      "当前 harness 的核心是“装配 + LangChain 通用循环”：lead 工厂只决定模型、工具、中间件和状态 schema，真正的模型-工具循环由 create_agent 提供。",
+      "委派不是直接调用子代理函数，而是 task_tool -> SubagentExecutor.execute_async -> 隔离事件循环 -> 后台注册表轮询 -> ToolMessage 回 lead；超时/取消/完成通过一次性终态收敛。",
+      "沙箱是执行租约而不是全局单例：owner 绑定、引用计数和最后一个 owner 释放，保证 lead 与并发子代理不会提前踩掉 warm sandbox。",
+      "文件路径先校验再映射：虚拟 /mnt/user-data 前缀映射到线程实际目录，路径穿越和只读 skills/ACP 访问在工具入口被拒绝。",
+      "循环检测是中间件级安全阀：相同调用哈希和同工具频率双层计数，警告延迟到 wrap_model_call 注入，硬停剥离 tool_calls 并让上层看到 loop_capped。"
+    ],
+    "gaps": [
+      "Gateway/run worker 如何调用 make_lead_agent 的入口代码不在已读范围内，无法确认请求进入 run worker 的精确调用链。",
+      "ensure_sandbox_initialized、write_file_tool 的完整函数体未包含，无法确认首次 lazy 初始化的重试细节和 write_file 的完整写入/回滚行为。",
+      "SubagentExecutor._aexecute（1643-1678）方法体未包含，无法确认 execute_async 创建的 PENDING 结果在何处被改为 RUNNING；本报告不声称该状态转换。",
+      "SubagentExecutor._consume_guard_stop_reason、_extract_final_result 的完整函数体未包含，终态异常分支和最终文本抽取只能按调用点推断。",
+      "memory backend 的可选分支和 CompositeBackend/StateBackend 默认路由未在已读代码中展开，不能断言本次运行默认经过哪种 memory 后端。",
+      "get_available_tools 的内部实现未读，subagent_enabled=False 时 task 工具是否一定从最终工具列表消失只能按参数和装配路径推断。"
+    ]
+  }
+}

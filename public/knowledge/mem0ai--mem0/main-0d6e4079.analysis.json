@@ -1,0 +1,775 @@
+{
+  "version": 3,
+  "repo": "mem0ai/mem0",
+  "ref": "main",
+  "sha": "26cdefb46600c0fa5953c4b5ee5003c125539fc4",
+  "analysis": {
+    "version": 3,
+    "kind": "architecture",
+    "requestedModel": "deepseek-flash",
+    "actualModel": "deepseek-flash",
+    "filesRead": 24,
+    "charactersRead": 314473,
+    "modules": 8,
+    "flowSteps": 9,
+    "mechanisms": 4,
+    "decisions": 5,
+    "readingStrategy": "profile-and-imports",
+    "structuralChecks": "passed",
+    "usage": {
+      "prompt_tokens": 122721,
+      "completion_tokens": 10899
+    },
+    "notes": [
+      "Reading planner fallback: fetch failed",
+      "decisions[0] 无法逐字核对作者说明，已标为工程推断"
+    ]
+  },
+  "plan": {
+    "scenario": "Python OSS Memory.add 收到“我不吃辣，喜欢川菜”，先提取记忆再写入；下一次 search 查询“给我推荐晚餐”如何检索。必须读当前算法，不沿用旧版本 UPDATE/DELETE 的印象。",
+    "files": []
+  },
+  "report": {
+    "overview": {
+      "plainLanguage": "它把对话中的事实抽成短文本，写入带向量、关键词和实体链接的记忆库，查询时融合多种相似度排序。",
+      "problem": "对话很长且事实分散，保留原文会膨胀上下文；纯向量检索又容易漏掉精确关键词或实体关系。",
+      "scenarioInput": "memory.add(\"我不吃辣，喜欢川菜\", user_id=\"u1\")，随后 memory.search(\"给我推荐晚餐\", filters={\"user_id\":\"u1\"})。",
+      "scenarioOutput": "推演输出可能包含一条类似 {\"memory\":\"User does not eat spicy food and likes Sichuan cuisine\",\"score\":...} 的结果；具体文本和分数取决于 LLM/embedding，不能预先确定。"
+    },
+    "modules": [
+      {
+        "id": "api",
+        "name": "Memory 编排层",
+        "role": "对外暴露 add/search，装配模型与存储实例，并把写入拆成提取、去重、持久化、实体链接，把查询拆成召回与评分。",
+        "input": "messages/query 与 filters、top_k、threshold 等参数",
+        "output": "写入结果列表或检索结果列表",
+        "state": "config、embedding_model、vector_store、llm、db、reranker、collection_name",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 488,
+            "endLine": 514
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 817,
+            "endLine": 871
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1446,
+            "endLine": 1509
+          }
+        ]
+      },
+      {
+        "id": "prompt",
+        "name": "提取提示构建",
+        "role": "把已有记忆、最近消息、新消息、观察日期和自定义指令拼成 ADD-only 提取请求。",
+        "input": "existing_memories、new_messages、last_k_messages、custom_instructions",
+        "output": "system prompt 与 user prompt 字符串",
+        "state": "无持久状态，只生成字符串",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "mem0/configs/prompts.py",
+            "startLine": 468,
+            "endLine": 513
+          },
+          {
+            "path": "mem0/configs/prompts.py",
+            "startLine": 1016,
+            "endLine": 1062
+          }
+        ]
+      },
+      {
+        "id": "llm",
+        "name": "LLM 生成接口",
+        "role": "按工厂选择 provider，执行 generate_response 返回 JSON；抽取质量由外部模型决定。",
+        "input": "provider/config 与 messages",
+        "output": "JSON 提取响应",
+        "state": "provider 实例",
+        "kind": "dependency",
+        "evidence": [
+          {
+            "path": "mem0/utils/factory.py",
+            "startLine": 64,
+            "endLine": 125
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 957,
+            "endLine": 964
+          }
+        ]
+      },
+      {
+        "id": "vectorstore",
+        "name": "向量存储适配器",
+        "role": "实现 dense 检索、BM25 sparse 写入和关键词检索；Qdrant 适配器把 payload 文本编码成稀疏向量。",
+        "input": "vectors、ids、payloads 或 query/vectors/filters",
+        "output": "检索命中的 points 或写入结果",
+        "state": "collection、dense 向量、bm25 稀疏向量槽",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "mem0/vector_stores/base.py",
+            "startLine": 16,
+            "endLine": 26
+          },
+          {
+            "path": "mem0/vector_stores/qdrant.py",
+            "startLine": 186,
+            "endLine": 246
+          },
+          {
+            "path": "mem0/vector_stores/qdrant.py",
+            "startLine": 454,
+            "endLine": 481
+          }
+        ]
+      },
+      {
+        "id": "scoring",
+        "name": "混合评分",
+        "role": "把语义分、BM25 分和实体 boost 加法融合，先按语义阈值过滤，再归一化排序。",
+        "input": "semantic_results、bm25_scores、entity_boosts、threshold、top_k",
+        "output": "带 combined score 的排序结果",
+        "state": "无持久状态",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "mem0/utils/scoring.py",
+            "startLine": 60,
+            "endLine": 139
+          }
+        ]
+      },
+      {
+        "id": "entity",
+        "name": "实体抽取与链接",
+        "role": "从记忆文本抽实体候选，在写入后把共享实体的记忆通过 linked_memory_ids 关联起来。",
+        "input": "记忆文本列表与 filters",
+        "output": "实体候选、实体 store 中的链接关系",
+        "state": "entity store 中的 data、entity_type、linked_memory_ids、user_id/agent_id/run_id",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "mem0/utils/entity_extraction.py",
+            "startLine": 731,
+            "endLine": 772
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1100,
+            "endLine": 1180
+          }
+        ]
+      },
+      {
+        "id": "history",
+        "name": "SQLite 历史与最近消息",
+        "role": "记录 ADD 历史，并为下一次提取提供每个 session 最近 10 条消息。",
+        "input": "history 记录或 messages 列表与 session_scope",
+        "output": "历史查询结果或最近消息列表",
+        "state": "history 表与 messages 表",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "mem0/memory/storage.py",
+            "startLine": 150,
+            "endLine": 192
+          },
+          {
+            "path": "mem0/memory/storage.py",
+            "startLine": 257,
+            "endLine": 324
+          }
+        ]
+      },
+      {
+        "id": "config",
+        "name": "配置与工厂",
+        "role": "定义 MemoryConfig，并按 provider 创建 embedder、vector store、llm；默认配置决定实际依赖。",
+        "input": "provider 名称与 provider-specific config",
+        "output": "已配置的 embedder/vector store/llm 实例",
+        "state": "各 provider 实例配置",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "mem0/configs/base.py",
+            "startLine": 29,
+            "endLine": 57
+          },
+          {
+            "path": "mem0/utils/factory.py",
+            "startLine": 152,
+            "endLine": 179
+          },
+          {
+            "path": "mem0/utils/factory.py",
+            "startLine": 210,
+            "endLine": 218
+          }
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "from": "api",
+        "to": "prompt",
+        "label": "构造 ADD-only 提取提示"
+      },
+      {
+        "from": "api",
+        "to": "llm",
+        "label": "调用 generate_response 获取 JSON"
+      },
+      {
+        "from": "api",
+        "to": "vectorstore",
+        "label": "插入记忆并执行 dense/BM25 检索"
+      },
+      {
+        "from": "api",
+        "to": "history",
+        "label": "读取最近消息、写 ADD 历史、保存消息"
+      },
+      {
+        "from": "api",
+        "to": "scoring",
+        "label": "把三路信号交给 score_and_rank"
+      },
+      {
+        "from": "api",
+        "to": "entity",
+        "label": "抽取实体并维护实体链接"
+      },
+      {
+        "from": "api",
+        "to": "config",
+        "label": "读取配置并通过工厂创建依赖"
+      }
+    ],
+    "flow": [
+      {
+        "title": "构造 Memory 时装配依赖",
+        "phase": "装配",
+        "condition": "构造 Memory 时必经",
+        "symbol": "Memory.__init__",
+        "owner": "project",
+        "input": "MemoryConfig（默认配置也可）",
+        "action": "创建 embedder、vector store、llm、SQLiteManager；按需创建 reranker；entity store 延迟到首次使用",
+        "stateChange": "实例持有这些对象",
+        "output": "可调用的 Memory 对象",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 488,
+            "endLine": 514
+          }
+        ]
+      },
+      {
+        "title": "add 校验并归一化输入",
+        "phase": "写入准备",
+        "condition": "调用 add 时必经；timestamp 非空会先报错",
+        "symbol": "Memory.add",
+        "owner": "project",
+        "input": "字符串或消息列表、user_id/agent_id/run_id、metadata",
+        "action": "拒绝 timestamp，规范化 expiration_date，构建 processed_metadata 与 effective_filters，字符串包成 user 消息，做 vision 解析，调用 _add_to_vector_store",
+        "stateChange": "processed_metadata、effective_filters、messages",
+        "output": "消息列表和过滤信息",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 817,
+            "endLine": 871
+          }
+        ]
+      },
+      {
+        "title": "取最近消息并检索已有记忆",
+        "phase": "写入",
+        "condition": "默认 infer=True 时必经",
+        "symbol": "Memory._add_to_vector_store / SQLiteManager.get_last_messages",
+        "owner": "project",
+        "input": "filters、messages",
+        "action": "构造 session_scope，从 SQLite 取最近 10 条；parse_messages；对整段新消息 embed('search')；vector_store.search top_k=10；把 UUID 映射成序号，防止 LLM 直接编 UUID",
+        "stateChange": "last_messages、existing_results、existing_memories、uuid_mapping",
+        "output": "已有记忆清单和最近上下文",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 918,
+            "endLine": 940
+          },
+          {
+            "path": "mem0/memory/storage.py",
+            "startLine": 298,
+            "endLine": 324
+          }
+        ]
+      },
+      {
+        "title": "单次 LLM ADD-only 提取",
+        "phase": "写入",
+        "condition": "infer=True 且已有记忆检索完成后必经；LLM 失败抛 LLMError",
+        "symbol": "Memory._add_to_vector_store / generate_additive_extraction_prompt",
+        "owner": "project",
+        "input": "existing_memories、parsed_messages、last_messages、custom_instructions",
+        "action": "选 ADDITIVE_EXTRACTION_PROMPT（agent scope 额外加 suffix），构造 user_prompt，调用 llm.generate_response 要求 JSON，remove_code_blocks 后 json.loads 取 memory 数组",
+        "stateChange": "extracted_memories",
+        "output": "候选事实列表，可能为空",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 942,
+            "endLine": 986
+          },
+          {
+            "path": "mem0/configs/prompts.py",
+            "startLine": 1016,
+            "endLine": 1062
+          }
+        ]
+      },
+      {
+        "title": "批量嵌入、hash 去重并持久化",
+        "phase": "写入",
+        "condition": "extracted_memories 非空时；单条嵌入失败会跳过该文本",
+        "symbol": "Memory._add_to_vector_store",
+        "owner": "project",
+        "input": "extracted_memories、existing_results、metadata、filters",
+        "action": "embed_batch 失败回退逐条；用 existing_results 的 hash 和本批 seen_hashes 做 md5 精确去重；写 data/text_lemmatized/hash/created_at/updated_at；vector_store.insert 批量，失败逐条；只把 persisted_records 记历史 ADD",
+        "stateChange": "向量记录、history 表 ADD 行",
+        "output": "persisted_records 和 returned_memories",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 993,
+            "endLine": 1045
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1047,
+            "endLine": 1098
+          }
+        ]
+      },
+      {
+        "title": "批量实体提取与链接",
+        "phase": "写入",
+        "condition": "persisted_records 非空后尽力执行；任何异常只告警不阻断 add",
+        "symbol": "Memory._add_to_vector_store / extract_entities_batch",
+        "owner": "project",
+        "input": "persisted_records 的文本、search_filters",
+        "action": "extract_entities_batch 抽实体；全局按标准化文本合并 memory_ids；批量 embed；先用 exact_matches 再用 entity_store.search_batch 的 >=0.95 语义匹配；命中则更新 linked_memory_ids，否则批量插入新实体",
+        "stateChange": "entity store 的 linked_memory_ids 或新实体记录",
+        "output": "实体链接结果，不改变返回的 memory 列表",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1100,
+            "endLine": 1180
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1182,
+            "endLine": 1204
+          },
+          {
+            "path": "mem0/utils/entity_extraction.py",
+            "startLine": 761,
+            "endLine": 772
+          }
+        ]
+      },
+      {
+        "title": "search 校验过滤条件",
+        "phase": "查询准备",
+        "condition": "调用 search 时必经；reference_date 非空会报错",
+        "symbol": "Memory.search",
+        "owner": "project",
+        "input": "query、top_k、filters、threshold、rerank/explain",
+        "action": "拒绝 reference_date 和顶层实体参数；校验 threshold/top_k；trim query；校验并 trim filters 里的 user_id/agent_id/run_id，至少一个；高级过滤器先处理；调用 _search_vector_store",
+        "stateChange": "effective_filters、limit、threshold",
+        "output": "合法查询参数",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1446,
+            "endLine": 1509
+          }
+        ]
+      },
+      {
+        "title": "多信号候选召回",
+        "phase": "查询",
+        "condition": "每次 _search_vector_store 必经；keyword_search 可能返回 None",
+        "symbol": "Memory._search_vector_store / Qdrant.keyword_search",
+        "owner": "project",
+        "input": "query、filters、limit、threshold",
+        "action": "对 query 做 BM25 lemmatize 和实体抽取；embed 查询；语义检索 over-fetch max(limit*4,60)；若 store 支持则 BM25 keyword_search；用 get_bm25_params+normalize_bm25 把原始 BM25 转 0-1；若 query 有实体则算实体 boost；从语义结果构建候选并过滤过期",
+        "stateChange": "semantic_results、bm25_scores、entity_boosts、candidates",
+        "output": "候选与三路信号",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1647,
+            "endLine": 1701
+          },
+          {
+            "path": "mem0/vector_stores/qdrant.py",
+            "startLine": 454,
+            "endLine": 481
+          }
+        ]
+      },
+      {
+        "title": "加法融合、阈值与格式化",
+        "phase": "查询",
+        "condition": "候选进入 score_and_rank 后必经",
+        "symbol": "Memory._search_vector_store / score_and_rank",
+        "owner": "project",
+        "input": "candidates、bm25_scores、entity_boosts、threshold、top_k",
+        "action": "先按 semantic_score < threshold 丢弃；combined=min((semantic+bm25+entity_boost)/max_possible,1)；max_possible 按激活信号取 1/1.5/2/2.5；排序取 top_k；再包成 MemoryItem 并提升 user_id 等字段到顶层",
+        "stateChange": "返回结果列表，不写状态",
+        "output": "{\"results\":[...]}",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1703,
+            "endLine": 1745
+          },
+          {
+            "path": "mem0/utils/scoring.py",
+            "startLine": 94,
+            "endLine": 139
+          }
+        ]
+      }
+    ],
+    "technologies": [
+      {
+        "name": "单次 ADD-only 事实提取",
+        "problem": "避免多轮更新/删除决策，把原始消息压成可检索事实。",
+        "mechanism": "把已有 top10 记忆、最近消息、新消息、观察日期拼进 prompt；LLM 返回 JSON memory 数组；代码只解析 text 等字段并继续写入。",
+        "pseudocode": "existing = search(messages, top_k=10)\nprompt = build(existing, last_messages, new_messages)\nresp = llm.generate(prompt, json_object)\nitems = json.loads(resp).get('memory', [])\nfor item in items:\n  embed(item.text)\n  insert(item.text, payload)",
+        "dataStructures": "extracted_memories: [{id,text,attributed_to,linked_memory_ids?}]；不变量：只产生新记录，不返回 UPDATE/DELETE 指令。",
+        "projectCode": "main.py 选 ADDITIVE_EXTRACTION_PROMPT、调用 LLM、解析 JSON；prompts.py 构建 prompt。",
+        "externalDependency": "LLM provider 负责自然语言抽取和 JSON 生成；质量取决于模型。",
+        "tradeoff": "一次调用成本低、避免覆盖；但旧记忆不会被自动修正，重复/冲突依赖 hash 和后续实体链接处理。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 942,
+            "endLine": 986
+          },
+          {
+            "path": "mem0/configs/prompts.py",
+            "startLine": 1016,
+            "endLine": 1062
+          }
+        ]
+      },
+      {
+        "name": "语义+BM25+实体 boost 加法融合",
+        "problem": "纯向量对精确关键词/实体不敏感。",
+        "mechanism": "语义检索 overfetch；BM25 keyword_search 原始分经 sigmoid 归一化；entity_boosts 查表；每个候选先过语义 threshold，再相加除以激活信号最大可能分；排序。",
+        "pseudocode": "sem = dense_search(query, limit=max(limit*4,60))\nkw = keyword_search(lemmatize(query), limit=max(limit*4,60))\nfor hit in kw: bm25[hit.id] = sigmoid(raw, mid, steep)\nfor ent in entities(query): entity[mem] = boost(ent, mem)\nfor c in sem:\n  if c.score < threshold: skip\n  c.score = (c.score + bm25[id] + entity[id]) / max_possible\nsort(candidates)",
+        "dataStructures": "semantic_results、bm25_scores: id->[0,1]、entity_boosts: id->float；max_possible 由 bool(bm25_scores)/bool(entity_boosts) 决定。",
+        "projectCode": "main.py 编排三路召回；scoring.py 实现公式。",
+        "externalDependency": "vector store 执行 dense search 和 BM25 sparse search；Qdrant 用 fastembed Qdrant/bm25 编码。",
+        "tradeoff": "多信号提升召回；但 BM25 未安装/不支持时退化为语义；threshold 只看语义，可能丢弃可被关键词救回的候选。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1647,
+            "endLine": 1701
+          },
+          {
+            "path": "mem0/utils/scoring.py",
+            "startLine": 94,
+            "endLine": 139
+          },
+          {
+            "path": "mem0/vector_stores/qdrant.py",
+            "startLine": 454,
+            "endLine": 481
+          }
+        ]
+      },
+      {
+        "name": "实体抽取与实体链接",
+        "problem": "同一实体的多条记忆需要互相关联，查询时可按实体加权。",
+        "mechanism": "spaCy NER+proper name+quoted+topic 候选，按 priority/confidence/span 去重；add 时批量抽实体、批量 embed，按标准化文本精确匹配或 >=0.95 语义匹配，更新 linked_memory_ids 或插入新实体。",
+        "pseudocode": "ents = extract_entities_batch(texts)\nglobal = normalize_and_merge(ents)\nvecs = embed_batch(entity_texts)\nfor key, vec in zip(global, vecs):\n  exact = existing_by_text.get(key)\n  sem = entity_store.search_batch(vec, top_k=1)\n  if exact or sem.score >= .95:\n    update(linked_memory_ids)\n  else:\n    insert(entity, linked_memory_ids)",
+        "dataStructures": "实体 payload: data, entity_type, linked_memory_ids, user_id/agent_id/run_id；global_entities: normalized_key -> [type,text,set(memory_ids)]。",
+        "projectCode": "entity_extraction.py 规则和候选解析；main.py 批量链接。",
+        "externalDependency": "spaCy 提供分词/NER/依存；向量 store 存实体向量并 search_batch。",
+        "tradeoff": "建立可复用链接；但 spaCy 可选、模型语言能力受限，中文场景质量未确认。",
+        "evidence": [
+          {
+            "path": "mem0/utils/entity_extraction.py",
+            "startLine": 731,
+            "endLine": 772
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1100,
+            "endLine": 1180
+          }
+        ]
+      },
+      {
+        "name": "SQLite 历史与最近消息窗口",
+        "problem": "需要审计 ADD 事件，并为提取提供最近上下文。",
+        "mechanism": "history 表逐条/批量插入，字段含 event/new_memory/old_memory；messages 表按 session_scope 插入后删除超过最近 10 条；get_last_messages 用子查询取最新 10 条再按时间升序。",
+        "pseudocode": "insert history(memory_id, old_memory, new_memory, event)\ninsert messages(session_scope, role, content, now)\ndelete messages where session_scope=? and id not in (\n  select id from messages where session_scope=? order by created_at desc limit 10)\nselect * from (\n  select * from messages where session_scope=? order by created_at desc limit 10)\norder by created_at asc",
+        "dataStructures": "history: memory_id, old_memory, new_memory, event, created_at, ...；messages: session_scope, role, content, created_at。",
+        "projectCode": "storage.py 事务、锁、迁移、批量插入。",
+        "externalDependency": "sqlite3 标准库提供本地文件存储。",
+        "tradeoff": "简单可审计；单文件、进程内锁，跨进程并发和大规模不是强项。",
+        "evidence": [
+          {
+            "path": "mem0/memory/storage.py",
+            "startLine": 150,
+            "endLine": 192
+          },
+          {
+            "path": "mem0/memory/storage.py",
+            "startLine": 257,
+            "endLine": 324
+          }
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "decision": "当前 add 只执行 ADD-only 提取，不在写入路径做 UPDATE/DELETE 决策",
+        "constraint": "旧式四操作需要额外 LLM 比较和多轮维护；当前代码选择单次提取",
+        "alternative": "让 LLM 对每条新事实输出 ADD/UPDATE/DELETE/NONE 并在同一次写入中修改或删除旧记录",
+        "why": "本场景第二次 add 不会覆盖旧偏好；只追加新记录，避免旧记忆被误删/误改；代码中 _add_to_vector_store 只解析 memory 并持久化新记录",
+        "cost": "旧偏好变更不会自动替换，冲突和重复要靠 hash/链接/上层处理",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "- **Single-pass ADD-only extraction** -- one LLM call, no UPDATE/DELETE. Memories accumulate; nothing is overwritten.",
+        "evidence": [
+          {
+            "path": "README.md",
+            "startLine": 67,
+            "endLine": 72
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 942,
+            "endLine": 986
+          }
+        ]
+      },
+      {
+        "decision": "用 top10 现有记忆作为 LLM 去重/链接参考",
+        "constraint": "LLM 需要知道已有记忆才能避免重复和建立 linked_memory_ids",
+        "alternative": "不检索旧记忆，直接抽取后只靠 hash 去重",
+        "why": "本场景若已存过“喜欢川菜”，把 existing_memories 放进 prompt 可让模型跳过语义等价事实；代码随后还用 hash 兜底",
+        "cost": "只取 top10，更多旧记忆看不到；模型可能仍重复，hash 只处理精确文本",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 925,
+            "endLine": 955
+          },
+          {
+            "path": "mem0/configs/prompts.py",
+            "startLine": 506,
+            "endLine": 513
+          }
+        ]
+      },
+      {
+        "decision": "检索用语义候选池做 gate，再融合 BM25/entity",
+        "constraint": "多信号候选集合不同，需要统一排序；语义分范围可比较",
+        "alternative": "把三路结果直接拼接后按各自原始分排序，不先经过语义阈值",
+        "why": "score_and_rank 先要求 semantic_score >= threshold，再按 max_possible 归一化相加；这样 BM25/entity 只能提升已在语义池中的候选，避免关键词结果绕过语义门槛",
+        "cost": "语义检索漏掉的记忆无法被 BM25/entity 救回；threshold 过高会漏",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "candidates below the threshold are excluded even if BM25/entity would boost them.",
+        "evidence": [
+          {
+            "path": "mem0/utils/scoring.py",
+            "startLine": 74,
+            "endLine": 119
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1680,
+            "endLine": 1701
+          }
+        ]
+      },
+      {
+        "decision": "Qdrant 写入时同时生成 dense 和 BM25 sparse 向量",
+        "constraint": "关键词检索需要稀疏向量槽 bm25",
+        "alternative": "只存 dense，查询时再对全文做外部 BM25 或每次查询重建稀疏索引",
+        "why": "insert 从 payload 的 text_lemmatized/data 批量编码 BM25 并写入 named vector；keyword_search 用 using='bm25' 查询；避免查询时重建索引",
+        "cost": "依赖 fastembed 和 collection 有 bm25 slot；旧 collection 或未安装时退化为语义",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "mem0/vector_stores/qdrant.py",
+            "startLine": 186,
+            "endLine": 246
+          },
+          {
+            "path": "mem0/vector_stores/qdrant.py",
+            "startLine": 454,
+            "endLine": 481
+          }
+        ]
+      },
+      {
+        "decision": "messages 表只保留每个 session 最近 10 条",
+        "constraint": "last_k_messages 只需最近上下文，避免无限膨胀",
+        "alternative": "不删除 messages，而是保留全量并在 get_last_messages 时用 ORDER BY created_at DESC LIMIT 10 只取最近十条；或者把全量消息写入单独归档表，messages 表仅作为短期窗口。",
+        "why": "save_messages 插入后删除超过最近 10 条；get_last_messages 取最新 10 条升序返回，控制 prompt 上下文",
+        "cost": "更早对话无法作为 last_k_messages；长期审计依赖 history 而不是 messages",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "mem0/memory/storage.py",
+            "startLine": 279,
+            "endLine": 291
+          },
+          {
+            "path": "mem0/memory/storage.py",
+            "startLine": 298,
+            "endLine": 324
+          }
+        ]
+      }
+    ],
+    "codeWalkthroughs": [
+      {
+        "title": "ADD-only 提取：只解析 memory 数组",
+        "explanation": "先用整段新消息做一次 search embedding，并取 top10 现有记忆，转成带序号的 existing_memories。然后选 ADDITIVE_EXTRACTION_PROMPT，把 existing_memories、parsed_messages、last_messages、custom_instructions 交给 generate_additive_extraction_prompt 拼成 user prompt。LLM 以 json_object 返回后，remove_code_blocks 清掉代码围栏，json.loads 只取 memory 键；解析失败或没有 memory 时返回空列表。这里没有 UPDATE/DELETE 分支，提取结果只作为新记录候选。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 942,
+            "endLine": 986
+          },
+          {
+            "path": "mem0/configs/prompts.py",
+            "startLine": 1016,
+            "endLine": 1062
+          }
+        ]
+      },
+      {
+        "title": "hash 去重和持久化顺序",
+        "explanation": "先从 existing_results 的 payload 收集 hash，再用 seen_hashes 记录本批已见文本。每条提取文本算 md5；命中 existing_hashes 或 seen_hashes 就跳过，所以去重范围是 top10 现有结果加本批，不是全库幂等。通过后写 data、text_lemmatized、hash、created_at、updated_at 等 payload，形成 records。随后批量 vector_store.insert；批量失败逐条插入，只有 persisted_records 才写 history 的 ADD 事件并返回。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1007,
+            "endLine": 1041
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1047,
+            "endLine": 1098
+          }
+        ]
+      },
+      {
+        "title": "混合评分：threshold 在融合前",
+        "explanation": "_search_vector_store 先对 query 做 BM25 lemmatize 和实体抽取，embed 后语义检索 over-fetch。keyword_search 返回命中时，用 query 长度选 sigmoid 参数，把原始 BM25 归一化到 0-1；query 有实体时再算 entity_boosts。score_and_rank 对每个语义候选先检查 semantic_score < threshold，低于阈值直接丢弃；然后 combined = min((semantic + bm25 + entity_boost) / max_possible, 1)，max_possible 按激活信号取 1、1.5、2 或 2.5，最后排序取 top_k。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1647,
+            "endLine": 1701
+          },
+          {
+            "path": "mem0/utils/scoring.py",
+            "startLine": 94,
+            "endLine": 139
+          }
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "question": "重复 add 完全相同的提取文本会被去重吗？",
+        "change": "对同一 user_id 连续两次 add 同一句；假设 LLM 两次抽出的 text 完全相同。",
+        "expected": "第二次在 Phase5 计算 md5，命中 existing_results 的 hash 或本批 seen_hashes 时跳过；若所有候选都被跳过则返回 []，不会新增向量和历史 ADD。注意去重范围是 top10 现有结果加本批，不是全库。",
+        "evidence": [
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1009,
+            "endLine": 1026
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1043,
+            "endLine": 1045
+          }
+        ]
+      },
+      {
+        "question": "search 的分数由哪些部分构成？",
+        "change": "调用 search(..., explain=True)。",
+        "expected": "结果里出现 score_details，含 semantic_score、bm25_score、entity_boost、raw_score、max_possible_score、final_score、threshold；若 keyword_search 返回 None 则 bm25_score=0，且 max_possible 不含 1.0 这一项。",
+        "evidence": [
+          {
+            "path": "mem0/utils/scoring.py",
+            "startLine": 121,
+            "endLine": 135
+          },
+          {
+            "path": "mem0/memory/main.py",
+            "startLine": 1660,
+            "endLine": 1673
+          }
+        ]
+      },
+      {
+        "question": "查询词加入“川菜”会改变哪些信号？",
+        "change": "把查询从“给我推荐晚餐”改为“川菜 晚餐”，并确保 Qdrant 与 fastembed 可用。",
+        "expected": "BM25 keyword_search 更可能有命中，bm25_scores 非空，max_possible 从 1.0 变 2.0；若实体抽取也命中实体，max_possible 变 2.5。仍不能保证排名，因为要看实际归一化分数和语义分。",
+        "evidence": [
+          {
+            "path": "mem0/vector_stores/qdrant.py",
+            "startLine": 454,
+            "endLine": 481
+          },
+          {
+            "path": "mem0/utils/scoring.py",
+            "startLine": 97,
+            "endLine": 101
+          }
+        ]
+      }
+    ],
+    "takeaways": [
+      "add 默认不是旧版 UPDATE/DELETE 决策，而是单次 ADD-only 提取；去重是 top10 现有 hash 加本批 hash 的精确文本去重。",
+      "search 是语义候选池 + BM25 + entity 的加法融合，threshold 在融合前卡语义；最终分除以激活信号最大可能分。",
+      "LLM 负责抽事实，embedding 负责向量化，vector store 负责 dense/sparse 检索，spaCy 负责实体候选，SQLite 负责历史和最近消息。",
+      "没有实际模型/向量结果不能预测提取文本或排名；默认 BM25/entity 可能因依赖缺失退化为语义。",
+      "场景推演：查询“晚餐”更可能通过语义相似召回“不吃辣/喜欢川菜”，但不保证；查询含“川菜”才更可能触发 BM25/实体信号。"
+    ],
+    "gaps": [
+      "_compute_entity_boosts 和 _search_entity 方法体未在已读片段中，无法确认查询时实体 boost 的具体匹配与权重计算；只能确认它被调用并进入 score_and_rank。",
+      "lemmatize_for_bm25 和 get_nlp_full 方法体未读，无法确认中文分词/词形还原和 spaCy 模型对中文的实际效果。",
+      "默认 Qdrant 的 BM25 依赖 fastembed 和 collection 的 bm25 slot；未安装/旧 collection 时 keyword_search 返回 None，实际默认是否启用取决于环境，不能断言一定走三路。",
+      "add 路径没有调用 update/delete；但 Memory.update/delete 方法体未在已读片段中，不能描述单独调用它们时的完整语义。",
+      "没有实际 embedding/LLM 输出，不能声称模型一定提取“不吃辣/喜欢川菜”或预测 search 排名。"
+    ]
+  }
+}

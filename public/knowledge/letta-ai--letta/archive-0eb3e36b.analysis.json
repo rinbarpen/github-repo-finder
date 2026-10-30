@@ -1,0 +1,812 @@
+{
+  "version": 3,
+  "repo": "letta-ai/letta",
+  "ref": "archive",
+  "sha": "56ba9c25552605eec89de8ed3dc6394b625c1993",
+  "analysis": {
+    "version": 3,
+    "kind": "architecture",
+    "requestedModel": "deepseek-flash",
+    "actualModel": "deepseek-flash",
+    "filesRead": 15,
+    "charactersRead": 349846,
+    "modules": 7,
+    "flowSteps": 8,
+    "mechanisms": 4,
+    "decisions": 4,
+    "readingStrategy": "model-and-profile",
+    "structuralChecks": "passed",
+    "usage": {
+      "prompt_tokens": 114362,
+      "completion_tokens": 12424
+    },
+    "notes": []
+  },
+  "plan": {
+    "scenario": "在 archive 历史服务端中，一次用户消息经 REST 入口进入 AgentLoop 工厂，由 LettaAgentV3（或回退 LettaAgentV2）执行多步循环：重建上下文记忆（system+memory blocks+消息缓冲）、调用 LLM、解析工具调用、执行记忆/工具变更并持久化，再决定是否继续下一轮，最终返回 LettaResponse。",
+    "files": [
+      {
+        "path": "letta/server/rest_api/routers/v1/agents.py",
+        "focus": [
+          "send_message",
+          "send_message_streaming"
+        ],
+        "reason": "公开入口：REST 路由接收用户消息，构造 MessageCreate 并调用 agent loop，是真实请求的起点。"
+      },
+      {
+        "path": "letta/agents/agent_loop.py",
+        "focus": [
+          "AgentLoop.load"
+        ],
+        "reason": "工厂方法，根据 agent_type/enable_sleeptime 选择实际被调用的实现（LettaAgentV3/V2、SleeptimeMultiAgentV4），明确主分支架构。"
+      },
+      {
+        "path": "letta/agents/letta_agent_v3.py",
+        "focus": [
+          "LettaAgentV3.step",
+          "LettaAgentV3._step",
+          "LettaAgentV3._build_and_request_from_llm",
+          "LettaAgentV3._handle_ai_response",
+          "LettaAgentV3._decide_continuation"
+        ],
+        "reason": "当前主实现：完整主方法 step/_step 定义在文件后半段，展示上下文重建、LLM 请求、工具循环与继续判定。"
+      },
+      {
+        "path": "letta/agents/letta_agent.py",
+        "focus": [
+          "LettaAgent.step",
+          "LettaAgent._step",
+          "LettaAgent._handle_ai_response",
+          "LettaAgent._execute_tool"
+        ],
+        "reason": "旧版循环实现，作为对照说明主方法结构与工具执行路径；_step 在后半段。"
+      },
+      {
+        "path": "letta/agents/helpers.py",
+        "focus": [
+          "_prepare_in_context_messages_no_persist_async"
+        ],
+        "reason": "核心上下文组装：把 system、memory blocks 与消息缓冲拼成 in-context 消息序列，是记忆分工的关键。"
+      },
+      {
+        "path": "letta/schemas/memory.py",
+        "focus": [
+          "Memory.compile",
+          "Memory.get_prompt_template"
+        ],
+        "reason": "核心数据结构：Memory/Block 如何编译为系统提示中的可编辑记忆段，解释为何记忆是可操作状态而非聊天记录。"
+      },
+      {
+        "path": "letta/schemas/agent.py",
+        "focus": [
+          "AgentState"
+        ],
+        "reason": "类型文件（限两个之一）：AgentState 聚合 llm_config、memory、tools、tool_rules，是循环的输入状态。"
+      },
+      {
+        "path": "letta/schemas/letta_response.py",
+        "focus": [
+          "LettaResponse"
+        ],
+        "reason": "类型文件（限两个之二）：定义输出结构，连接内部消息到 API 响应。"
+      },
+      {
+        "path": "letta/services/message_manager.py",
+        "focus": [
+          "MessageManager.create_messages_async",
+          "MessageManager.list_messages_async"
+        ],
+        "reason": "持久化适配器：消息写入/读取数据库，支撑 in-context 缓冲与历史。"
+      },
+      {
+        "path": "letta/services/block_manager.py",
+        "focus": [
+          "BlockManager.update_block_async",
+          "BlockManager.get_blocks_async"
+        ],
+        "reason": "记忆块持久化适配器：工具修改 memory block 后落库，体现记忆作为可操作状态。"
+      },
+      {
+        "path": "letta/services/tool_executor/tool_execution_manager.py",
+        "focus": [
+          "ToolExecutionManager.execute_tool"
+        ],
+        "reason": "工具执行分发：把 LLM 返回的 tool_call 路由到 core/builtin/sandbox 执行器。"
+      },
+      {
+        "path": "letta/services/tool_executor/core_tool_executor.py",
+        "focus": [
+          "CoreToolExecutor.execute"
+        ],
+        "reason": "实际被调用的实现：core memory 工具（如 memory_replace/append）在此修改记忆块。"
+      },
+      {
+        "path": "letta/llm_api/llm_client.py",
+        "focus": [
+          "LLMClient.create",
+          "LLMClient.send_llm_request"
+        ],
+        "reason": "传输适配器：按 provider 选择客户端并发送请求，是模型调用的实际出口。"
+      },
+      {
+        "path": "letta/orm/message.py",
+        "focus": [
+          "Message"
+        ],
+        "reason": "存储层数据结构：消息 ORM 映射，说明持久状态如何落库。"
+      },
+      {
+        "path": "letta/orm/block.py",
+        "focus": [
+          "Block"
+        ],
+        "reason": "存储层数据结构：记忆块 ORM，与 BlockManager 配合。"
+      },
+      {
+        "path": "tests/integration_test_send_message.py",
+        "focus": [
+          "test_send_message"
+        ],
+        "reason": "示例/测试：端到端验证一次消息从 API 到响应的路径，覆盖工具循环与记忆更新。"
+      }
+    ]
+  },
+  "report": {
+    "overview": {
+      "plainLanguage": "它把 agent 的记忆拆成可编辑的记忆块和消息缓冲，每次请求重新组装成上下文，让模型调用工具，再根据工具结果决定是否继续下一轮。",
+      "problem": "如果只保存一大段聊天记录，模型很难稳定地区分长期事实、当前上下文、工具结果和可编辑记忆；同时多步工具调用需要明确的停止条件和持久化边界。",
+      "scenarioInput": "向一个 agent_type=letta_v1_agent、enable_sleeptime=false 的 agent 发送一条普通用户消息，例如“帮我记住：我对花生过敏”，请求未启用流式，也未指定审批工具。",
+      "scenarioOutput": "推演结果是一个 LettaResponse：messages 中包含本轮产生的 assistant/tool 消息，stop_reason 可能是 end_turn、max_steps 或 tool_rule（取决于模型是否调用工具以及工具规则），usage 累计本轮 LLM 用量；如果模型选择调用记忆工具并成功，记忆块值会被修改并在成功 step 后持久化。"
+    },
+    "modules": [
+      {
+        "id": "entry",
+        "name": "REST 消息入口",
+        "role": "接收 HTTP 消息请求，取 actor 和 agent 状态，创建/标记 run，然后把真正的执行交给 AgentLoop；它位于协议层，不直接实现记忆算法。",
+        "input": "LettaStreamingRequest、agent_id、headers",
+        "output": "agent_state、request.messages、run_id 以及 AgentLoop.step 的结果",
+        "state": "创建 run、写入 Redis run_id，并在 finally 中更新 run 状态",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "letta/server/rest_api/routers/v1/agents.py",
+            "startLine": 1714,
+            "endLine": 1798
+          }
+        ]
+      },
+      {
+        "id": "factory",
+        "name": "AgentLoop 工厂",
+        "role": "根据 agent_type、enable_sleeptime 和 multi_agent_group 选择不同的执行循环，避免所有 agent 类型共用一套控制流。",
+        "input": "AgentState、actor",
+        "output": "LettaAgentV3、LettaAgentV2 或 sleeptime 多智能体组",
+        "state": "无持久状态，只做选择",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "letta/agents/agent_loop.py",
+            "startLine": 19,
+            "endLine": 63
+          }
+        ]
+      },
+      {
+        "id": "v3loop",
+        "name": "LettaAgentV3 执行循环",
+        "role": "负责准备上下文、循环调用 LLM adapter、收集工具调用、决定是否继续、写入消息和返回 LettaResponse。",
+        "input": "input_messages、max_steps、run_id、conversation_id、client_tools",
+        "output": "LettaResponse，以及写入后的 in-context messages",
+        "state": "self.in_context_messages、self.response_messages、self.usage、self.stop_reason、self.should_continue",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 256,
+            "endLine": 287
+          },
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 328,
+            "endLine": 353
+          },
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 412,
+            "endLine": 441
+          }
+        ]
+      },
+      {
+        "id": "memory",
+        "name": "Memory 记忆块渲染",
+        "role": "把 blocks 渲染成 system prompt 中可以给模型阅读和编辑的 XML 片段；它不负责消息表，只负责上下文记忆的文本表示。",
+        "input": "Memory.blocks、agent_type、llm_config、sources",
+        "output": "包含 memory_blocks、tool_usage_rules、directories 的字符串",
+        "state": "blocks 的值、描述、limit 和 read_only 等字段",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "letta/schemas/memory.py",
+            "startLine": 143,
+            "endLine": 173
+          },
+          {
+            "path": "letta/schemas/memory.py",
+            "startLine": 688,
+            "endLine": 712
+          }
+        ]
+      },
+      {
+        "id": "messages",
+        "name": "MessageManager 消息持久化",
+        "role": "按 ID 读取 in-context 消息，创建新消息，向消息表写入并在写入前后做顺序恢复和去重辅助。",
+        "input": "message_ids、Pydantic Message 列表、actor",
+        "output": "按请求顺序返回的 Message 列表，以及持久化后的消息",
+        "state": "messages 表以及消息的 sequence_id/run_id/step_id 等字段",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "letta/services/message_manager.py",
+            "startLine": 351,
+            "endLine": 376
+          },
+          {
+            "path": "letta/services/message_manager.py",
+            "startLine": 477,
+            "endLine": 520
+          },
+          {
+            "path": "letta/services/message_manager.py",
+            "startLine": 571,
+            "endLine": 603
+          }
+        ]
+      },
+      {
+        "id": "tools",
+        "name": "工具执行管理器",
+        "role": "根据 ToolType 选择具体 executor，执行工具，把异常转成 ToolExecutionResult，并截断过长的返回值。",
+        "input": "function_name、function_args、Tool、agent_state",
+        "output": "ToolExecutionResult",
+        "state": "工具自身的副作用由具体 executor 负责；管理器记录状态和指标",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "letta/services/tool_executor/tool_execution_manager.py",
+            "startLine": 35,
+            "endLine": 65
+          },
+          {
+            "path": "letta/services/tool_executor/tool_execution_manager.py",
+            "startLine": 95,
+            "endLine": 129
+          }
+        ]
+      },
+      {
+        "id": "server",
+        "name": "服务端初始化",
+        "role": "启动时创建默认组织/用户、同步 provider 和 base tools、准备 sandbox 配置，为后续请求提供数据库和工具依赖。",
+        "input": "环境配置、数据库、tool_settings",
+        "output": "默认用户、provider/tools 记录、sandbox 配置",
+        "state": "数据库中的组织、用户、provider、tool、sandbox 记录",
+        "kind": "project",
+        "evidence": [
+          {
+            "path": "letta/server/server.py",
+            "startLine": 374,
+            "endLine": 425
+          }
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "from": "entry",
+        "to": "factory",
+        "label": "send_message 调用 AgentLoop.load(agent_state, actor)"
+      },
+      {
+        "from": "entry",
+        "to": "v3loop",
+        "label": "拿到 agent_loop 后调用 agent_loop.step(request.messages, ...)"
+      },
+      {
+        "from": "factory",
+        "to": "v3loop",
+        "label": "对 letta_v1_agent 且未启用 sleeptime 的 agent 实例化 LettaAgentV3"
+      },
+      {
+        "from": "v3loop",
+        "to": "memory",
+        "label": "系统提示中的记忆块文本来自 Memory 渲染"
+      },
+      {
+        "from": "v3loop",
+        "to": "messages",
+        "label": "准备上下文时读消息，成功 step 后写入消息"
+      },
+      {
+        "from": "v3loop",
+        "to": "tools",
+        "label": "模型返回工具调用时执行工具"
+      },
+      {
+        "from": "server",
+        "to": "entry",
+        "label": "SyncServer 提供 agent_manager、user_manager、run_manager 等依赖"
+      }
+    ],
+    "flow": [
+      {
+        "title": "REST 入口接收并准备一次运行",
+        "phase": "装配",
+        "condition": "必经；请求 messages 非空且通过 streaming 参数校验",
+        "symbol": "send_message",
+        "owner": "project",
+        "input": "HTTP 请求中的 agent_id、LettaStreamingRequest、headers",
+        "action": "取 actor 和 agent，按需覆盖模型，创建 run 并把 run_id 写入 Redis，然后构造 AgentLoop",
+        "stateChange": "创建 Run 记录；Redis 写入 {REDIS_RUN_ID_PREFIX}:{agent_id}",
+        "output": "agent_state、request.messages、run_id、agent_loop",
+        "evidence": [
+          {
+            "path": "letta/server/rest_api/routers/v1/agents.py",
+            "startLine": 1714,
+            "endLine": 1798
+          }
+        ]
+      },
+      {
+        "title": "工厂选择执行循环",
+        "phase": "装配",
+        "condition": "agent_type 属于 letta_v1_agent/sleeptime_agent 且 enable_sleeptime=False 时返回 LettaAgentV3；否则可能返回 V2 或多智能体组",
+        "symbol": "AgentLoop.load",
+        "owner": "project",
+        "input": "agent_state、actor",
+        "action": "检查 agent_type、enable_sleeptime、multi_agent_group，选择具体执行类",
+        "stateChange": "无",
+        "output": "LettaAgentV3 或 LettaAgentV2 等 BaseAgentV2 实例",
+        "evidence": [
+          {
+            "path": "letta/agents/agent_loop.py",
+            "startLine": 19,
+            "endLine": 63
+          }
+        ]
+      },
+      {
+        "title": "准备当前上下文和本次新输入",
+        "phase": "查询/初始化",
+        "condition": "必经；conversation_id 为空时从 agent_state.message_ids 读取",
+        "symbol": "LettaAgentV3.step / _prepare_in_context_messages_no_persist_async",
+        "owner": "project",
+        "input": "input_messages、agent_state、message_manager、actor",
+        "action": "如果 message_buffer_autoclear=True 只取 message_ids[0] 的系统消息；否则按 message_ids 取完整上下文。然后把新用户输入转成 new_in_context_messages，但此时不立即持久化这些新消息",
+        "stateChange": "self.in_context_messages=curr_in_context_messages；input_messages_to_persist 暂存新消息",
+        "output": "curr_in_context_messages + input_messages_to_persist",
+        "evidence": [
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 256,
+            "endLine": 287
+          },
+          {
+            "path": "letta/agents/helpers.py",
+            "startLine": 206,
+            "endLine": 220
+          },
+          {
+            "path": "letta/agents/helpers.py",
+            "startLine": 312,
+            "endLine": 315
+          }
+        ]
+      },
+      {
+        "title": "一轮循环中构造 LLM 请求并调用模型",
+        "phase": "生成",
+        "condition": "必经；每轮受 max_steps 限制",
+        "symbol": "LettaAgentV3._step",
+        "owner": "project",
+        "input": "self.in_context_messages + input_messages_to_persist、valid_tools、active_llm_config",
+        "action": "刷新消息，计算有效工具和是否强制工具调用，生成 request_system_prompt，调用 llm_adapter.invoke_llm 并消费其返回 chunk",
+        "stateChange": "step_id、step_metrics、llm_adapter.usage 等本轮状态被更新",
+        "output": "LLM 响应、tool_calls、content、usage",
+        "evidence": [
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 955,
+            "endLine": 1006
+          },
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 1092,
+            "endLine": 1170
+          }
+        ]
+      },
+      {
+        "title": "处理模型响应并生成本轮消息",
+        "phase": "写入前处理",
+        "condition": "必经；模型可能返回工具调用、纯内容或不返回工具调用",
+        "symbol": "LettaAgentV3._step",
+        "owner": "project",
+        "input": "llm_adapter.tool_calls、llm_adapter.content、valid_tool_names",
+        "action": "收集 tool_calls，按 parallel_tool_calls 配置截断并行调用，然后调用 _handle_ai_response 生成 new_messages；把这些消息追加到 self.response_messages 和当前 messages",
+        "stateChange": "self.response_messages 和局部 messages 增加新消息",
+        "output": "new_messages，以及更新后的 in-context messages 列表",
+        "evidence": [
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 1326,
+            "endLine": 1370
+          }
+        ]
+      },
+      {
+        "title": "执行工具或生成审批请求",
+        "phase": "执行",
+        "condition": "模型返回了工具调用且工具不需要审批、也不被工具规则拦截时，才实际调用 executor",
+        "symbol": "ToolExecutionManager.execute_tool_async / ToolExecutorFactory.get_executor",
+        "owner": "project",
+        "input": "function_name、function_args、Tool、agent_state、sandbox_env_vars",
+        "action": "按 tool.tool_type 从映射中选择 executor，执行工具，捕获异常并转换成 ToolExecutionResult，超长返回值用 FUNCTION_RETURN_VALUE_TRUNCATED 截断",
+        "stateChange": "工具自身可能修改记忆块、消息、文件等；管理器记录执行指标",
+        "output": "ToolExecutionResult，其中包含 func_return、status、stderr 等",
+        "evidence": [
+          {
+            "path": "letta/services/tool_executor/tool_execution_manager.py",
+            "startLine": 46,
+            "endLine": 65
+          },
+          {
+            "path": "letta/services/tool_executor/tool_execution_manager.py",
+            "startLine": 95,
+            "endLine": 129
+          }
+        ]
+      },
+      {
+        "title": "成功 step 后 checkpoint 消息",
+        "phase": "写入",
+        "condition": "本轮 _step 正常完成；发生异常时注释明确不持久化消息",
+        "symbol": "LettaAgentV3._step",
+        "owner": "project",
+        "input": "input_messages_to_persist + new_messages、in_context_messages",
+        "action": "更新 step 状态后调用 _checkpoint_messages 保存本轮消息和新的 in-context messages；随后根据 include_return_message_types 产出本轮可见消息",
+        "stateChange": "消息表新增记录；in-context 列表被 checkpoint 保存",
+        "output": "已 checkpoint 的消息和本轮 yield 的消息",
+        "evidence": [
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 1402,
+            "endLine": 1410
+          },
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 1511,
+            "endLine": 1513
+          }
+        ]
+      },
+      {
+        "title": "检查是否继续下一轮或结束",
+        "phase": "决策/返回",
+        "condition": "self.should_continue=True 且未到 max_steps 时继续；否则跳出并构造响应",
+        "symbol": "LettaAgentV3.step",
+        "owner": "project",
+        "input": "self.should_continue、self.stop_reason、self.response_messages、self.usage",
+        "action": "如果 should_continue 为 false 则 break；如果达到 max_steps 且没有 stop_reason 则设为 max_steps；循环结束后把 response_messages 转成 LettaMessage，并返回 LettaResponse",
+        "stateChange": "self.stop_reason 和 self.usage 最终确定；返回对象包含 messages、stop_reason、usage",
+        "output": "LettaResponse",
+        "evidence": [
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 328,
+            "endLine": 353
+          },
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 386,
+            "endLine": 395
+          },
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 412,
+            "endLine": 441
+          }
+        ]
+      }
+    ],
+    "technologies": [
+      {
+        "name": "消息缓冲与自动清空",
+        "problem": "agent 需要既能保留完整对话上下文，也能在某些 agent 类型下只保留系统提示，避免历史消息无限增长。",
+        "mechanism": "先按 agent_state.message_ids 取当前上下文；message_buffer_autoclear=True 时只取第一条系统消息，否则取全部 ID；新输入另行转换成待持久消息，不混入已存上下文。",
+        "pseudocode": "if autoclear:\n  current = [get(message_ids[0])]\nelse:\n  current = get_many(message_ids)\nnew = create_input_messages(input_messages)\nreturn current, new",
+        "dataStructures": "message_ids 是顺序敏感的消息 ID 列表；current_in_context_messages 与 new_in_context_messages 分开保存",
+        "projectCode": "_prepare_in_context_messages_no_persist_async 负责读取和分组",
+        "externalDependency": "消息表由 SQLAlchemy/数据库负责，项目只定义查询和顺序恢复",
+        "tradeoff": "收益是上下文可控且支持回滚；代价是每次请求都要按 ID 拉取消息，并维护 current/new 两套列表",
+        "evidence": [
+          {
+            "path": "letta/agents/helpers.py",
+            "startLine": 206,
+            "endLine": 220
+          },
+          {
+            "path": "letta/agents/helpers.py",
+            "startLine": 312,
+            "endLine": 315
+          }
+        ]
+      },
+      {
+        "name": "记忆块渲染成 XML 提示",
+        "problem": "长期记忆需要以模型可读、可定位的方式进入 system prompt，而不是散落在聊天记录里。",
+        "mechanism": "Memory.compile 根据 agent_type 和 llm_config 选择标准、行号或 git 渲染；每个 block 写出 label、description、metadata、value 和字符限制。",
+        "pseudocode": "if git_enabled: render_git()\nelif line_numbered and anthropic: render_line_numbered()\nelse: render_standard()\nfor block in blocks:\n  write(<label>, description, chars_current, chars_limit, value)",
+        "dataStructures": "Memory.blocks 是 Block 列表；每个 Block 有 label/value/description/limit/read_only",
+        "projectCode": "Memory._render_memory_blocks_* 和 Memory.compile",
+        "externalDependency": "无外部框架负责渲染；模型只消费最终字符串",
+        "tradeoff": "收益是记忆可编辑且结构清楚；代价是 block 变更后系统提示需要重建，且渲染策略会因 agent_type/provider 分叉",
+        "evidence": [
+          {
+            "path": "letta/schemas/memory.py",
+            "startLine": 143,
+            "endLine": 173
+          },
+          {
+            "path": "letta/schemas/memory.py",
+            "startLine": 688,
+            "endLine": 712
+          }
+        ]
+      },
+      {
+        "name": "工具类型分发执行",
+        "problem": "不同工具需要不同执行环境，例如 core memory 工具、文件工具、MCP 工具、sandbox 工具。",
+        "mechanism": "ToolExecutorFactory 用 ToolType 到 executor 类的映射选择执行器；ToolExecutionManager 调用 executor.execute，统一捕获异常并截断返回字符串。",
+        "pseudocode": "executor_cls = map.get(tool.tool_type, SandboxToolExecutor)\nexecutor = executor_cls(...)\ntry:\n  result = await executor.execute(args)\n  if len(result) > limit: truncate(result)\n  return result\nexcept Exception:\n  return ToolExecutionResult(status='error')",
+        "dataStructures": "ClassVar[Dict[ToolType, Type[ToolExecutor]]] 映射；ToolExecutionResult 保存 status/func_return/stderr",
+        "projectCode": "ToolExecutorFactory 和 ToolExecutionManager.execute_tool_async",
+        "externalDependency": "具体 sandbox、MCP、内置工具的实际执行由对应 executor 和外部服务负责",
+        "tradeoff": "收益是新增工具类型只需扩展映射；代价是执行语义分散在不同 executor 中，调试时要跨层看",
+        "evidence": [
+          {
+            "path": "letta/services/tool_executor/tool_execution_manager.py",
+            "startLine": 35,
+            "endLine": 65
+          },
+          {
+            "path": "letta/services/tool_executor/tool_execution_manager.py",
+            "startLine": 95,
+            "endLine": 129
+          }
+        ]
+      },
+      {
+        "name": "多步循环与停止条件",
+        "problem": "模型可能在一轮里只调用一个工具，需要根据工具结果继续下一轮，同时必须防止无限循环。",
+        "mechanism": "LettaAgentV3.step 用 for i in range(max_steps) 驱动 _step；每轮结束后检查 self.should_continue，false 就 break；达到最后一步时补 max_steps stop_reason。",
+        "pseudocode": "for i in range(max_steps):\n  async for chunk in self._step(...):\n    collect(chunk)\n  if not self.should_continue:\n    break\n  if i == max_steps-1 and stop_reason is None:\n    stop_reason = max_steps\nreturn LettaResponse(...)",
+        "dataStructures": "self.should_continue、self.stop_reason、self.response_messages、self.usage",
+        "projectCode": "LettaAgentV3.step 和 _step 的控制流",
+        "externalDependency": "LLM 请求由 llm_adapter 和 provider 客户端执行，项目只决定何时发请求和处理结果",
+        "tradeoff": "收益是明确限制轮数并支持工具链；代价是循环状态集中在实例字段上，异常路径需要仔细清理",
+        "evidence": [
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 328,
+            "endLine": 353
+          },
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 386,
+            "endLine": 395
+          }
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "decision": "把 in-context memory 建模为可编辑的 Block 列表，并渲染进系统提示，而不是只依赖完整聊天记录",
+        "constraint": "长期事实需要稳定出现，且模型需要能通过工具修改指定记忆块",
+        "alternative": "只追加完整聊天记录，让模型自己从历史中回忆",
+        "why": "示例中“我对花生过敏”如果只存在聊天记录，后续轮次会被大量消息稀释；Block 带 label、description、limit 和 value，能被 core_memory_append/core_memory_replace 精确定位和修改",
+        "cost": "block 修改后需要重建系统提示；不同 agent_type/provider 的渲染策略不同，增加理解成本",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "letta/schemas/memory.py",
+            "startLine": 68,
+            "endLine": 80
+          },
+          {
+            "path": "letta/schemas/memory.py",
+            "startLine": 143,
+            "endLine": 173
+          }
+        ]
+      },
+      {
+        "decision": "新输入先作为待持久消息参与本轮请求，成功 checkpoint 后才写入消息表；异常时回滚到之前状态",
+        "constraint": "工具调用和 LLM 请求可能失败，不能把半轮消息提前写成新的上下文",
+        "alternative": "收到用户消息就立即持久化，然后无论成功失败都保留",
+        "why": "如果本轮在工具执行或 LLM 响应阶段抛异常，立即持久化会留下没有对应 assistant/tool 结果的用户消息，下一轮上下文会不完整；current_in_context_messages 与 input_messages_to_persist 分开正是为了让 checkpoint 决定写入边界",
+        "cost": "实现上要维护两套消息列表，并且 checkpoint 失败时行为更复杂",
+        "kind": "maintainer-stated",
+        "maintainerQuote": "NOTE: message persistence does not happen in the case of an exception (rollback to previous state)",
+        "evidence": [
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 1402,
+            "endLine": 1410
+          },
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 1511,
+            "endLine": 1513
+          }
+        ]
+      },
+      {
+        "decision": "AgentLoop.load 按 agent_type、enable_sleeptime 和 multi_agent_group 分流到 V3、V2 或 sleeptime 组",
+        "constraint": "不同 agent 类型的循环语义不同：V3 无 heartbeat、V2 兼容旧逻辑，sleeptime 需要多智能体组",
+        "alternative": "所有 agent 共用一个执行循环，在循环内部用大量 if 分支处理差异",
+        "why": "分流后 LettaAgentV3.step 可以专注自己的循环和 checkpoint 规则；旧 agent 走 V2，不会被迫适配 V3 的状态模型",
+        "cost": "新增 agent 类型时要改工厂；调试时必须先确认实际选中的类",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "letta/agents/agent_loop.py",
+            "startLine": 19,
+            "endLine": 63
+          }
+        ]
+      },
+      {
+        "decision": "工具返回值截断和异常包装放在 ToolExecutionManager，而不是每个 agent loop 自己处理",
+        "constraint": "不同工具可能返回超长文本或抛异常，agent loop 需要一个统一的 ToolExecutionResult",
+        "alternative": "在每个调用点分别 try/except 并手动截断",
+        "why": "示例中如果模型调用 search 工具返回超长文本，统一在 execute_tool_async 里按 tool.return_char_limit 截断，可以避免每个 executor 重复实现且保证消息里的工具结果不会撑爆上下文",
+        "cost": "工具原始错误细节被包装成友好消息，需要看 stderr 才能定位；截断也可能丢失尾部信息",
+        "kind": "engineering-inference",
+        "maintainerQuote": "",
+        "evidence": [
+          {
+            "path": "letta/services/tool_executor/tool_execution_manager.py",
+            "startLine": 95,
+            "endLine": 129
+          }
+        ]
+      }
+    ],
+    "codeWalkthroughs": [
+      {
+        "title": "工厂如何选择 V3 或 V2",
+        "explanation": "这段代码先判断 agent_type 是否属于 letta_v1_agent/sleeptime_agent。满足时，如果 enable_sleeptime 为真且存在 multi_agent_group，就返回 SleeptimeMultiAgentV4；如果 enable_sleeptime 为真但没有组，则记录警告并回退 LettaAgentV3；如果 enable_sleeptime 为假，直接返回 LettaAgentV3。其他 agent 类型如果启用 sleeptime，则走 V2 或 SleeptimeMultiAgentV3 分支；否则返回 LettaAgentV2。",
+        "evidence": [
+          {
+            "path": "letta/agents/agent_loop.py",
+            "startLine": 19,
+            "endLine": 43
+          },
+          {
+            "path": "letta/agents/agent_loop.py",
+            "startLine": 44,
+            "endLine": 63
+          }
+        ]
+      },
+      {
+        "title": "V3 主循环如何准备上下文并控制轮数",
+        "explanation": "step 先调用 _initialize_state，设置 conversation_id/client_tools/override_system，然后通过 _prepare_in_context_messages_no_persist_async 得到当前上下文和待持久输入。循环体里把 self.in_context_messages 与 input_messages_to_persist 拼成 messages 交给 _step；_step 是异步生成器，主循环把它的 chunk 收进 response_letta_messages。每轮后如果 should_continue 为 false 就 break；如果到了 max_steps-1 仍没有 stop_reason，就补 max_steps。最后把 response_messages 转成 LettaMessage，并把 context_tokens、stop_reason、usage 组装成 LettaResponse。",
+        "evidence": [
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 256,
+            "endLine": 287
+          },
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 328,
+            "endLine": 353
+          },
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 412,
+            "endLine": 441
+          }
+        ]
+      },
+      {
+        "title": "一轮 _step 如何把工具结果写回上下文",
+        "explanation": "LLM 响应返回后，_step 从 llm_adapter 收集 tool_calls；如果模型给了多个并行调用但配置不允许并行，就只保留第一个。然后调用 _handle_ai_response，由它决定审批、拒绝、执行工具或生成纯内容消息，并把 new_messages 追加到 self.response_messages 和当前 messages。成功完成后，_checkpoint_messages 保存 input_messages_to_persist + new_messages 以及新的 in-context messages；如果 context_token_estimate 超过阈值，再走 compact 分支并 checkpoint summary。异常路径在注释中明确不持久化消息，因此本轮新输入不会污染下一轮上下文。",
+        "evidence": [
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 1326,
+            "endLine": 1370
+          },
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 1402,
+            "endLine": 1410
+          },
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 1438,
+            "endLine": 1456
+          }
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "question": "message_buffer_autoclear=True 时，历史消息是否真的不会进入本轮上下文？",
+        "change": "把某个 agent 的 message_buffer_autoclear 设为 True，再发送一条新消息，观察 _prepare_in_context_messages_no_persist_async 取到的 current_in_context_messages 长度",
+        "expected": "应只包含 message_ids[0] 对应的系统消息，而不是完整历史；但 Memory.compile 仍会渲染 blocks，因此记忆块中的长期事实仍可能出现在系统提示里",
+        "evidence": [
+          {
+            "path": "letta/agents/helpers.py",
+            "startLine": 213,
+            "endLine": 220
+          },
+          {
+            "path": "letta/schemas/memory.py",
+            "startLine": 688,
+            "endLine": 712
+          }
+        ]
+      },
+      {
+        "question": "把 agent_type 从 letta_v1_agent 改成 memgpt_v2_agent 且 enable_sleeptime=False，工厂是否还选 V3？",
+        "change": "修改 agent_state.agent_type 为 memgpt_v2_agent，保持 enable_sleeptime=False，然后调用 AgentLoop.load",
+        "expected": "根据分支逻辑，不再命中第一个 agent_type 条件，会走到最后的 else 返回 LettaAgentV2，而不是 LettaAgentV3",
+        "evidence": [
+          {
+            "path": "letta/agents/agent_loop.py",
+            "startLine": 20,
+            "endLine": 43
+          },
+          {
+            "path": "letta/agents/agent_loop.py",
+            "startLine": 59,
+            "endLine": 63
+          }
+        ]
+      },
+      {
+        "question": "工具配置为 requires_approval 时，模型调用该工具会不会直接执行？",
+        "change": "给一个工具添加 requires_approval 规则，让模型返回对该工具的调用，观察 _handle_ai_response 的返回值",
+        "expected": "_handle_ai_response 会构造 approval request 消息，返回 continue_stepping=False 和 requires_approval 的 stop_reason，而不会走到 _execute_tool 实际执行",
+        "evidence": [
+          {
+            "path": "letta/agents/letta_agent_v3.py",
+            "startLine": 1681,
+            "endLine": 1709
+          }
+        ]
+      }
+    ],
+    "takeaways": [
+      "上下文不是一个完整聊天记录，而是系统提示 + 可编辑记忆块 + 按 message_ids 恢复的消息缓冲；自动清空只影响消息缓冲，不等于清空记忆块。",
+      "V3 的主控制流在 LettaAgentV3.step：它按 max_steps 循环，每轮用 _step 调 LLM、处理工具调用，再根据 should_continue 决定是否继续。",
+      "新用户输入和本轮工具结果先在 current/new 两套列表里推进，成功 checkpoint 后才持久化；异常时注释明确回滚消息持久化。",
+      "工具执行按 ToolType 分发到不同 executor，返回值在 ToolExecutionManager 统一截断和包装成 ToolExecutionResult。",
+      "记忆块可以被工具修改，但 block 的 value/description/label/limit 等字段变化会触发系统提示重建，因此长期记忆和消息历史是两条不同的状态线。"
+    ],
+    "gaps": [
+      "LettaAgentV3._checkpoint_messages 的函数体未在已读范围完整出现，无法确认事务提交、消息 ID 追加到 agent_state.message_ids 的具体实现。",
+      "LettaAgentV3._refresh_messages、LettaAgentV3.compact、_step_checkpoint_start/_step_checkpoint_finish 的完整实现未读，无法确认系统提示重建、压缩和 step 状态机的所有细节。",
+      "letta/agent.py 中 Agent.step 是旧版同步 heartbeat/chaining 循环，但 AgentLoop.load 只返回 LettaAgentV3、LettaAgentV2 或多智能体组；两者在当前工厂中的调用关系无法从已读代码确认。",
+      "LettaAgentV2 的实现未读，无法确认回退路径内部是否与 V3 共用同样的 checkpoint 语义。",
+      "SyncServer.init_async 与 HTTP 请求路径的启动时序只看到初始化片段，无法确认所有 provider/sandbox 在请求前一定已完成。"
+    ]
+  }
+}
