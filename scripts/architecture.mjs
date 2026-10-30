@@ -267,7 +267,11 @@ function reviewStructuredReport(report, sources, requirements) {
     if (typeof value !== "string" || value.trim().length < min)
       issues.push(`${label} 没有给出具体解释`);
   };
-  const citations = (items, label, { code = false, maxLines = 120 } = {}) => {
+  const citations = (
+    items,
+    label,
+    { code = false, maxLines = 120, methodRange = true } = {},
+  ) => {
     if (!Array.isArray(items) || !items.length) {
       issues.push(`${label} 缺少源码证据`);
       return;
@@ -281,11 +285,26 @@ function reviewStructuredReport(report, sources, requirements) {
         !Number.isInteger(item.endLine) ||
         item.startLine < 1 ||
         item.endLine < item.startLine ||
-        item.endLine - item.startLine >= maxLines ||
         evidenceText(source, item.startLine, item.endLine) === null
       ) {
         issues.push(
           `${label} 引用了未读取的文件/行号：${item?.path}:${item?.startLine}-${item?.endLine}`,
+        );
+        continue;
+      }
+      const containedInReadMethod =
+        methodRange &&
+        item.endLine - item.startLine < 500 &&
+        source.symbols.some(
+          (symbol) =>
+            symbol.kind === "function" &&
+            symbol.bodyIncluded &&
+            item.startLine >= symbol.startLine &&
+            item.endLine <= symbol.endLine,
+        );
+      if (item.endLine - item.startLine >= maxLines && !containedInReadMethod) {
+        issues.push(
+          `${label} 引用跨度过长：${item.path}:${item.startLine}-${item.endLine}；长引用须属于一个已完整读取的方法`,
         );
         continue;
       }
@@ -406,8 +425,7 @@ function reviewStructuredReport(report, sources, requirements) {
     for (const e of step.evidence ?? [])
       if (isImplementation(e.path) && !isTest(e.path)) flowFiles.add(e.path);
   }
-  if (flowFiles.size < 1)
-    issues.push("运行主线没有引用实际实现文件");
+  if (flowFiles.size < 1) issues.push("运行主线没有引用实际实现文件");
   const traced = (Array.isArray(report.flow) ? report.flow : []).flatMap(
     (step) =>
       typeof step?.symbol === "string"
@@ -490,6 +508,7 @@ function reviewStructuredReport(report, sources, requirements) {
     citations(snippet.evidence, `codeWalkthroughs[${i}]`, {
       code: true,
       maxLines: 121,
+      methodRange: false,
     });
   }
   for (const [i, experiment] of (Array.isArray(report.experiments)
@@ -520,14 +539,18 @@ const diagramText = (value) =>
     .replace(/&/g, " and ")
     .slice(0, 90);
 export function architectureDiagram(report) {
+  const ids = new Map(
+    report.modules.map((module, index) => [module.id, `M${index}`]),
+  );
   return [
     "flowchart LR",
     ...report.modules.map(
       (m) =>
-        `  ${m.id}["${diagramText(m.name)}"]${m.kind === "dependency" ? ":::external" : ""}`,
+        `  ${ids.get(m.id)}["${diagramText(m.name)}"]${m.kind === "dependency" ? ":::external" : ""}`,
     ),
     ...report.relations.map(
-      (r) => `  ${r.from} -->|"${diagramText(r.label)}"| ${r.to}`,
+      (r) =>
+        `  ${ids.get(r.from)} -->|"${diagramText(r.label)}"| ${ids.get(r.to)}`,
     ),
     "  classDef external fill:#f2f1f8,stroke:#a9a0bf,color:#625774",
   ].join("\n");

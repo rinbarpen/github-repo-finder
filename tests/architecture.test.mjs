@@ -1,11 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  architectureDiagram,
   groundReport,
   renderArchitecture,
   reviewReport,
 } from "../scripts/architecture.mjs";
 import { architectureFixture } from "./fixtures/architecture.mjs";
+import { excerptSource } from "../scripts/source-reader.mjs";
 
 test("a coherent guide ties modules, execution, mechanisms and tradeoffs to read code", () => {
   const { sources, report } = architectureFixture();
@@ -142,6 +144,48 @@ test("an execution claim may cite its implementation and a confirming test toget
   );
   assert.ok(
     reviewReport(report, sources).some((s) => s.includes("不能只引用")),
+  );
+});
+
+test("long references require a fully read method and never bypass the displayed-code budget", () => {
+  const { report, sources } = architectureFixture();
+  const source = excerptSource({
+    path: "src/long.ts",
+    content: `function large() {\n${"  step();\n".repeat(200)}}\n`,
+  });
+  sources.push(source);
+  const evidence = [{ path: source.path, startLine: 1, endLine: 202 }];
+  report.modules[0].evidence = evidence;
+  assert.deepEqual(reviewReport(report, sources), []);
+  source.symbols[0].bodyIncluded = false;
+  assert.ok(
+    reviewReport(report, sources).some((s) => s.includes("引用跨度过长")),
+  );
+  source.symbols[0].bodyIncluded = true;
+  report.codeWalkthroughs[0].evidence = evidence;
+  assert.ok(
+    reviewReport(report, sources).some((s) => s.includes("总计超过 120 行")),
+  );
+});
+
+test("Mermaid reserved words remain usable as report IDs without breaking the rendered graph", () => {
+  const { report, sources } = architectureFixture();
+  const reserved = ["graph", "end", "subgraph"];
+  const mapped = new Map(report.modules.map((m, i) => [m.id, reserved[i]]));
+  report.modules.forEach((m, i) => {
+    m.id = reserved[i];
+  });
+  report.relations.forEach((e) => {
+    e.from = mapped.get(e.from);
+    e.to = mapped.get(e.to);
+  });
+  assert.deepEqual(reviewReport(report, sources), []);
+  const diagram = architectureDiagram(report);
+  assert.ok(!/^\s*(?:graph|end|subgraph)\[/m.test(diagram));
+  assert.ok(!/-->\s*(?:graph|end|subgraph)\b/m.test(diagram));
+  assert.deepEqual(
+    report.modules.map((m) => m.id),
+    reserved,
   );
 });
 
