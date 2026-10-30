@@ -138,6 +138,7 @@ async function collectRepo(
       const signature = fingerprint({
         sha,
         entry: readingConfig(entry),
+        ...(!ai.enabled ? { evidenceSummary: entry.summary } : {}),
         category,
         version: GENERATOR_VERSION,
         maxFiles: config.maxSourceFiles,
