@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import assert from "node:assert/strict";
-import { validateConfig } from "./lib.mjs";
+import { assertCatalogCoverage, validateConfig } from "./lib.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const config = JSON.parse(
@@ -36,6 +36,11 @@ for (const repo of catalog.repos) {
   assert.ok(!ids.has(repo.id), `Duplicate ${repo.id}`);
   ids.add(repo.id);
   assert.ok(categories.has(repo.category), `Unknown category for ${repo.id}`);
+  assert.ok(
+    repo.collection === undefined ||
+      ["classic", "emerging"].includes(repo.collection),
+    `Unknown collection for ${repo.id}`,
+  );
   assert.ok(Number.isInteger(repo.stars) && repo.stars >= 0);
   assert.ok(repo.wikis.length > 0, `No wiki for ${repo.id}`);
   const refs = new Set();
@@ -85,6 +90,8 @@ for (const repo of catalog.repos) {
     assert.ok(wiki.markdown.includes(wiki.sha));
   }
 }
+if (requireArchitecture)
+  assertCatalogCoverage(catalog.repos, config.repos, selected);
 for (const period of config.trendingPeriods) {
   const trend = catalog.trending[period];
   assert.ok(trend, `Missing trending period ${period}`);

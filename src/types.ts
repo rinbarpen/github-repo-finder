@@ -45,6 +45,7 @@ export type Repo = {
   description: string;
   summary: string;
   category: string;
+  collection?: "classic" | "emerging";
   tags: string[];
   stars: number;
   forks: number;

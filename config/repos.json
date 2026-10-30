@@ -81,7 +81,8 @@
             "_create_filesystem_tools"
           ]
         }
-      }
+      },
+      "collection": "emerging"
     },
     {
       "repo": "anthropics/claude-agent-sdk-python",
@@ -121,15 +122,16 @@
             "SubprocessCLITransport.write"
           ]
         }
-      }
+      },
+      "collection": "emerging"
     },
     {
       "repo": "OpenHands/OpenHands",
-      "category": "harness",
+      "category": "interaction",
       "refs": ["default"],
-      "tags": ["Coding agent", "Sandbox"],
-      "summary": "面向软件开发任务的 Agent 平台与运行环境。",
-      "reason": "研究代码执行环境、动作反馈和开发任务的协作边界。",
+      "tags": ["Agent console", "WebSocket", "Session state"],
+      "summary": "软件开发 Agent 的会话控制台与事件流界面。",
+      "reason": "研究前端请求适配、流式事件、会话恢复与外部执行服务的边界。",
       "sourceRoots": ["src/"],
       "analysis": {
         "scenario": "从当前仓库真实入口发起一次对话/开发任务，沿前端状态、服务适配器和流式事件更新追踪；先确定本仓库是否仍包含执行引擎。",
@@ -146,7 +148,8 @@
           "src/api/README.md"
         ],
         "focus": {}
-      }
+      },
+      "collection": "classic"
     },
     {
       "repo": "mem0ai/mem0",
@@ -189,7 +192,8 @@
             "SQLiteManager.get_history"
           ]
         }
-      }
+      },
+      "collection": "classic"
     },
     {
       "repo": "letta-ai/letta",
@@ -221,7 +225,8 @@
           ],
           "letta/agent.py": ["Agent.step", "Agent._step", "Agent._get_ai_reply"]
         }
-      }
+      },
+      "collection": "classic"
     },
     {
       "repo": "getzep/graphiti",
@@ -255,7 +260,8 @@
             "Graphiti.__init__"
           ]
         }
-      }
+      },
+      "collection": "classic"
     },
     {
       "repo": "ag-ui-protocol/ag-ui",
@@ -293,7 +299,8 @@
             "HttpAgent.requestInit"
           ]
         }
-      }
+      },
+      "collection": "emerging"
     },
     {
       "repo": "CopilotKit/CopilotKit",
@@ -325,7 +332,8 @@
           "packages/runtime/src/v2/runtime/runner/in-memory.ts"
         ],
         "focus": {}
-      }
+      },
+      "collection": "classic"
     },
     {
       "repo": "assistant-ui/assistant-ui",
@@ -373,7 +381,470 @@
           ["LocalThreadRuntimeCore.append"],
           ["LocalThreadRuntimeCore.performRoundtrip"]
         ]
-      }
+      },
+      "collection": "classic"
+    },
+    {
+      "repo": "langchain-ai/langgraph",
+      "category": "harness",
+      "collection": "classic",
+      "tags": ["State graph", "Checkpoint", "Durable execution"],
+      "featured": true,
+      "summary": "以状态图、检查点和可恢复执行组织长任务 Agent。",
+      "reason": "理解状态更新、并行步骤、持久化与中断恢复如何进入同一执行循环。",
+      "sourceRoots": [
+        "libs/langgraph/langgraph/",
+        "libs/checkpoint/langgraph/"
+      ],
+      "analysis": {
+        "scenario": "一个包含模型节点与工具节点的 StateGraph，编译后从输入运行到输出，并在检查点后恢复。沿同步 Pregel.stream 解释每步调度、状态合并和提交；不要只讲建图 API。",
+        "focusQuestions": [
+          "compile 怎样把节点与边变成执行对象？",
+          "一次 superstep 怎样选择任务、执行并提交状态，失败与重试发生在哪层？",
+          "checkpoint、interrupt 和 reducer 为什么分开，分别保证什么？"
+        ],
+        "files": [
+          "libs/langgraph/langgraph/graph/state.py",
+          "libs/langgraph/langgraph/pregel/main.py",
+          "libs/langgraph/langgraph/pregel/_loop.py",
+          "libs/langgraph/langgraph/pregel/_runner.py",
+          "libs/langgraph/langgraph/pregel/_algo.py",
+          "libs/langgraph/langgraph/graph/message.py",
+          "libs/checkpoint/langgraph/checkpoint/memory/__init__.py"
+        ],
+        "focus": {
+          "libs/langgraph/langgraph/graph/state.py": ["StateGraph.compile"],
+          "libs/langgraph/langgraph/pregel/main.py": [
+            "Pregel.invoke",
+            "Pregel.stream"
+          ],
+          "libs/langgraph/langgraph/pregel/_loop.py": [
+            "PregelLoop.tick",
+            "PregelLoop.after_tick"
+          ]
+        },
+        "requiredTraceSymbols": [["Pregel.stream"]]
+      },
+      "refs": ["default"]
+    },
+    {
+      "repo": "crewAIInc/crewAI",
+      "category": "harness",
+      "collection": "classic",
+      "tags": ["Multi-agent", "Tasks", "Delegation"],
+      "summary": "以角色、任务和执行流程组织多 Agent 协作。",
+      "reason": "比较角色式任务编排与显式状态图，研究任务上下文、工具执行和结果交接。",
+      "sourceRoots": ["lib/crewai/src/crewai/"],
+      "analysis": {
+        "scenario": "两个 Agent 顺序完成调研与写作：Crew.kickoff 接收输入，任务执行后把前一结果传给后一任务，再形成 CrewOutput。只展开一种 process 的真实路径。",
+        "focusQuestions": [
+          "角色、Task、Crew 与 AgentExecutor 分别持有什么状态？",
+          "kickoff 怎样进入真正的模型与工具循环，任务间上下文怎样传递？",
+          "顺序与层级协作有什么不同，为什么选择任务对象来承载执行？"
+        ],
+        "files": [
+          "lib/crewai/src/crewai/crew.py",
+          "lib/crewai/src/crewai/task.py",
+          "lib/crewai/src/crewai/agent/core.py",
+          "lib/crewai/src/crewai/agents/agent_executor.py",
+          "lib/crewai/src/crewai/agents/step_executor.py",
+          "lib/crewai/src/crewai/tools/tool_usage.py",
+          "lib/crewai/src/crewai/process.py"
+        ],
+        "focus": {
+          "lib/crewai/src/crewai/crew.py": [
+            "Crew.kickoff",
+            "Crew._run_sequential_process",
+            "Crew._execute_tasks"
+          ],
+          "lib/crewai/src/crewai/agent/core.py": ["Agent.execute_task"]
+        }
+      },
+      "refs": ["default"]
+    },
+    {
+      "repo": "pydantic/pydantic-ai",
+      "category": "harness",
+      "collection": "classic",
+      "tags": ["Typed output", "Tool validation", "Python"],
+      "summary": "将类型约束、工具调用和结果验证接入 Agent 的执行图。",
+      "reason": "研究确定性类型验证怎样约束不确定的模型输出，以及验证失败如何进入重试。",
+      "sourceRoots": ["pydantic_ai_slim/pydantic_ai/", "pydantic_graph/"],
+      "analysis": {
+        "scenario": "Agent.run 接到一个要调用工具并返回结构化结果的请求，从 AbstractAgent.run 追到 ModelRequestNode、CallToolsNode，再到结果验证；包含一个错误参数导致重试的分支。",
+        "focusQuestions": [
+          "模型请求、工具执行和最终结果分别是什么图节点？",
+          "类型 schema 在哪里生成、在哪里验证，重试消息怎样返回模型？",
+          "项目实现什么，Pydantic、模型适配器与图运行时分别提供什么？"
+        ],
+        "files": [
+          "pydantic_ai_slim/pydantic_ai/agent/abstract.py",
+          "pydantic_ai_slim/pydantic_ai/agent/__init__.py",
+          "pydantic_ai_slim/pydantic_ai/_agent_graph.py",
+          "pydantic_ai_slim/pydantic_ai/_tool_execution.py",
+          "pydantic_ai_slim/pydantic_ai/tools.py",
+          "pydantic_ai_slim/pydantic_ai/_output.py"
+        ],
+        "focus": {
+          "pydantic_ai_slim/pydantic_ai/agent/abstract.py": [
+            "AbstractAgent.run",
+            "AbstractAgent.iter"
+          ],
+          "pydantic_ai_slim/pydantic_ai/_agent_graph.py": [
+            "ModelRequestNode.run",
+            "ModelRequestNode._make_request",
+            "ModelRequestNode._request_attempt",
+            "CallToolsNode.run",
+            "CallToolsNode._run_stream"
+          ]
+        },
+        "requiredTraceSymbols": [["ModelRequestNode.run"]]
+      },
+      "refs": ["default"]
+    },
+    {
+      "repo": "run-llama/llama_index",
+      "category": "memory",
+      "collection": "classic",
+      "tags": ["RAG foundation", "Memory blocks", "Retrieval"],
+      "summary": "从检索基础和分层对话记忆理解上下文如何组装。",
+      "reason": "把 RAG、聊天历史缓冲和长期 memory block 分清，学习 token 预算与检索注入。",
+      "sourceRoots": [
+        "llama-index-core/llama_index/core/memory/",
+        "llama-index-core/llama_index/core/indices/vector_store/",
+        "llama-index-core/llama_index/core/query_engine/"
+      ],
+      "analysis": {
+        "scenario": "Memory 接收多轮消息，短期消息达到预算后如何进入 memory blocks；下次 aget 如何取回并组装上下文。向量检索只作为已配置的可选块，不等同于整个项目的默认长期记忆。",
+        "focusQuestions": [
+          "聊天历史、memory block、向量索引各自保存什么？",
+          "token 预算如何触发转存、裁剪与检索，最终模型收到什么？",
+          "RAG 找资料与对话记忆维护事实有什么差异？"
+        ],
+        "files": [
+          "llama-index-core/llama_index/core/memory/memory.py",
+          "llama-index-core/llama_index/core/memory/memory_blocks/vector.py",
+          "llama-index-core/llama_index/core/memory/memory_blocks/fact.py",
+          "llama-index-core/llama_index/core/memory/vector_memory.py",
+          "llama-index-core/llama_index/core/indices/vector_store/retrievers/retriever.py",
+          "llama-index-core/llama_index/core/query_engine/retriever_query_engine.py"
+        ],
+        "focus": {
+          "llama-index-core/llama_index/core/memory/memory.py": [
+            "Memory.aput",
+            "Memory.aget",
+            "Memory._manage_queue",
+            "Memory._insert_memory_content"
+          ]
+        },
+        "requiredTraceSymbols": [["Memory.aget"]]
+      },
+      "refs": ["default"]
+    },
+    {
+      "repo": "vercel/ai",
+      "category": "interaction",
+      "collection": "classic",
+      "tags": ["UI streaming", "Tool approval", "React"],
+      "featured": true,
+      "summary": "贯通模型流、工具审批和聊天界面状态的 TypeScript 工具链。",
+      "reason": "沿浏览器发送消息、服务端流式生成和客户端归并，研究前后端协议边界。",
+      "sourceRoots": [
+        "packages/ai/src/ui/",
+        "packages/ai/src/generate-text/",
+        "packages/ai/src/ui-message-stream/",
+        "packages/react/src/"
+      ],
+      "analysis": {
+        "scenario": "useChat 发出用户消息，经 AbstractChat 的请求和 transport 收到 UIMessage 流，逐步更新文本与工具状态；工具需要确认时怎样把审批结果送回下一轮。",
+        "focusQuestions": [
+          "useChat、AbstractChat、transport、streamText 分别负责什么？",
+          "流协议的增量怎样变为 UIMessage，工具结果与审批怎样影响自动续跑？",
+          "为什么把模型消息与 UI 消息分开，取消与重连保证到什么范围？"
+        ],
+        "files": [
+          "packages/react/src/use-chat.ts",
+          "packages/ai/src/ui/chat.ts",
+          "packages/ai/src/ui/http-chat-transport.ts",
+          "packages/ai/src/ui/default-chat-transport.ts",
+          "packages/ai/src/ui/process-ui-message-stream.ts",
+          "packages/ai/src/generate-text/stream-text.ts",
+          "packages/ai/src/generate-text/collect-tool-approvals.ts"
+        ],
+        "focus": {
+          "packages/ai/src/ui/chat.ts": [
+            "AbstractChat.sendMessage",
+            "AbstractChat.makeRequestImpl",
+            "AbstractChat.addToolApprovalResponse"
+          ],
+          "packages/ai/src/generate-text/stream-text.ts": ["streamText"]
+        },
+        "requiredTraceSymbols": [["AbstractChat.makeRequestImpl"]]
+      },
+      "refs": ["default"]
+    },
+    {
+      "repo": "langgenius/dify",
+      "category": "interaction",
+      "collection": "classic",
+      "tags": ["Visual workflows", "Human input", "SSE"],
+      "summary": "将可视化工作流、人工输入和流式反馈连接到应用执行。",
+      "reason": "学习界面配置怎样成为执行请求，以及工作流暂停、表单提交和恢复的边界。",
+      "sourceRoots": [
+        "api/core/app/apps/workflow/",
+        "api/core/workflow/",
+        "api/core/human_input_v2/",
+        "api/controllers/console/app/"
+      ],
+      "analysis": {
+        "scenario": "启动一个含人工输入节点的工作流，用户收到表单并提交后恢复执行，结果以事件流返回界面。先核实当前 graphon 引擎属于外部依赖还是本仓库，重点讲 Dify 自己的适配、表单状态与事件桥接。",
+        "focusQuestions": [
+          "视觉配置、API 请求、WorkflowEntry 与外部执行引擎怎样分工？",
+          "人工表单怎样让工作流暂停，提交结果如何关联并恢复原运行？",
+          "SSE/队列/持久状态分别保证什么，断开页面是否等于停止远端任务？"
+        ],
+        "files": [
+          "api/core/app/apps/workflow/app_generator.py",
+          "api/core/app/apps/workflow/app_runner.py",
+          "api/core/workflow/workflow_entry.py",
+          "api/core/app/apps/workflow/generate_task_pipeline.py",
+          "api/core/app/apps/workflow/app_queue_manager.py",
+          "api/core/workflow/nodes/human_input_v2/node.py",
+          "api/controllers/console/app/workflow_human_input_v2.py"
+        ],
+        "focus": {
+          "api/core/workflow/workflow_entry.py": ["WorkflowEntry.run"],
+          "api/core/workflow/nodes/human_input_v2/node.py": [
+            "HumanInputNode._run"
+          ]
+        }
+      },
+      "refs": ["default"]
+    },
+    {
+      "repo": "microsoft/agent-framework",
+      "category": "harness",
+      "collection": "emerging",
+      "tags": ["Harness", "Workflows", "Approval"],
+      "summary": "在 Agent 与工作流基础上组合文件、规划、审批和长任务循环。",
+      "reason": "对比框架的通用 Agent 抽象和上层 Harness，研究长任务循环与人工审批的协作。",
+      "sourceRoots": ["python/packages/core/agent_framework/"],
+      "analysis": {
+        "scenario": "Python create_harness_agent 构造带文件工具和待办的 Agent，运行中提出工具调用并可能等待批准，再继续到完成。只读 Python 实现，不把 .NET 或 Go 的内部机制混进来。",
+        "focusQuestions": [
+          "create_harness_agent 只是装配还是也实现运行循环？",
+          "RawAgent.run 如何进入模型与工具执行，harness loop 怎样判断继续？",
+          "模式、权限审批、文件访问和会话状态为什么分别建模？"
+        ],
+        "files": [
+          "python/packages/core/agent_framework/_harness/_agent.py",
+          "python/packages/core/agent_framework/_agents.py",
+          "python/packages/core/agent_framework/_harness/_loop.py",
+          "python/packages/core/agent_framework/_harness/_tool_approval.py",
+          "python/packages/core/agent_framework/_harness/_file_access.py",
+          "python/packages/core/agent_framework/_harness/_todo.py",
+          "python/packages/core/agent_framework/_sessions.py"
+        ],
+        "focus": {
+          "python/packages/core/agent_framework/_agents.py": [
+            "RawAgent.run",
+            "RawAgent._run_non_streaming",
+            "RawAgent._run_streaming"
+          ],
+          "python/packages/core/agent_framework/_harness/_agent.py": [
+            "create_harness_agent"
+          ]
+        }
+      },
+      "refs": ["default"]
+    },
+    {
+      "repo": "bytedance/deer-flow",
+      "category": "harness",
+      "collection": "emerging",
+      "tags": ["Long tasks", "Sandbox", "Subagents"],
+      "summary": "围绕主 Agent、子任务、上下文和沙箱构成长任务工作环境。",
+      "reason": "学习沙箱租约、子任务委派和上下文管理如何跨越一次模型调用。",
+      "sourceRoots": ["backend/packages/harness/deerflow/"],
+      "analysis": {
+        "scenario": "主 Agent 接到调研并生成文件的请求，选择工具或委派子任务，沙箱中完成操作并回收结果。区分装配、真正工具执行与可选 memory backend；不把早期 research DAG 直接套到当前 harness。",
+        "focusQuestions": [
+          "make_lead_agent 怎样组装当前运行栈，执行循环由谁提供？",
+          "子任务如何分配上下文、限制并发、回收产物？",
+          "sandbox 生命周期、工具权限和上下文压缩如何影响长任务恢复？"
+        ],
+        "files": [
+          "backend/packages/harness/deerflow/agents/lead_agent/agent.py",
+          "backend/packages/harness/deerflow/subagents/executor.py",
+          "backend/packages/harness/deerflow/subagents/runtime.py",
+          "backend/packages/harness/deerflow/sandbox/middleware.py",
+          "backend/packages/harness/deerflow/sandbox/tools.py",
+          "backend/packages/harness/deerflow/sandbox/lease.py",
+          "backend/packages/harness/deerflow/agents/middlewares/loop_detection_middleware.py"
+        ],
+        "focus": {
+          "backend/packages/harness/deerflow/agents/lead_agent/agent.py": [
+            "make_lead_agent",
+            "assemble_lead_agent",
+            "_assemble_lead_agent"
+          ]
+        }
+      },
+      "refs": ["default"]
+    },
+    {
+      "repo": "earendil-works/pi",
+      "category": "harness",
+      "collection": "emerging",
+      "tags": ["Agent loop", "Coding tools", "Extensions"],
+      "featured": true,
+      "summary": "以可替换模型流和清晰工具循环构建编码 Agent。",
+      "reason": "研究小型核心怎样承载工具调用、打断与后续输入，再由编码会话层扩展。",
+      "sourceRoots": [
+        "packages/agent/src/",
+        "packages/coding-agent/src/core/",
+        "packages/ai/src/"
+      ],
+      "analysis": {
+        "scenario": "用户让编码 Agent 读取文件再修改；Agent 将提示交给 runAgentLoop，接收模型事件、执行工具、继续循环，coding-agent 会话层保存运行记录。区分核心 loop、模型抽象和 CLI/TUI。",
+        "focusQuestions": [
+          "Agent 状态与 runAgentLoop 之间如何传递消息和工具结果？",
+          "串行/并行工具、steering、follow-up 和取消各在什么时候处理？",
+          "为什么核心循环与会话、扩展、TUI 分开，简洁核心把哪些复杂度交给上层？"
+        ],
+        "files": [
+          "packages/agent/src/agent-loop.ts",
+          "packages/agent/src/agent.ts",
+          "packages/agent/src/types.ts",
+          "packages/agent/src/stream-fn.ts",
+          "packages/coding-agent/src/core/agent-session.ts",
+          "packages/coding-agent/src/core/agent-session-runtime.ts",
+          "packages/coding-agent/src/core/compaction/compaction.ts"
+        ],
+        "focus": {
+          "packages/agent/src/agent-loop.ts": [
+            "runAgentLoop",
+            "runLoop",
+            "streamAssistantResponse",
+            "executeToolCalls",
+            "executeToolCallsSequential",
+            "executeToolCallsParallel"
+          ]
+        },
+        "requiredTraceSymbols": [["runAgentLoop", "runLoop"]]
+      },
+      "refs": ["default"]
+    },
+    {
+      "repo": "volcengine/OpenViking",
+      "category": "memory",
+      "collection": "emerging",
+      "tags": ["Context filesystem", "Tiered context", "Retrieval"],
+      "featured": true,
+      "summary": "用上下文文件系统统一组织资源、记忆与技能，并分层检索。",
+      "reason": "比较向量记录与目录式上下文组织，研究摘要层级、检索预算和会话记忆提交。",
+      "sourceRoots": [
+        "openviking/service/",
+        "openviking/retrieve/",
+        "openviking/session/",
+        "openviking/storage/"
+      ],
+      "analysis": {
+        "scenario": "保存一份资源或会话，再用带路径范围的查询检索上下文。沿 OpenVikingService.search、搜索服务、HierarchicalRetriever 和组装器解释 L0/L1/L2 的读取选择；只确认当前已读实现中的层级策略。",
+        "focusQuestions": [
+          "viking URI、文件目录、摘要层级与向量索引如何关联？",
+          "检索怎样从候选和目录走到最终上下文，预算怎样裁剪？",
+          "会话提交怎样提取并组织记忆，与普通 RAG 文档入库有何不同？"
+        ],
+        "files": [
+          "openviking/service/core.py",
+          "openviking/service/search_service.py",
+          "openviking/retrieve/hierarchical_retriever.py",
+          "openviking/retrieve/intent_analyzer.py",
+          "openviking/retrieve/context_assembler/gather.py",
+          "openviking/retrieve/context_assembler/budget.py",
+          "openviking/service/session_service.py",
+          "openviking/session/memory/extract_loop.py"
+        ],
+        "focus": {
+          "openviking/retrieve/hierarchical_retriever.py": [
+            "HierarchicalRetriever.retrieve"
+          ],
+          "openviking/service/core.py": ["OpenVikingService.search"]
+        },
+        "requiredTraceSymbols": [["HierarchicalRetriever.retrieve"]]
+      },
+      "refs": ["default"]
+    },
+    {
+      "repo": "MemTensor/MemOS",
+      "category": "memory",
+      "collection": "emerging",
+      "tags": ["Memory cubes", "Memory organization", "Hybrid retrieval"],
+      "summary": "通过记忆容器、读写和检索组件组织 Agent 的持久上下文。",
+      "reason": "研究 memory cube 与具体记忆实现的边界，比较图/树组织与简单向量记忆。",
+      "sourceRoots": [
+        "src/memos/mem_os/",
+        "src/memos/mem_cube/",
+        "src/memos/memories/",
+        "src/memos/mem_reader/"
+      ],
+      "analysis": {
+        "scenario": "注册一个 memory cube，加入一段对话并查询其中事实；沿 MOS/MOSCore 到选定 textual memory 与搜索器。只展开当前已配置的一种文本记忆后端，不把所有可选模式画成必经路径。",
+        "focusQuestions": [
+          "MOS、MemCube、memory reader、textual memory 和搜索器各保存什么？",
+          "写入提取和查询检索怎样选择容器、作用域与后端？",
+          "所谓多类记忆在本仓库实现到哪层，哪些模型推理/存储能力交给外部？"
+        ],
+        "files": [
+          "src/memos/mem_os/core.py",
+          "src/memos/mem_os/main.py",
+          "src/memos/mem_cube/general.py",
+          "src/memos/mem_cube/base.py",
+          "src/memos/mem_reader/memory.py",
+          "src/memos/memories/textual/tree.py",
+          "src/memos/memories/factory.py"
+        ],
+        "focus": {
+          "src/memos/memories/textual/tree.py": [
+            "TreeTextMemory.add",
+            "TreeTextMemory.search"
+          ]
+        }
+      },
+      "refs": ["default"]
+    },
+    {
+      "repo": "a2ui-project/a2ui",
+      "category": "interaction",
+      "collection": "emerging",
+      "tags": ["Declarative UI", "Component catalog", "Agent actions"],
+      "summary": "让 Agent 描述界面意图，由客户端组件目录渲染并回传交互。",
+      "reason": "比较结构化 UI 描述、任意代码生成与文本事件，研究可信组件映射和数据绑定。",
+      "sourceRoots": [
+        "typescript/core/web_core/src/",
+        "typescript/renderers/lit/src/"
+      ],
+      "analysis": {
+        "scenario": "收到描述 surface、组件与数据模型的协议消息，TypeScript processor 更新状态，Lit renderer 显示组件，用户点击后产生 action。先确认当前协议版本和适配器，不把 v0.8、v0.9 与 v1.0 的 API 混用。",
+        "focusQuestions": [
+          "协议消息、surface/data model、组件 catalog 和 renderer 如何分层？",
+          "流式更新怎样改变组件树和绑定数据，用户 action 怎样回到 Agent？",
+          "为什么使用预先注册组件而非执行模型生成的代码，边界和能力限制是什么？"
+        ],
+        "files": [
+          "typescript/core/web_core/src/processing/message-processor.ts",
+          "typescript/core/web_core/src/processing/adapters/v0_9.ts",
+          "typescript/core/web_core/src/processing/operations.ts",
+          "typescript/core/web_core/src/state/surface-group-model.ts",
+          "typescript/core/web_core/src/state/surface-model.ts",
+          "typescript/core/web_core/src/state/data-model.ts",
+          "typescript/renderers/lit/src/surface/a2ui-surface.ts",
+          "typescript/renderers/lit/src/surface/render-a2ui-node.ts"
+        ],
+        "focus": {}
+      },
+      "refs": ["default"]
     }
   ],
   "maxTotalSourceCharacters": 350000,

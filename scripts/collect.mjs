@@ -11,6 +11,8 @@ import {
   parseTrending,
   renderWiki,
   extractBlobSource,
+  applyCatalogConfig,
+  readingConfig,
 } from "./lib.mjs";
 import { resolveWikiAIConfig } from "./ai-client.mjs";
 export { resolveWikiAIConfig, requestWikiJSON } from "./ai-client.mjs";
@@ -135,7 +137,7 @@ async function collectRepo(
       const ai = resolveWikiAIConfig();
       const signature = fingerprint({
         sha,
-        entry,
+        entry: readingConfig(entry),
         category,
         version: GENERATOR_VERSION,
         maxFiles: config.maxSourceFiles,
@@ -270,6 +272,7 @@ async function collectRepo(
     reason: entry.reason,
     category: entry.category,
     tags: entry.tags,
+    collection: entry.collection,
     featured: entry.featured ?? false,
     stars: metadata.stargazers_count,
     forks: metadata.forks_count,
@@ -353,7 +356,7 @@ export async function main() {
       }
     },
   );
-  const repos = collected.filter(Boolean);
+  const repos = applyCatalogConfig(collected.filter(Boolean), config.repos);
   const trending = {};
   for (const period of config.trendingPeriods) {
     const source = `https://github.com/trending?since=${period}`;

@@ -32,6 +32,11 @@ export function validateConfig(config) {
     if (!categories.has(entry.category))
       throw new Error(`Unknown category: ${entry.category}`);
     if (
+      entry.collection !== undefined &&
+      !["classic", "emerging"].includes(entry.collection)
+    )
+      throw new Error(`Unknown collection: ${entry.collection}`);
+    if (
       !Array.isArray(entry.refs) ||
       !entry.refs.length ||
       entry.refs.some((ref) => typeof ref !== "string" || !ref.trim())
@@ -70,6 +75,46 @@ export function validateConfig(config) {
     )
   )
     throw new Error("Invalid trending period");
+}
+
+export function readingConfig(entry) {
+  return {
+    repo: entry.repo,
+    reason: entry.reason,
+    sourceRoots: entry.sourceRoots,
+    analysis: entry.analysis,
+  };
+}
+
+export function applyCatalogConfig(repos, entries) {
+  const byId = new Map(
+    entries.map((entry) => [entry.repo.toLowerCase(), entry]),
+  );
+  return repos.map((repo) => {
+    const entry = byId.get(repo.id.toLowerCase());
+    return entry
+      ? {
+          ...repo,
+          category: entry.category,
+          summary: entry.summary ?? repo.summary,
+          reason: entry.reason ?? repo.reason,
+          tags: entry.tags ?? repo.tags,
+          collection: entry.collection,
+          featured: entry.featured ?? false,
+        }
+      : repo;
+  });
+}
+
+export function assertCatalogCoverage(repos, entries, selected = null) {
+  const present = new Set(repos.map((repo) => repo.id.toLowerCase()));
+  for (const entry of entries) {
+    const id = entry.repo.toLowerCase();
+    if ((!selected || selected.has(id)) && !present.has(id))
+      throw new Error(
+        `Missing required repository: ${entry.repo}; collection did not produce a guide`,
+      );
+  }
 }
 
 export function selectFiles(tree, limit, sourceRoots = []) {

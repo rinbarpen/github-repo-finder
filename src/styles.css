@@ -1990,6 +1990,24 @@ svg {
   font-size: 12px;
   cursor: pointer;
 }
+.collection-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 7px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.repo-tags .collection-badge.classic,
+.collection-badge.classic {
+  color: #77603c;
+  background: #f5efdf;
+}
+.repo-tags .collection-badge.emerging,
+.collection-badge.emerging {
+  color: #426953;
+  background: #e7f4ec;
+}
 .markdown pre {
   background: #f1f5f6;
   padding: 15px;

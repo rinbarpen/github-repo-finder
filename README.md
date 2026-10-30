@@ -28,12 +28,15 @@ npm run dev
 
 ## 收录仓库与多分支
 
+当前收录 **21 个项目**，覆盖三个研究方向，并支持“经典项目 / 新锐项目”筛选。此次补充 6 个经典项目与 6 个新锐项目，见[选题与学习路线](docs/curation.md)。标签依据维护状态、可读实现和设计代表性人工选择；Trending 继续作为发现入口。
+
 编辑 `config/repos.json` 的 `repos` 数组：
 
 ```json
 {
   "repo": "langchain-ai/deepagents",
   "category": "harness",
+  "collection": "emerging",
   "refs": ["default", "latest-release", "your-feature-branch"],
   "tags": ["Harness", "Planning"],
   "summary": "项目的中文简介。",

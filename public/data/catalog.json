@@ -140,7 +140,8 @@
           ],
           "truncated": false
         }
-      ]
+      ],
+      "collection": "emerging"
     },
     {
       "id": "anthropics/claude-agent-sdk-python",
@@ -204,7 +205,8 @@
           ],
           "truncated": false
         }
-      ]
+      ],
+      "collection": "emerging"
     },
     {
       "id": "openhands/openhands",
@@ -212,12 +214,13 @@
       "owner": "OpenHands",
       "url": "https://github.com/OpenHands/OpenHands",
       "description": "🙌 OpenHands: AI-Driven Development",
-      "summary": "面向软件开发任务的 Agent 平台与运行环境。",
-      "reason": "研究代码执行环境、动作反馈和开发任务的协作边界。",
-      "category": "harness",
+      "summary": "软件开发 Agent 的会话控制台与事件流界面。",
+      "reason": "研究前端请求适配、流式事件、会话恢复与外部执行服务的边界。",
+      "category": "interaction",
       "tags": [
-        "Coding agent",
-        "Sandbox"
+        "Agent console",
+        "WebSocket",
+        "Session state"
       ],
       "featured": false,
       "stars": 92081,
@@ -267,7 +270,8 @@
           ],
           "truncated": false
         }
-      ]
+      ],
+      "collection": "classic"
     },
     {
       "id": "mem0ai/mem0",
@@ -369,7 +373,8 @@
           ],
           "truncated": false
         }
-      ]
+      ],
+      "collection": "classic"
     },
     {
       "id": "letta-ai/letta",
@@ -451,7 +456,8 @@
           "treeSha": "116730504008af33019f58d5df9158676a53a827",
           "generatedAt": "2026-10-28T13:26:22.486Z"
         }
-      ]
+      ],
+      "collection": "classic"
     },
     {
       "id": "getzep/graphiti",
@@ -514,7 +520,8 @@
           ],
           "truncated": false
         }
-      ]
+      ],
+      "collection": "classic"
     },
     {
       "id": "ag-ui-protocol/ag-ui",
@@ -616,7 +623,8 @@
           ],
           "truncated": false
         }
-      ]
+      ],
+      "collection": "emerging"
     },
     {
       "id": "copilotkit/copilotkit",
@@ -680,7 +688,8 @@
           "treeSha": "03d47b1088d2147ff4412552b13f844c9bf9514f",
           "generatedAt": "2026-10-28T13:26:22.486Z"
         }
-      ]
+      ],
+      "collection": "classic"
     },
     {
       "id": "assistant-ui/assistant-ui",
@@ -744,7 +753,8 @@
           "treeSha": "480b780046f62957ef9de00636fcbf4818df2a1d",
           "generatedAt": "2026-10-28T13:26:22.486Z"
         }
-      ]
+      ],
+      "collection": "classic"
     }
   ],
   "trending": {

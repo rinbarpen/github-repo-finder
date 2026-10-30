@@ -24,7 +24,7 @@ jobs:
     # Manual dev runs produce review artifacts; only main can publish the site.
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 75
     permissions:
       contents: write
     steps:
@@ -45,6 +45,7 @@ jobs:
             git restore --source=origin/knowledge --worktree -- public/data public/knowledge
           fi
       - name: Collect repositories, branches, source evidence and trending
+        id: collect
         env:
           GITHUB_TOKEN: ${{ github.token }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -59,6 +60,15 @@ jobs:
           if [ "$FORCE_REGENERATE" = "true" ]; then args+=(--force); fi
           if [ -n "$SELECTED_REPOSITORIES" ]; then args+=("--repos=$SELECTED_REPOSITORIES"); fi
           node scripts/collect.mjs "${args[@]}"
+      - name: Save the collected snapshot for review
+        if: always() && steps.collect.outcome == 'success' && github.ref != 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: knowledge-preview
+          path: |
+            public/data
+            public/knowledge
+          retention-days: 7
       - run: npm run validate
       - name: Persist generated knowledge on its own branch
         if: github.ref == 'refs/heads/main'

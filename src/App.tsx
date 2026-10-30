@@ -60,6 +60,7 @@ const categoryNames: Record<string, string> = {
   memory: "Agent Memory",
   interaction: "人机交互",
 };
+const collectionNames = { classic: "经典", emerging: "新锐" };
 const formatNumber = (n: number) =>
   n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(n);
 const dateText = (date: string | null | undefined) =>
@@ -83,6 +84,7 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("recommended");
   const [language, setLanguage] = useState("all");
+  const [collection, setCollection] = useState("all");
   const [layout, setLayout] = useState("grid");
   const [period, setPeriod] = useState("daily");
   const [personal, setPersonal] = useState<Personal>(() => readPersonal().data);
@@ -98,6 +100,7 @@ export default function App() {
   const [addOpen, setAddOpen] = useState(false);
   const [addRepo, setAddRepo] = useState("");
   const [addCategory, setAddCategory] = useState("harness");
+  const [addCollection, setAddCollection] = useState("emerging");
   const searchRef = useRef<HTMLInputElement>(null);
   const importRef = useRef<HTMLInputElement>(null);
   const lastSaved = useRef(JSON.stringify(personal));
@@ -207,8 +210,9 @@ export default function App() {
           (r) =>
             (category === "all" || r.category === category) &&
             (language === "all" || r.language === language) &&
+            (collection === "all" || r.collection === collection) &&
             (page !== "bookmarks" || personal.bookmarks.includes(r.id)) &&
-            `${r.id} ${r.summary} ${r.description} ${r.tags.join(" ")} ${categoryNames[r.category]}`
+            `${r.id} ${r.summary} ${r.description} ${r.tags.join(" ")} ${categoryNames[r.category]} ${r.collection ? collectionNames[r.collection] : ""}`
               .toLowerCase()
               .includes(normalizedSearch),
         )
@@ -223,6 +227,7 @@ export default function App() {
       repos,
       category,
       language,
+      collection,
       page,
       personal.bookmarks,
       normalizedSearch,
@@ -240,6 +245,7 @@ export default function App() {
     setCategory(cat);
     setSearch("");
     setLanguage("all");
+    setCollection("all");
     setMobileNav(false);
     window.location.hash = next;
     window.scrollTo(0, 0);
@@ -554,6 +560,11 @@ export default function App() {
                   <span className={`category-badge ${opened.category}`}>
                     {categoryNames[opened.category]}
                   </span>
+                  {opened.collection && (
+                    <span className={`collection-badge ${opened.collection}`}>
+                      {collectionNames[opened.collection]}
+                    </span>
+                  )}
                   <span>
                     <Star size={14} />
                     {formatNumber(opened.stars)}
@@ -1070,6 +1081,18 @@ export default function App() {
                       )}
                     </label>
                     <div className="select-box">
+                      <Layers3 size={14} />
+                      <select
+                        aria-label="按经典与新锐筛选"
+                        value={collection}
+                        onChange={(e) => setCollection(e.target.value)}
+                      >
+                        <option value="all">经典与新锐</option>
+                        <option value="classic">经典项目</option>
+                        <option value="emerging">新锐项目</option>
+                      </select>
+                    </div>
+                    <div className="select-box">
                       <Code2 size={14} />
                       <select
                         aria-label="按语言筛选"
@@ -1485,6 +1508,16 @@ export default function App() {
                 ))}
               </select>
             </label>
+            <label className="field-label">
+              项目选题
+              <select
+                value={addCollection}
+                onChange={(e) => setAddCollection(e.target.value)}
+              >
+                <option value="emerging">新锐项目</option>
+                <option value="classic">经典项目</option>
+              </select>
+            </label>
             <button
               className="primary-button modal-submit"
               onClick={() => {
@@ -1503,6 +1536,7 @@ export default function App() {
                     {
                       repo: name,
                       category: addCategory,
+                      collection: addCollection,
                       refs: ["default"],
                       tags: [],
                       summary: "请填写项目中文简介",
@@ -1657,6 +1691,11 @@ function RepoCard({
       <div className="repo-card-content">
         <p className="repo-description">{r.summary}</p>
         <div className="repo-tags">
+          {r.collection && (
+            <span className={`collection-badge ${r.collection}`}>
+              {collectionNames[r.collection]}
+            </span>
+          )}
           {r.tags.slice(0, 3).map((tag) => (
             <span key={tag}>{tag}</span>
           ))}
